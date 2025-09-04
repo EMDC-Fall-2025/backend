@@ -8,7 +8,7 @@ from .views.Maps.MapScoreSheet import create_score_sheet_mapping, score_sheet_by
 from .views.judge import create_judge, judge_by_id, edit_judge, delete_judge, are_all_score_sheets_submitted, judge_disqualify_team
 from .views.organizer import create_organizer, organizer_by_id, edit_organizer, delete_organizer, \
     organizer_disqualify_team, get_all_organizers
-from .views.coach import create_coach, coach_by_id, edit_coach, delete_coach, coach_get_all
+from .views.coach import create_coach, coach_by_id, edit_coach, delete_coach, coach_get_all, create_user_and_coach
 from .views.contest import contest_by_id, contest_get_all, create_contest, edit_contest, delete_contest
 from .views.team import create_team, team_by_id, edit_team, delete_team_by_id, get_teams_by_team_rank, create_team_after_judge, is_team_disqualified, get_all_teams
 from .views.Maps.MapCoachToTeam import create_coach_team_mapping, coach_by_team_id, delete_coach_team_mapping_by_id, teams_by_coach_id, coaches_by_teams
@@ -66,6 +66,8 @@ urlpatterns = [
     path('api/coach/create/', create_coach, name='create_coach'),
     path('api/coach/edit/', edit_coach, name='edit_coach'),
     path('api/coach/delete/<int:coach_id>/', delete_coach, name='delete_coach'),
+    path('api/coach/createAccount/', create_user_and_coach, name='create_coach_account'),
+
 
     # Teams
     path('api/team/get/<int:team_id>/', team_by_id, name='team_by_id'),
