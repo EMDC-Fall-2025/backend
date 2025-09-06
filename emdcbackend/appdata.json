@@ -1,0 +1,2988 @@
+[
+{
+  "model": "emdcbackend.contest",
+  "pk": 3,
+  "fields": {
+    "name": "contest2",
+    "date": "2026-09-09",
+    "is_open": false,
+    "is_tabulated": true
+  }
+},
+{
+  "model": "emdcbackend.contest",
+  "pk": 4,
+  "fields": {
+    "name": "Contest3",
+    "date": "2026-08-08",
+    "is_open": true,
+    "is_tabulated": false
+  }
+},
+{
+  "model": "emdcbackend.contest",
+  "pk": 5,
+  "fields": {
+    "name": "Contestt",
+    "date": "2026-01-02",
+    "is_open": false,
+    "is_tabulated": false
+  }
+},
+{
+  "model": "emdcbackend.contest",
+  "pk": 6,
+  "fields": {
+    "name": "C1",
+    "date": "2026-01-02",
+    "is_open": true,
+    "is_tabulated": false
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttojudge",
+  "pk": 1,
+  "fields": {
+    "contestid": 1,
+    "judgeid": 1
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttojudge",
+  "pk": 2,
+  "fields": {
+    "contestid": 1,
+    "judgeid": 2
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttojudge",
+  "pk": 3,
+  "fields": {
+    "contestid": 1,
+    "judgeid": 3
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttojudge",
+  "pk": 4,
+  "fields": {
+    "contestid": 1,
+    "judgeid": 4
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttojudge",
+  "pk": 5,
+  "fields": {
+    "contestid": 1,
+    "judgeid": 5
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttojudge",
+  "pk": 6,
+  "fields": {
+    "contestid": 4,
+    "judgeid": 6
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttojudge",
+  "pk": 7,
+  "fields": {
+    "contestid": 2,
+    "judgeid": 7
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttojudge",
+  "pk": 8,
+  "fields": {
+    "contestid": 1,
+    "judgeid": 8
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttojudge",
+  "pk": 9,
+  "fields": {
+    "contestid": 4,
+    "judgeid": 9
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttojudge",
+  "pk": 10,
+  "fields": {
+    "contestid": 4,
+    "judgeid": 10
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttoteam",
+  "pk": 1,
+  "fields": {
+    "contestid": 1,
+    "teamid": 1
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttoteam",
+  "pk": 2,
+  "fields": {
+    "contestid": 2,
+    "teamid": 2
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttoteam",
+  "pk": 3,
+  "fields": {
+    "contestid": 2,
+    "teamid": 3
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttoteam",
+  "pk": 4,
+  "fields": {
+    "contestid": 2,
+    "teamid": 4
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttoteam",
+  "pk": 5,
+  "fields": {
+    "contestid": 4,
+    "teamid": 5
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttoteam",
+  "pk": 6,
+  "fields": {
+    "contestid": 4,
+    "teamid": 6
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttoorganizer",
+  "pk": 4,
+  "fields": {
+    "contestid": 3,
+    "organizerid": 4
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttoorganizer",
+  "pk": 5,
+  "fields": {
+    "contestid": 3,
+    "organizerid": 6
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttoorganizer",
+  "pk": 6,
+  "fields": {
+    "contestid": 4,
+    "organizerid": 6
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttoorganizer",
+  "pk": 7,
+  "fields": {
+    "contestid": 5,
+    "organizerid": 8
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttoorganizer",
+  "pk": 9,
+  "fields": {
+    "contestid": 3,
+    "organizerid": 10
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttoorganizer",
+  "pk": 10,
+  "fields": {
+    "contestid": 6,
+    "organizerid": 11
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttocluster",
+  "pk": 1,
+  "fields": {
+    "contestid": 1,
+    "clusterid": 1
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttocluster",
+  "pk": 2,
+  "fields": {
+    "contestid": 2,
+    "clusterid": 2
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttocluster",
+  "pk": 3,
+  "fields": {
+    "contestid": 2,
+    "clusterid": 3
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttocluster",
+  "pk": 4,
+  "fields": {
+    "contestid": 3,
+    "clusterid": 4
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttocluster",
+  "pk": 5,
+  "fields": {
+    "contestid": 2,
+    "clusterid": 5
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttocluster",
+  "pk": 6,
+  "fields": {
+    "contestid": 4,
+    "clusterid": 6
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttocluster",
+  "pk": 7,
+  "fields": {
+    "contestid": 4,
+    "clusterid": 7
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttocluster",
+  "pk": 8,
+  "fields": {
+    "contestid": 5,
+    "clusterid": 8
+  }
+},
+{
+  "model": "emdcbackend.mapcontesttocluster",
+  "pk": 9,
+  "fields": {
+    "contestid": 6,
+    "clusterid": 9
+  }
+},
+{
+  "model": "emdcbackend.judge",
+  "pk": 1,
+  "fields": {
+    "first_name": "Jamie",
+    "last_name": "Doe",
+    "phone_number": "555-123-4567",
+    "contestid": 1,
+    "presentation": true,
+    "mdo": true,
+    "journal": true,
+    "runpenalties": false,
+    "otherpenalties": false,
+    "role": 3
+  }
+},
+{
+  "model": "emdcbackend.judge",
+  "pk": 2,
+  "fields": {
+    "first_name": "Judge",
+    "last_name": "1",
+    "phone_number": "555-123-4567",
+    "contestid": 1,
+    "presentation": true,
+    "mdo": true,
+    "journal": true,
+    "runpenalties": false,
+    "otherpenalties": false,
+    "role": 3
+  }
+},
+{
+  "model": "emdcbackend.judge",
+  "pk": 3,
+  "fields": {
+    "first_name": "Judge",
+    "last_name": "2",
+    "phone_number": "555-123-4567",
+    "contestid": 1,
+    "presentation": true,
+    "mdo": true,
+    "journal": false,
+    "runpenalties": true,
+    "otherpenalties": false,
+    "role": 2
+  }
+},
+{
+  "model": "emdcbackend.judge",
+  "pk": 4,
+  "fields": {
+    "first_name": "Judge",
+    "last_name": "2",
+    "phone_number": "555-123-4567",
+    "contestid": 1,
+    "presentation": true,
+    "mdo": true,
+    "journal": false,
+    "runpenalties": false,
+    "otherpenalties": false,
+    "role": 1
+  }
+},
+{
+  "model": "emdcbackend.judge",
+  "pk": 5,
+  "fields": {
+    "first_name": "Judge",
+    "last_name": "2",
+    "phone_number": "555-123-4567",
+    "contestid": 1,
+    "presentation": true,
+    "mdo": true,
+    "journal": true,
+    "runpenalties": true,
+    "otherpenalties": true,
+    "role": 1
+  }
+},
+{
+  "model": "emdcbackend.judge",
+  "pk": 6,
+  "fields": {
+    "first_name": "Judge",
+    "last_name": "1",
+    "phone_number": "1234567890",
+    "contestid": 4,
+    "presentation": true,
+    "mdo": true,
+    "journal": true,
+    "runpenalties": true,
+    "otherpenalties": true,
+    "role": 2
+  }
+},
+{
+  "model": "emdcbackend.judge",
+  "pk": 7,
+  "fields": {
+    "first_name": "Judge",
+    "last_name": "test1",
+    "phone_number": "6122232639",
+    "contestid": 2,
+    "presentation": true,
+    "mdo": true,
+    "journal": true,
+    "runpenalties": true,
+    "otherpenalties": true,
+    "role": 1
+  }
+},
+{
+  "model": "emdcbackend.judge",
+  "pk": 8,
+  "fields": {
+    "first_name": "Judge",
+    "last_name": "test1",
+    "phone_number": "6122232639",
+    "contestid": 1,
+    "presentation": true,
+    "mdo": true,
+    "journal": true,
+    "runpenalties": true,
+    "otherpenalties": true,
+    "role": 3
+  }
+},
+{
+  "model": "emdcbackend.judge",
+  "pk": 9,
+  "fields": {
+    "first_name": "Judge",
+    "last_name": "test1",
+    "phone_number": "6122232639",
+    "contestid": 4,
+    "presentation": true,
+    "mdo": true,
+    "journal": true,
+    "runpenalties": true,
+    "otherpenalties": true,
+    "role": 3
+  }
+},
+{
+  "model": "emdcbackend.judge",
+  "pk": 10,
+  "fields": {
+    "first_name": "Judge",
+    "last_name": "test1",
+    "phone_number": "6122232639",
+    "contestid": 4,
+    "presentation": true,
+    "mdo": true,
+    "journal": true,
+    "runpenalties": true,
+    "otherpenalties": true,
+    "role": 4
+  }
+},
+{
+  "model": "emdcbackend.mapjudgetocluster",
+  "pk": 1,
+  "fields": {
+    "judgeid": 1,
+    "clusterid": 1
+  }
+},
+{
+  "model": "emdcbackend.mapjudgetocluster",
+  "pk": 2,
+  "fields": {
+    "judgeid": 2,
+    "clusterid": 1
+  }
+},
+{
+  "model": "emdcbackend.mapjudgetocluster",
+  "pk": 3,
+  "fields": {
+    "judgeid": 3,
+    "clusterid": 1
+  }
+},
+{
+  "model": "emdcbackend.mapjudgetocluster",
+  "pk": 4,
+  "fields": {
+    "judgeid": 4,
+    "clusterid": 1
+  }
+},
+{
+  "model": "emdcbackend.mapjudgetocluster",
+  "pk": 5,
+  "fields": {
+    "judgeid": 5,
+    "clusterid": 1
+  }
+},
+{
+  "model": "emdcbackend.mapjudgetocluster",
+  "pk": 6,
+  "fields": {
+    "judgeid": 6,
+    "clusterid": 7
+  }
+},
+{
+  "model": "emdcbackend.mapjudgetocluster",
+  "pk": 7,
+  "fields": {
+    "judgeid": 7,
+    "clusterid": 2
+  }
+},
+{
+  "model": "emdcbackend.mapjudgetocluster",
+  "pk": 8,
+  "fields": {
+    "judgeid": 8,
+    "clusterid": 1
+  }
+},
+{
+  "model": "emdcbackend.mapjudgetocluster",
+  "pk": 9,
+  "fields": {
+    "judgeid": 9,
+    "clusterid": 7
+  }
+},
+{
+  "model": "emdcbackend.mapjudgetocluster",
+  "pk": 10,
+  "fields": {
+    "judgeid": 10,
+    "clusterid": 7
+  }
+},
+{
+  "model": "emdcbackend.judgeclusters",
+  "pk": 1,
+  "fields": {
+    "cluster_name": "All Teams"
+  }
+},
+{
+  "model": "emdcbackend.judgeclusters",
+  "pk": 2,
+  "fields": {
+    "cluster_name": "All Teams"
+  }
+},
+{
+  "model": "emdcbackend.judgeclusters",
+  "pk": 3,
+  "fields": {
+    "cluster_name": "Cluster1"
+  }
+},
+{
+  "model": "emdcbackend.judgeclusters",
+  "pk": 4,
+  "fields": {
+    "cluster_name": "All Teams"
+  }
+},
+{
+  "model": "emdcbackend.judgeclusters",
+  "pk": 5,
+  "fields": {
+    "cluster_name": "Cluster 2"
+  }
+},
+{
+  "model": "emdcbackend.judgeclusters",
+  "pk": 6,
+  "fields": {
+    "cluster_name": "All Teams"
+  }
+},
+{
+  "model": "emdcbackend.judgeclusters",
+  "pk": 7,
+  "fields": {
+    "cluster_name": "Cluster3"
+  }
+},
+{
+  "model": "emdcbackend.judgeclusters",
+  "pk": 8,
+  "fields": {
+    "cluster_name": "All Teams"
+  }
+},
+{
+  "model": "emdcbackend.judgeclusters",
+  "pk": 9,
+  "fields": {
+    "cluster_name": "All Teams"
+  }
+},
+{
+  "model": "emdcbackend.mapclustertoteam",
+  "pk": 1,
+  "fields": {
+    "clusterid": 1,
+    "teamid": 1
+  }
+},
+{
+  "model": "emdcbackend.mapclustertoteam",
+  "pk": 2,
+  "fields": {
+    "clusterid": 2,
+    "teamid": 2
+  }
+},
+{
+  "model": "emdcbackend.mapclustertoteam",
+  "pk": 3,
+  "fields": {
+    "clusterid": 2,
+    "teamid": 3
+  }
+},
+{
+  "model": "emdcbackend.mapclustertoteam",
+  "pk": 4,
+  "fields": {
+    "clusterid": 2,
+    "teamid": 4
+  }
+},
+{
+  "model": "emdcbackend.mapclustertoteam",
+  "pk": 6,
+  "fields": {
+    "clusterid": 6,
+    "teamid": 5
+  }
+},
+{
+  "model": "emdcbackend.mapclustertoteam",
+  "pk": 8,
+  "fields": {
+    "clusterid": 6,
+    "teamid": 6
+  }
+},
+{
+  "model": "emdcbackend.mapclustertoteam",
+  "pk": 9,
+  "fields": {
+    "clusterid": 7,
+    "teamid": 6
+  }
+},
+{
+  "model": "emdcbackend.teams",
+  "pk": 1,
+  "fields": {
+    "team_name": "Team 1",
+    "journal_score": 0.0,
+    "presentation_score": 0.0,
+    "machinedesign_score": 0.0,
+    "penalties_score": 0.0,
+    "total_score": 0.0,
+    "team_rank": null,
+    "cluster_rank": null,
+    "judge_disqualified": false,
+    "organizer_disqualified": false
+  }
+},
+{
+  "model": "emdcbackend.teams",
+  "pk": 2,
+  "fields": {
+    "team_name": "Team1",
+    "journal_score": 0.0,
+    "presentation_score": 0.0,
+    "machinedesign_score": 0.0,
+    "penalties_score": 0.0,
+    "total_score": 0.0,
+    "team_rank": null,
+    "cluster_rank": null,
+    "judge_disqualified": false,
+    "organizer_disqualified": false
+  }
+},
+{
+  "model": "emdcbackend.teams",
+  "pk": 3,
+  "fields": {
+    "team_name": "Team2",
+    "journal_score": 0.0,
+    "presentation_score": 0.0,
+    "machinedesign_score": 0.0,
+    "penalties_score": 0.0,
+    "total_score": 0.0,
+    "team_rank": null,
+    "cluster_rank": null,
+    "judge_disqualified": false,
+    "organizer_disqualified": false
+  }
+},
+{
+  "model": "emdcbackend.teams",
+  "pk": 4,
+  "fields": {
+    "team_name": "Team1",
+    "journal_score": 0.0,
+    "presentation_score": 0.0,
+    "machinedesign_score": 0.0,
+    "penalties_score": 0.0,
+    "total_score": 0.0,
+    "team_rank": null,
+    "cluster_rank": null,
+    "judge_disqualified": false,
+    "organizer_disqualified": false
+  }
+},
+{
+  "model": "emdcbackend.teams",
+  "pk": 5,
+  "fields": {
+    "team_name": "Team3",
+    "journal_score": 0.0,
+    "presentation_score": 0.0,
+    "machinedesign_score": 0.0,
+    "penalties_score": 0.0,
+    "total_score": 0.0,
+    "team_rank": null,
+    "cluster_rank": null,
+    "judge_disqualified": false,
+    "organizer_disqualified": false
+  }
+},
+{
+  "model": "emdcbackend.teams",
+  "pk": 6,
+  "fields": {
+    "team_name": "TeamTest",
+    "journal_score": 0.0,
+    "presentation_score": 0.0,
+    "machinedesign_score": 0.0,
+    "penalties_score": 0.0,
+    "total_score": 0.0,
+    "team_rank": null,
+    "cluster_rank": null,
+    "judge_disqualified": false,
+    "organizer_disqualified": false
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 1,
+  "fields": {
+    "role": 1,
+    "uuid": 5,
+    "relatedid": 1
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 2,
+  "fields": {
+    "role": 1,
+    "uuid": 6,
+    "relatedid": 2
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 3,
+  "fields": {
+    "role": 1,
+    "uuid": 8,
+    "relatedid": 3
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 4,
+  "fields": {
+    "role": 1,
+    "uuid": 9,
+    "relatedid": 4
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 5,
+  "fields": {
+    "role": 1,
+    "uuid": 10,
+    "relatedid": 5
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 7,
+  "fields": {
+    "role": 4,
+    "uuid": 12,
+    "relatedid": 1
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 10,
+  "fields": {
+    "role": 4,
+    "uuid": 15,
+    "relatedid": 2
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 11,
+  "fields": {
+    "role": 4,
+    "uuid": 16,
+    "relatedid": 3
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 12,
+  "fields": {
+    "role": 4,
+    "uuid": 18,
+    "relatedid": 4
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 13,
+  "fields": {
+    "role": 2,
+    "uuid": 19,
+    "relatedid": 4
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 15,
+  "fields": {
+    "role": 3,
+    "uuid": 27,
+    "relatedid": 1
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 16,
+  "fields": {
+    "role": 3,
+    "uuid": 28,
+    "relatedid": 2
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 17,
+  "fields": {
+    "role": 3,
+    "uuid": 29,
+    "relatedid": 3
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 18,
+  "fields": {
+    "role": 3,
+    "uuid": 30,
+    "relatedid": 4
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 19,
+  "fields": {
+    "role": 3,
+    "uuid": 31,
+    "relatedid": 5
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 20,
+  "fields": {
+    "role": 2,
+    "uuid": 32,
+    "relatedid": 6
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 21,
+  "fields": {
+    "role": 2,
+    "uuid": 33,
+    "relatedid": 7
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 22,
+  "fields": {
+    "role": 3,
+    "uuid": 34,
+    "relatedid": 6
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 23,
+  "fields": {
+    "role": 3,
+    "uuid": 35,
+    "relatedid": 7
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 24,
+  "fields": {
+    "role": 3,
+    "uuid": 36,
+    "relatedid": 8
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 25,
+  "fields": {
+    "role": 3,
+    "uuid": 37,
+    "relatedid": 9
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 26,
+  "fields": {
+    "role": 3,
+    "uuid": 38,
+    "relatedid": 10
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 27,
+  "fields": {
+    "role": 2,
+    "uuid": 41,
+    "relatedid": 8
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 29,
+  "fields": {
+    "role": 2,
+    "uuid": 43,
+    "relatedid": 10
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 30,
+  "fields": {
+    "role": 2,
+    "uuid": 45,
+    "relatedid": 11
+  }
+},
+{
+  "model": "emdcbackend.mapusertorole",
+  "pk": 31,
+  "fields": {
+    "role": 1,
+    "uuid": 47,
+    "relatedid": 6
+  }
+},
+{
+  "model": "emdcbackend.coach",
+  "pk": 1,
+  "fields": {
+    "first_name": "Coach",
+    "last_name": "Test"
+  }
+},
+{
+  "model": "emdcbackend.coach",
+  "pk": 2,
+  "fields": {
+    "first_name": "Coach1",
+    "last_name": "test"
+  }
+},
+{
+  "model": "emdcbackend.coach",
+  "pk": 3,
+  "fields": {
+    "first_name": "Coach",
+    "last_name": "2"
+  }
+},
+{
+  "model": "emdcbackend.coach",
+  "pk": 4,
+  "fields": {
+    "first_name": "Coach",
+    "last_name": "Taylor"
+  }
+},
+{
+  "model": "emdcbackend.coach",
+  "pk": 5,
+  "fields": {
+    "first_name": "Taylor",
+    "last_name": "Coach"
+  }
+},
+{
+  "model": "emdcbackend.coach",
+  "pk": 6,
+  "fields": {
+    "first_name": "Taylor",
+    "last_name": "Coach"
+  }
+},
+{
+  "model": "emdcbackend.coach",
+  "pk": 7,
+  "fields": {
+    "first_name": "Taylor",
+    "last_name": "Coach"
+  }
+},
+{
+  "model": "emdcbackend.coach",
+  "pk": 8,
+  "fields": {
+    "first_name": "Taylor",
+    "last_name": "Coach"
+  }
+},
+{
+  "model": "emdcbackend.admin",
+  "pk": 1,
+  "fields": {
+    "first_name": "Test",
+    "last_name": "User"
+  }
+},
+{
+  "model": "emdcbackend.admin",
+  "pk": 2,
+  "fields": {
+    "first_name": "Test",
+    "last_name": "User"
+  }
+},
+{
+  "model": "emdcbackend.admin",
+  "pk": 3,
+  "fields": {
+    "first_name": "Test",
+    "last_name": "User"
+  }
+},
+{
+  "model": "emdcbackend.admin",
+  "pk": 4,
+  "fields": {
+    "first_name": "Test",
+    "last_name": "User"
+  }
+},
+{
+  "model": "emdcbackend.admin",
+  "pk": 5,
+  "fields": {
+    "first_name": "Test",
+    "last_name": "User"
+  }
+},
+{
+  "model": "emdcbackend.admin",
+  "pk": 6,
+  "fields": {
+    "first_name": "Test",
+    "last_name": "User"
+  }
+},
+{
+  "model": "emdcbackend.mapcoachtoteam",
+  "pk": 1,
+  "fields": {
+    "teamid": 1,
+    "coachid": 1
+  }
+},
+{
+  "model": "emdcbackend.mapcoachtoteam",
+  "pk": 2,
+  "fields": {
+    "teamid": 2,
+    "coachid": 2
+  }
+},
+{
+  "model": "emdcbackend.mapcoachtoteam",
+  "pk": 3,
+  "fields": {
+    "teamid": 3,
+    "coachid": 3
+  }
+},
+{
+  "model": "emdcbackend.mapcoachtoteam",
+  "pk": 4,
+  "fields": {
+    "teamid": 4,
+    "coachid": 4
+  }
+},
+{
+  "model": "emdcbackend.mapcoachtoteam",
+  "pk": 5,
+  "fields": {
+    "teamid": 5,
+    "coachid": 4
+  }
+},
+{
+  "model": "emdcbackend.mapcoachtoteam",
+  "pk": 6,
+  "fields": {
+    "teamid": 6,
+    "coachid": 4
+  }
+},
+{
+  "model": "emdcbackend.organizer",
+  "pk": 4,
+  "fields": {
+    "first_name": "organizer",
+    "last_name": "2"
+  }
+},
+{
+  "model": "emdcbackend.organizer",
+  "pk": 6,
+  "fields": {
+    "first_name": "Organizer",
+    "last_name": "Account"
+  }
+},
+{
+  "model": "emdcbackend.organizer",
+  "pk": 7,
+  "fields": {
+    "first_name": "Organizer",
+    "last_name": "Account"
+  }
+},
+{
+  "model": "emdcbackend.organizer",
+  "pk": 8,
+  "fields": {
+    "first_name": "Organiser",
+    "last_name": "Final"
+  }
+},
+{
+  "model": "emdcbackend.organizer",
+  "pk": 10,
+  "fields": {
+    "first_name": "dilasha",
+    "last_name": "t"
+  }
+},
+{
+  "model": "emdcbackend.organizer",
+  "pk": 11,
+  "fields": {
+    "first_name": "org",
+    "last_name": "1"
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 1,
+  "fields": {
+    "sheetType": 1,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 2,
+  "fields": {
+    "sheetType": 2,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 3,
+  "fields": {
+    "sheetType": 3,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 4,
+  "fields": {
+    "sheetType": 1,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 5,
+  "fields": {
+    "sheetType": 2,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 6,
+  "fields": {
+    "sheetType": 3,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 7,
+  "fields": {
+    "sheetType": 4,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": 0.0,
+    "field11": 0.0,
+    "field12": 0.0,
+    "field13": 0.0,
+    "field14": 0.0,
+    "field15": 0.0,
+    "field16": 0.0,
+    "field17": 0.0
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 8,
+  "fields": {
+    "sheetType": 1,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 9,
+  "fields": {
+    "sheetType": 3,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 10,
+  "fields": {
+    "sheetType": 1,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 11,
+  "fields": {
+    "sheetType": 3,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 12,
+  "fields": {
+    "sheetType": 4,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": 0.0,
+    "field11": 0.0,
+    "field12": 0.0,
+    "field13": 0.0,
+    "field14": 0.0,
+    "field15": 0.0,
+    "field16": 0.0,
+    "field17": 0.0
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 13,
+  "fields": {
+    "sheetType": 5,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": null,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 14,
+  "fields": {
+    "sheetType": 1,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 15,
+  "fields": {
+    "sheetType": 2,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 16,
+  "fields": {
+    "sheetType": 3,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 17,
+  "fields": {
+    "sheetType": 4,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": 0.0,
+    "field11": 0.0,
+    "field12": 0.0,
+    "field13": 0.0,
+    "field14": 0.0,
+    "field15": 0.0,
+    "field16": 0.0,
+    "field17": 0.0
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 18,
+  "fields": {
+    "sheetType": 5,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": null,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 19,
+  "fields": {
+    "sheetType": 1,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 20,
+  "fields": {
+    "sheetType": 2,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 21,
+  "fields": {
+    "sheetType": 3,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 22,
+  "fields": {
+    "sheetType": 4,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": 0.0,
+    "field11": 0.0,
+    "field12": 0.0,
+    "field13": 0.0,
+    "field14": 0.0,
+    "field15": 0.0,
+    "field16": 0.0,
+    "field17": 0.0
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 23,
+  "fields": {
+    "sheetType": 5,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": null,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 24,
+  "fields": {
+    "sheetType": 1,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 25,
+  "fields": {
+    "sheetType": 2,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 26,
+  "fields": {
+    "sheetType": 3,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 27,
+  "fields": {
+    "sheetType": 4,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": 0.0,
+    "field11": 0.0,
+    "field12": 0.0,
+    "field13": 0.0,
+    "field14": 0.0,
+    "field15": 0.0,
+    "field16": 0.0,
+    "field17": 0.0
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 28,
+  "fields": {
+    "sheetType": 5,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": null,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 29,
+  "fields": {
+    "sheetType": 1,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 30,
+  "fields": {
+    "sheetType": 2,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 31,
+  "fields": {
+    "sheetType": 3,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 32,
+  "fields": {
+    "sheetType": 4,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": 0.0,
+    "field11": 0.0,
+    "field12": 0.0,
+    "field13": 0.0,
+    "field14": 0.0,
+    "field15": 0.0,
+    "field16": 0.0,
+    "field17": 0.0
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 33,
+  "fields": {
+    "sheetType": 5,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": null,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 34,
+  "fields": {
+    "sheetType": 1,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 35,
+  "fields": {
+    "sheetType": 2,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 36,
+  "fields": {
+    "sheetType": 3,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 37,
+  "fields": {
+    "sheetType": 4,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": 0.0,
+    "field11": 0.0,
+    "field12": 0.0,
+    "field13": 0.0,
+    "field14": 0.0,
+    "field15": 0.0,
+    "field16": 0.0,
+    "field17": 0.0
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 38,
+  "fields": {
+    "sheetType": 5,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": null,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 39,
+  "fields": {
+    "sheetType": 1,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 40,
+  "fields": {
+    "sheetType": 2,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 41,
+  "fields": {
+    "sheetType": 3,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 42,
+  "fields": {
+    "sheetType": 4,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": 0.0,
+    "field11": 0.0,
+    "field12": 0.0,
+    "field13": 0.0,
+    "field14": 0.0,
+    "field15": 0.0,
+    "field16": 0.0,
+    "field17": 0.0
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 43,
+  "fields": {
+    "sheetType": 5,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": null,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 44,
+  "fields": {
+    "sheetType": 1,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 45,
+  "fields": {
+    "sheetType": 2,
+    "isSubmitted": false,
+    "field1": 4.0,
+    "field2": 4.0,
+    "field3": 4.0,
+    "field4": 5.0,
+    "field5": 5.0,
+    "field6": 6.0,
+    "field7": 4.0,
+    "field8": 5.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 46,
+  "fields": {
+    "sheetType": 3,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 47,
+  "fields": {
+    "sheetType": 4,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": 0.0,
+    "field11": 0.0,
+    "field12": 0.0,
+    "field13": 0.0,
+    "field14": 0.0,
+    "field15": 0.0,
+    "field16": 0.0,
+    "field17": 0.0
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 48,
+  "fields": {
+    "sheetType": 5,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": null,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 49,
+  "fields": {
+    "sheetType": 1,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 50,
+  "fields": {
+    "sheetType": 2,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.scoresheet",
+  "pk": 51,
+  "fields": {
+    "sheetType": 3,
+    "isSubmitted": false,
+    "field1": 0.0,
+    "field2": 0.0,
+    "field3": 0.0,
+    "field4": 0.0,
+    "field5": 0.0,
+    "field6": 0.0,
+    "field7": 0.0,
+    "field8": 0.0,
+    "field9": "",
+    "field10": null,
+    "field11": null,
+    "field12": null,
+    "field13": null,
+    "field14": null,
+    "field15": null,
+    "field16": null,
+    "field17": null
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 1,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 1,
+    "scoresheetid": 1,
+    "sheetType": 1
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 2,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 1,
+    "scoresheetid": 2,
+    "sheetType": 2
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 3,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 1,
+    "scoresheetid": 3,
+    "sheetType": 3
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 4,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 2,
+    "scoresheetid": 4,
+    "sheetType": 1
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 5,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 2,
+    "scoresheetid": 5,
+    "sheetType": 2
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 6,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 2,
+    "scoresheetid": 6,
+    "sheetType": 3
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 7,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 3,
+    "scoresheetid": 7,
+    "sheetType": 4
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 8,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 3,
+    "scoresheetid": 8,
+    "sheetType": 1
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 9,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 3,
+    "scoresheetid": 9,
+    "sheetType": 3
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 10,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 4,
+    "scoresheetid": 10,
+    "sheetType": 1
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 11,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 4,
+    "scoresheetid": 11,
+    "sheetType": 3
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 12,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 5,
+    "scoresheetid": 12,
+    "sheetType": 4
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 13,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 5,
+    "scoresheetid": 13,
+    "sheetType": 5
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 14,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 5,
+    "scoresheetid": 14,
+    "sheetType": 1
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 15,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 5,
+    "scoresheetid": 15,
+    "sheetType": 2
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 16,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 5,
+    "scoresheetid": 16,
+    "sheetType": 3
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 17,
+  "fields": {
+    "teamid": 6,
+    "judgeid": 6,
+    "scoresheetid": 17,
+    "sheetType": 4
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 18,
+  "fields": {
+    "teamid": 6,
+    "judgeid": 6,
+    "scoresheetid": 18,
+    "sheetType": 5
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 19,
+  "fields": {
+    "teamid": 6,
+    "judgeid": 6,
+    "scoresheetid": 19,
+    "sheetType": 1
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 20,
+  "fields": {
+    "teamid": 6,
+    "judgeid": 6,
+    "scoresheetid": 20,
+    "sheetType": 2
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 21,
+  "fields": {
+    "teamid": 6,
+    "judgeid": 6,
+    "scoresheetid": 21,
+    "sheetType": 3
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 22,
+  "fields": {
+    "teamid": 2,
+    "judgeid": 7,
+    "scoresheetid": 22,
+    "sheetType": 4
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 23,
+  "fields": {
+    "teamid": 2,
+    "judgeid": 7,
+    "scoresheetid": 23,
+    "sheetType": 5
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 24,
+  "fields": {
+    "teamid": 2,
+    "judgeid": 7,
+    "scoresheetid": 24,
+    "sheetType": 1
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 25,
+  "fields": {
+    "teamid": 2,
+    "judgeid": 7,
+    "scoresheetid": 25,
+    "sheetType": 2
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 26,
+  "fields": {
+    "teamid": 2,
+    "judgeid": 7,
+    "scoresheetid": 26,
+    "sheetType": 3
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 27,
+  "fields": {
+    "teamid": 3,
+    "judgeid": 7,
+    "scoresheetid": 27,
+    "sheetType": 4
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 28,
+  "fields": {
+    "teamid": 3,
+    "judgeid": 7,
+    "scoresheetid": 28,
+    "sheetType": 5
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 29,
+  "fields": {
+    "teamid": 3,
+    "judgeid": 7,
+    "scoresheetid": 29,
+    "sheetType": 1
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 30,
+  "fields": {
+    "teamid": 3,
+    "judgeid": 7,
+    "scoresheetid": 30,
+    "sheetType": 2
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 31,
+  "fields": {
+    "teamid": 3,
+    "judgeid": 7,
+    "scoresheetid": 31,
+    "sheetType": 3
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 32,
+  "fields": {
+    "teamid": 4,
+    "judgeid": 7,
+    "scoresheetid": 32,
+    "sheetType": 4
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 33,
+  "fields": {
+    "teamid": 4,
+    "judgeid": 7,
+    "scoresheetid": 33,
+    "sheetType": 5
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 34,
+  "fields": {
+    "teamid": 4,
+    "judgeid": 7,
+    "scoresheetid": 34,
+    "sheetType": 1
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 35,
+  "fields": {
+    "teamid": 4,
+    "judgeid": 7,
+    "scoresheetid": 35,
+    "sheetType": 2
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 36,
+  "fields": {
+    "teamid": 4,
+    "judgeid": 7,
+    "scoresheetid": 36,
+    "sheetType": 3
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 37,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 8,
+    "scoresheetid": 37,
+    "sheetType": 4
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 38,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 8,
+    "scoresheetid": 38,
+    "sheetType": 5
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 39,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 8,
+    "scoresheetid": 39,
+    "sheetType": 1
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 40,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 8,
+    "scoresheetid": 40,
+    "sheetType": 2
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 41,
+  "fields": {
+    "teamid": 1,
+    "judgeid": 8,
+    "scoresheetid": 41,
+    "sheetType": 3
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 42,
+  "fields": {
+    "teamid": 6,
+    "judgeid": 9,
+    "scoresheetid": 42,
+    "sheetType": 4
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 43,
+  "fields": {
+    "teamid": 6,
+    "judgeid": 9,
+    "scoresheetid": 43,
+    "sheetType": 5
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 44,
+  "fields": {
+    "teamid": 6,
+    "judgeid": 9,
+    "scoresheetid": 44,
+    "sheetType": 1
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 45,
+  "fields": {
+    "teamid": 6,
+    "judgeid": 9,
+    "scoresheetid": 45,
+    "sheetType": 2
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 46,
+  "fields": {
+    "teamid": 6,
+    "judgeid": 9,
+    "scoresheetid": 46,
+    "sheetType": 3
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 47,
+  "fields": {
+    "teamid": 6,
+    "judgeid": 10,
+    "scoresheetid": 47,
+    "sheetType": 4
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 48,
+  "fields": {
+    "teamid": 6,
+    "judgeid": 10,
+    "scoresheetid": 48,
+    "sheetType": 5
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 49,
+  "fields": {
+    "teamid": 6,
+    "judgeid": 10,
+    "scoresheetid": 49,
+    "sheetType": 1
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 50,
+  "fields": {
+    "teamid": 6,
+    "judgeid": 10,
+    "scoresheetid": 50,
+    "sheetType": 2
+  }
+},
+{
+  "model": "emdcbackend.mapscoresheettoteamjudge",
+  "pk": 51,
+  "fields": {
+    "teamid": 6,
+    "judgeid": 10,
+    "scoresheetid": 51,
+    "sheetType": 3
+  }
+},
+{
+  "model": "emdcbackend.specialaward",
+  "pk": 1,
+  "fields": {
+    "teamid": 0,
+    "award_name": "Award1"
+  }
+},
+{
+  "model": "emdcbackend.specialaward",
+  "pk": 2,
+  "fields": {
+    "teamid": 0,
+    "award_name": "award 1"
+  }
+}
+]

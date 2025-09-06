@@ -91,8 +91,14 @@ WSGI_APPLICATION = 'emdcbackend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'sqlite3.db',
+        # 'ENGINE': 'django.db.backends.sqlite3',
+        # 'NAME': BASE_DIR / 'sqlite3.db'
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'test',
+        'USER': 'postgres',
+        'PASSWORD': 'zxcvbnm',
+        'HOST':'localhost',
+        'PORT':'5432',
     }
 }
 
