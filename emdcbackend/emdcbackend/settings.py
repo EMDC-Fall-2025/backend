@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
-
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -27,14 +27,40 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["0.0.0.0", 'localhost', "*", "emdc-django-api"]
 
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:7001",
+# "http://192.168.1.101:7001",
+# "http://emdc-web:7001",
+# "https://orca-app-nrupj.ondigitalocean.app",
+# "https://emdc-backend-mahe5.ondigitalocean.app",
+# ]
+
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:7001",
-"http://192.168.1.101:7001",
-"http://emdc-web:7001",
-"https://orca-app-nrupj.ondigitalocean.app",
-"https://emdc-backend-mahe5.ondigitalocean.app",
+    "http://127.0.0.1:7001",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://orca-app-nrupj.ondigitalocean.app",
+    "https://emdc-backend-mahe5.ondigitalocean.app",
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:7001",
+    "http://127.0.0.1:7001",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://orca-app-nrupj.ondigitalocean.app",
+    "https://emdc-backend-mahe5.ondigitalocean.app",
+]
+
+# Dev cookie settings
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_DOMAIN = None
+CSRF_COOKIE_DOMAIN = None
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = True 
 CSRF_TRUSTED_ORIGINS = ['https://orca-app-nrupj.ondigitalocean.app']
@@ -89,16 +115,41 @@ WSGI_APPLICATION = 'emdcbackend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         # 'ENGINE': 'django.db.backends.sqlite3',
+#         # 'NAME': BASE_DIR / 'sqlite3.db'
+#         'ENGINE': 'django.db.backends.postgresql_psycopg2',
+#         'NAME': 'test',
+#         'USER': 'postgres',
+#         'PASSWORD': 'zxcvbnm',
+#         'HOST':'localhost',
+#         'PORT':'5432',
+#     }
+# }
+
+
+
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.postgresql",
+#         "NAME": os.getenv("POSTGRES_DB", "test"),
+#         "USER": os.getenv("POSTGRES_USER", "postgres"),
+#         "PASSWORD": os.getenv("POSTGRES_PASSWORD", "zxcvbnm"),
+#         # default to localhost so local-only runs “just work”
+#         "HOST": os.getenv("POSTGRES_HOST", "localhost"),
+#         "PORT": int(os.getenv("POSTGRES_PORT", "5432")),
+#     }
+# }
+
 DATABASES = {
-    'default': {
-        # 'ENGINE': 'django.db.backends.sqlite3',
-        # 'NAME': BASE_DIR / 'sqlite3.db'
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'test',
-        'USER': 'postgres',
-        'PASSWORD': 'zxcvbnm',
-        'HOST':'localhost',
-        'PORT':'5432',
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB"),
+        "USER": os.getenv("POSTGRES_USER"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
+        "HOST": os.getenv("POSTGRES_HOST", "localhost"),
+        "PORT": os.getenv("POSTGRES_PORT", "5432"),
     }
 }
 
