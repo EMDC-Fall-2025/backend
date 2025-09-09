@@ -15,6 +15,14 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load backend/emdcbackend/.env.local
+env_path = BASE_DIR / ".env.local"
+if env_path.exists():
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, _, v = line.partition("=")
+            os.environ.setdefault(k.strip(), v.strip())
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
