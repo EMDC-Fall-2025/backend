@@ -2,7 +2,7 @@
 # Requires Extension: "REST Client" by Huachao Mao
 
 # LOGIN
-POST http://127.0.0.1:8000/login
+POST http://127.0.0.1:7004/login
 Content-Type: application/json
 
 { "username": "admin", "password": "12345678" }
@@ -10,7 +10,7 @@ Content-Type: application/json
 ###
 
 # SIGNUP
-POST http://127.0.0.1:8000/signup
+POST http://127.0.0.1:7004/signup
 Content-Type: application/json
 
 { "username": "admin", "password": "12345678", "email": "admin@gmail.com" }
@@ -18,5 +18,5 @@ Content-Type: application/json
 ###
 
 # TEST TOKEN
-GET http://127.0.0.1:8000/test_token
+GET http://127.0.0.1:7004/test_token
 Content-Type: application/json

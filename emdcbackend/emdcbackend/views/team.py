@@ -249,6 +249,8 @@ def make_team(data):
         "presentation_score":data["presentation_score"],
         "machinedesign_score":data["machinedesign_score"],
         "penalties_score":data["penalties_score"],
+        "redesign_score":data["redesign_score"],
+        "championship_score":data["championship_score"],
         "total_score":data["total_score"]
     }
     team_response = make_team_instance(team_data)
@@ -346,6 +348,7 @@ def is_team_disqualified(request):
     team = get_object_or_404(Teams, id=request.data["teamid"])
     return Response({"is disqualified": team.organizer_disqualified}, status=status.HTTP_200_OK)
 
+# GET request that returns all teams
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
