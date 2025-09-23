@@ -83,7 +83,7 @@ def get_all_feedback_display_settings(request):
     try:
         settings = FeedbackDisplaySettings.objects.all()
         serializer = FeedbackDisplaySettingsSerializer(settings, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({"settings": serializer.data}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -142,7 +142,7 @@ def get_selected_feedback_for_contest(request, contest_id):
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, TokenAuthentication])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def update_selected_feedback(request):
     """Update selected feedback for a contest"""
     try:
