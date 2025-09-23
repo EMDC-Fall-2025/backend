@@ -4,88 +4,10 @@ from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.shortcuts import get_object_or_404
-from ..models import FeedbackDisplaySettings, Contest, SelectedFeedback, Scoresheet, MapScoresheetToTeamJudge, Judge, Teams, MapContestToTeam
-from ..serializers import FeedbackDisplaySettingsSerializer, SelectedFeedbackSerializer
+from ..models import SelectedFeedback, Scoresheet, MapScoresheetToTeamJudge, Judge, Teams, MapContestToTeam
+from ..serializers import SelectedFeedbackSerializer
 
-# Category-based feedback control functions
-@api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
-@permission_classes([IsAuthenticated])
-def get_feedback_display_settings(request, contest_id):
-    """Get feedback display settings for a specific contest"""
-    try:
-        settings = FeedbackDisplaySettings.objects.get(contestid=contest_id)
-        serializer = FeedbackDisplaySettingsSerializer(settings)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    except FeedbackDisplaySettings.DoesNotExist:
-        # Return default settings if none exist
-        default_settings = {
-            "contestid": contest_id,
-            "show_presentation_comments": True,
-            "show_journal_comments": True,
-            "show_machinedesign_comments": True,
-            "show_redesign_comments": True,
-            "show_championship_comments": True,
-            "show_penalty_comments": False,
-        }
-        return Response(default_settings, status=status.HTTP_200_OK)
-
-@api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
-@permission_classes([IsAdminUser])
-def create_feedback_display_settings(request):
-    """Create new feedback display settings"""
-    try:
-        serializer = FeedbackDisplaySettingsSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(["PUT"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
-@permission_classes([IsAdminUser])
-def update_feedback_display_settings(request):
-    """Update existing feedback display settings"""
-    try:
-        contest_id = request.data.get('contestid')
-        if not contest_id:
-            return Response({"error": "contestid is required"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        settings = get_object_or_404(FeedbackDisplaySettings, contestid=contest_id)
-        serializer = FeedbackDisplaySettingsSerializer(settings, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
-@permission_classes([IsAdminUser])
-def delete_feedback_display_settings(request, contest_id):
-    """Delete feedback display settings for a contest"""
-    try:
-        settings = get_object_or_404(FeedbackDisplaySettings, contestid=contest_id)
-        settings.delete()
-        return Response({"message": "Settings deleted successfully"}, status=status.HTTP_200_OK)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
-@permission_classes([IsAdminUser])
-def get_all_feedback_display_settings(request):
-    """Get all feedback display settings"""
-    try:
-        settings = FeedbackDisplaySettings.objects.all()
-        serializer = FeedbackDisplaySettingsSerializer(settings, many=True)
-        return Response({"settings": serializer.data}, status=status.HTTP_200_OK)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+"""Granular feedback control endpoints only (category toggles removed)."""
 
 # Granular feedback control functions
 @api_view(["GET"])
@@ -167,26 +89,3 @@ def update_selected_feedback(request):
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# Helper function for getting feedback display settings
-def get_feedback_display_settings_for_contest(contest_id):
-    """Helper function to get feedback display settings for a contest"""
-    try:
-        settings = FeedbackDisplaySettings.objects.get(contestid=contest_id)
-        return {
-            "show_presentation_comments": settings.show_presentation_comments,
-            "show_journal_comments": settings.show_journal_comments,
-            "show_machinedesign_comments": settings.show_machinedesign_comments,
-            "show_redesign_comments": settings.show_redesign_comments,
-            "show_championship_comments": settings.show_championship_comments,
-            "show_penalty_comments": settings.show_penalty_comments,
-        }
-    except FeedbackDisplaySettings.DoesNotExist:
-        # Return default settings
-        return {
-            "show_presentation_comments": True,
-            "show_journal_comments": True,
-            "show_machinedesign_comments": True,
-            "show_redesign_comments": True,
-            "show_championship_comments": True,
-            "show_penalty_comments": False,
-        }

@@ -29,7 +29,7 @@ from .views.Maps.MapAwardToTeam import create_award_team_mapping, get_award_id_b
 from .views.Maps.MapBallotToVote import create_map_ballot_to_vote
 from .views.Maps.MapTeamToVote import create_map_team_to_vote
 from .views.Maps.MapVoteToAward import create_map_vote_to_award, create_map_award_to_contest
-from .views.feedback_control import get_feedback_display_settings, create_feedback_display_settings, update_feedback_display_settings, delete_feedback_display_settings, get_all_feedback_display_settings, get_all_feedback_for_contest, get_selected_feedback_for_contest, update_selected_feedback
+from .views.feedback_control import get_all_feedback_for_contest, get_selected_feedback_for_contest, update_selected_feedback
 from .views.votes import create_vote, get_all_votes
 from .views.ballot import create_ballot, get_all_ballots, delete_ballot
 
@@ -173,13 +173,6 @@ urlpatterns = [
     path('api/tabulation/tabulateScores/',tabulate_scores, name='tabulate_scores'),
     path('api/tabulation/getScoresheetCommentsByTeamId/', get_scoresheet_comments_by_team_id, name='get_scoresheet_comments_by_team_id'),
 
-    # Feedback Display Control
-    path('api/feedback/settings/<int:contest_id>/', get_feedback_display_settings, name='get_feedback_display_settings'),
-    path('api/feedback/settings/create/', create_feedback_display_settings, name='create_feedback_display_settings'),
-    path('api/feedback/settings/update/', update_feedback_display_settings, name='update_feedback_display_settings'),
-    path('api/feedback/settings/delete/<int:contest_id>/', delete_feedback_display_settings, name='delete_feedback_display_settings'),
-    path('api/feedback/settings/all/', get_all_feedback_display_settings, name='get_all_feedback_display_settings'),
-    
     # Granular Feedback Control
     path('api/feedback/all/<int:contest_id>/', get_all_feedback_for_contest, name='get_all_feedback_for_contest'),
     path('api/feedback/selected/<int:contest_id>/', get_selected_feedback_for_contest, name='get_selected_feedback_for_contest'),
