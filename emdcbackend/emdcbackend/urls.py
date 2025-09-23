@@ -14,6 +14,7 @@ from .views.team import create_team, team_by_id, edit_team, delete_team_by_id, g
 from .views.Maps.MapCoachToTeam import create_coach_team_mapping, coach_by_team_id, delete_coach_team_mapping_by_id, teams_by_coach_id, coaches_by_teams
 from .views.clusters import cluster_by_id, create_cluster, clusters_get_all, delete_cluster, edit_cluster
 from .views.Maps.MapContestToJudge import create_contest_judge_mapping, get_all_judges_by_contest_id, get_contest_id_by_judge_id, delete_contest_judge_mapping_by_id
+from .views.Maps.AssignJudgeToContest import assign_judge_to_contest, get_judge_contests, remove_judge_from_contest
 from .views.Maps.MapContestToOrganizer import create_contest_organizer_mapping, get_organizers_by_contest_id, get_contests_by_organizer_id, delete_contest_organizer_mapping, \
     get_all_contests_by_organizer, get_organizer_names_by_contests
 from .views.Maps.MapContestToTeam import create_contest_team_mapping, get_teams_by_contest_id, \
@@ -93,6 +94,11 @@ urlpatterns = [
     path('api/mapping/contestToJudge/create/', create_contest_judge_mapping, name='create_contest_judge_mapping'),
     path('api/mapping/contestToJudge/getContestByJudge/<int:judge_id>/', get_contest_id_by_judge_id, name='get_contest_id_by_judge_id'),
     path('api/mapping/contestToJudge/delete/<int:map_id>/', delete_contest_judge_mapping_by_id, name='delete_contest_judge_mapping'),
+    
+    # Multi-contest judge assignment endpoints
+    path('api/mapping/contestToJudge/assign/', assign_judge_to_contest, name='assign_judge_to_contest'),
+    path('api/mapping/contestToJudge/judge-contests/<int:judge_id>/', get_judge_contests, name='get_judge_contests'),
+    path('api/mapping/contestToJudge/remove/<int:judge_id>/<int:contest_id>/', remove_judge_from_contest, name='remove_judge_from_contest'),
 
     path('api/mapping/contestToTeam/create/', create_contest_team_mapping, name='create_contest_team_mapping'),
     path('api/mapping/contestToTeam/getContestByTeam/<int:team_id>/', get_contest_id_by_team_id, name='get_contest_id_by_team_id'),
