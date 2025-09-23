@@ -16,7 +16,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load backend/emdcbackend/.env.local
-env_path = BASE_DIR / ".env.local"
+env_path = BASE_DIR / ".local.env"
 if env_path.exists():
     for line in env_path.read_text().splitlines():
         line = line.strip()
