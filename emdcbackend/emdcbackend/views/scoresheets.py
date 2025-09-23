@@ -10,8 +10,9 @@ from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
 from .Maps.MapScoreSheet import delete_score_sheet_mapping
-from ..models import Scoresheet, Teams, Judge, MapClusterToTeam, MapScoresheetToTeamJudge, MapJudgeToCluster, ScoresheetEnum, Contest, MapContestToTeam
+from ..models import Scoresheet, Teams, Judge, MapClusterToTeam, MapScoresheetToTeamJudge, MapJudgeToCluster, ScoresheetEnum, Contest, MapContestToTeam, SelectedFeedback
 from ..serializers import ScoresheetSerializer, MapScoreSheetToTeamJudgeSerializer
+from .feedback_control import get_feedback_display_settings_for_contest
 
 @api_view(["GET"])
 def scores_by_id(request, scores_id):
@@ -601,6 +602,13 @@ def make_sheets_for_team(teamid, clusterid):
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def get_scoresheet_details_by_team(request, team_id):
+    contest_id = request.query_params.get('contestid')
+    if not contest_id:
+        return Response({"error": "contestid parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Get feedback display settings for the contest
+    feedback_settings = get_feedback_display_settings_for_contest(int(contest_id))
+    
     scoresheet_mappings = MapScoresheetToTeamJudge.objects.filter(teamid=team_id)
     scoresheets = Scoresheet.objects.filter(id__in=scoresheet_mappings.values_list('scoresheetid', flat=True))
     presentation_scoresheet_details = [[] for _ in range(9)]
@@ -620,7 +628,10 @@ def get_scoresheet_details_by_team(request, team_id):
         presentation_scoresheet_details[5].append(sheet.field6)
         presentation_scoresheet_details[6].append(sheet.field7)
         presentation_scoresheet_details[7].append(sheet.field8)
-        presentation_scoresheet_details[8].append(sheet.field9)
+        if feedback_settings["show_presentation_comments"]:
+            presentation_scoresheet_details[8].append(sheet.field9)
+        else:
+            presentation_scoresheet_details[8].append("")
       elif sheet.sheetType == 2:
         journal_scoresheet_details[0].append(sheet.field1)
         journal_scoresheet_details[1].append(sheet.field2)
@@ -630,7 +641,10 @@ def get_scoresheet_details_by_team(request, team_id):
         journal_scoresheet_details[5].append(sheet.field6)
         journal_scoresheet_details[6].append(sheet.field7)
         journal_scoresheet_details[7].append(sheet.field8)
-        journal_scoresheet_details[8].append(sheet.field9)
+        if feedback_settings["show_journal_comments"]:
+            journal_scoresheet_details[8].append(sheet.field9)
+        else:
+            journal_scoresheet_details[8].append("")
       elif sheet.sheetType == 3:
         machinedesign_scoresheet_details[0].append(sheet.field1)
         machinedesign_scoresheet_details[1].append(sheet.field2)
@@ -640,7 +654,10 @@ def get_scoresheet_details_by_team(request, team_id):
         machinedesign_scoresheet_details[5].append(sheet.field6)
         machinedesign_scoresheet_details[6].append(sheet.field7)
         machinedesign_scoresheet_details[7].append(sheet.field8)
-        machinedesign_scoresheet_details[8].append(sheet.field9)
+        if feedback_settings["show_machinedesign_comments"]:
+            machinedesign_scoresheet_details[8].append(sheet.field9)
+        else:
+            machinedesign_scoresheet_details[8].append("")
       elif sheet.sheetType == 4:
         run_penalties_scoresheet_details[0].append(sheet.field1)
         run_penalties_scoresheet_details[1].append(sheet.field2)
@@ -675,7 +692,10 @@ def get_scoresheet_details_by_team(request, team_id):
         redesign_scoresheet_details[4].append(sheet.field5)
         redesign_scoresheet_details[5].append(sheet.field6)
         redesign_scoresheet_details[6].append(sheet.field7)
-        redesign_scoresheet_details[7].append(sheet.field9)
+        if feedback_settings["show_redesign_comments"]:
+            redesign_scoresheet_details[7].append(sheet.field9)
+        else:
+            redesign_scoresheet_details[7].append("")
       elif sheet.sheetType == 7:
         championship_scoresheet_details[0].append(sheet.field1)
         championship_scoresheet_details[1].append(sheet.field2)
@@ -685,7 +705,10 @@ def get_scoresheet_details_by_team(request, team_id):
         championship_scoresheet_details[5].append(sheet.field6)
         championship_scoresheet_details[6].append(sheet.field7)
         championship_scoresheet_details[7].append(sheet.field8)
-        championship_scoresheet_details[8].append(sheet.field9)
+        if feedback_settings["show_championship_comments"]:
+            championship_scoresheet_details[8].append(sheet.field9)
+        else:
+            championship_scoresheet_details[8].append("")
 
     presentation_scoresheet_response = {
       "1": presentation_scoresheet_details[0],
@@ -784,8 +807,279 @@ def get_scoresheet_details_by_team(request, team_id):
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
+def get_public_scoresheet_details_by_team(request, team_id):
+    """Public endpoint that uses granular feedback filtering for contest results"""
+    contest_id = request.query_params.get('contestid')
+    if not contest_id:
+        return Response({"error": "contestid parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Get selected feedback for this contest (granular control)
+    try:
+        selected_feedback_ids = set(SelectedFeedback.objects.filter(contestid=int(contest_id)).values_list('scoresheet_id', flat=True))
+        # If no feedback has been selected yet, show all comments (fallback behavior)
+        show_all_comments = len(selected_feedback_ids) == 0
+    except Exception as e:
+        # If SelectedFeedback table doesn't exist yet, show all comments
+        print(f"SelectedFeedback table not available: {e}")
+        selected_feedback_ids = set()
+        show_all_comments = True
+    
+    scoresheet_mappings = MapScoresheetToTeamJudge.objects.filter(teamid=team_id)
+    scoresheets = Scoresheet.objects.filter(id__in=scoresheet_mappings.values_list('scoresheetid', flat=True))
+    presentation_scoresheet_details = [[] for _ in range(9)]
+    journal_scoresheet_details = [[] for _ in range(9)]
+    machinedesign_scoresheet_details = [[] for _ in range(9)]
+    run_penalties_scoresheet_details = [[] for _ in range(16)]
+    other_penalties_scoresheet_details = [[] for _ in range(7)]
+    redesign_scoresheet_details = [[] for _ in range(8)]
+    championship_scoresheet_details = [[] for _ in range(9)]
+    for sheet in scoresheets:
+      if sheet.sheetType == 1:
+        presentation_scoresheet_details[0].append(sheet.field1)
+        presentation_scoresheet_details[1].append(sheet.field2)
+        presentation_scoresheet_details[2].append(sheet.field3)
+        presentation_scoresheet_details[3].append(sheet.field4)
+        presentation_scoresheet_details[4].append(sheet.field5)
+        presentation_scoresheet_details[5].append(sheet.field6)
+        presentation_scoresheet_details[6].append(sheet.field7)
+        presentation_scoresheet_details[7].append(sheet.field8)
+        # Use granular filtering for comments
+        if show_all_comments or sheet.id in selected_feedback_ids:
+            presentation_scoresheet_details[8].append(sheet.field9)
+        else:
+            presentation_scoresheet_details[8].append("")
+      elif sheet.sheetType == 2:
+        journal_scoresheet_details[0].append(sheet.field1)
+        journal_scoresheet_details[1].append(sheet.field2)
+        journal_scoresheet_details[2].append(sheet.field3)
+        journal_scoresheet_details[3].append(sheet.field4)
+        journal_scoresheet_details[4].append(sheet.field5)
+        journal_scoresheet_details[5].append(sheet.field6)
+        journal_scoresheet_details[6].append(sheet.field7)
+        journal_scoresheet_details[7].append(sheet.field8)
+        # Use granular filtering for comments
+        if show_all_comments or sheet.id in selected_feedback_ids:
+            journal_scoresheet_details[8].append(sheet.field9)
+        else:
+            journal_scoresheet_details[8].append("")
+      elif sheet.sheetType == 3:
+        machinedesign_scoresheet_details[0].append(sheet.field1)
+        machinedesign_scoresheet_details[1].append(sheet.field2)
+        machinedesign_scoresheet_details[2].append(sheet.field3)
+        machinedesign_scoresheet_details[3].append(sheet.field4)
+        machinedesign_scoresheet_details[4].append(sheet.field5)
+        machinedesign_scoresheet_details[5].append(sheet.field6)
+        machinedesign_scoresheet_details[6].append(sheet.field7)
+        machinedesign_scoresheet_details[7].append(sheet.field8)
+        # Use granular filtering for comments
+        if show_all_comments or sheet.id in selected_feedback_ids:
+            machinedesign_scoresheet_details[8].append(sheet.field9)
+        else:
+            machinedesign_scoresheet_details[8].append("")
+      elif sheet.sheetType == 4:
+        run_penalties_scoresheet_details[0].append(sheet.field1)
+        run_penalties_scoresheet_details[1].append(sheet.field2)
+        run_penalties_scoresheet_details[2].append(sheet.field3)
+        run_penalties_scoresheet_details[3].append(sheet.field4)
+        run_penalties_scoresheet_details[4].append(sheet.field5)
+        run_penalties_scoresheet_details[5].append(sheet.field6)
+        run_penalties_scoresheet_details[6].append(sheet.field7)
+        run_penalties_scoresheet_details[7].append(sheet.field8)
+        run_penalties_scoresheet_details[8].append(sheet.field9)
+        run_penalties_scoresheet_details[9].append(sheet.field10)
+        run_penalties_scoresheet_details[10].append(sheet.field11)
+        run_penalties_scoresheet_details[11].append(sheet.field12)
+        run_penalties_scoresheet_details[12].append(sheet.field13)
+        run_penalties_scoresheet_details[13].append(sheet.field14)
+        run_penalties_scoresheet_details[14].append(sheet.field15)
+        run_penalties_scoresheet_details[15].append(sheet.field16)
+      elif sheet.sheetType == 5:
+        other_penalties_scoresheet_details[0].append(sheet.field1)
+        other_penalties_scoresheet_details[1].append(sheet.field2)
+        other_penalties_scoresheet_details[2].append(sheet.field3)
+        other_penalties_scoresheet_details[3].append(sheet.field4)
+        other_penalties_scoresheet_details[4].append(sheet.field5)
+        other_penalties_scoresheet_details[5].append(sheet.field6)
+        other_penalties_scoresheet_details[6].append(sheet.field7)
+      elif sheet.sheetType == 6:
+        redesign_scoresheet_details[0].append(sheet.field1)
+        redesign_scoresheet_details[1].append(sheet.field2)
+        redesign_scoresheet_details[2].append(sheet.field3)
+        redesign_scoresheet_details[3].append(sheet.field4)
+        redesign_scoresheet_details[4].append(sheet.field5)
+        redesign_scoresheet_details[5].append(sheet.field6)
+        redesign_scoresheet_details[6].append(sheet.field7)
+        # Use granular filtering for comments
+        if show_all_comments or sheet.id in selected_feedback_ids:
+            redesign_scoresheet_details[7].append(sheet.field9)
+        else:
+            redesign_scoresheet_details[7].append("")
+      elif sheet.sheetType == 7:
+        championship_scoresheet_details[0].append(sheet.field1)
+        championship_scoresheet_details[1].append(sheet.field2)
+        championship_scoresheet_details[2].append(sheet.field3)
+        championship_scoresheet_details[3].append(sheet.field4)
+        championship_scoresheet_details[4].append(sheet.field5)
+        championship_scoresheet_details[5].append(sheet.field6)
+        championship_scoresheet_details[6].append(sheet.field7)
+        championship_scoresheet_details[7].append(sheet.field8)
+        # Use granular filtering for comments
+        if show_all_comments or sheet.id in selected_feedback_ids:
+            championship_scoresheet_details[8].append(sheet.field9)
+        else:
+            championship_scoresheet_details[8].append("")
+
+    presentation_scoresheet_response = {
+      "1": presentation_scoresheet_details[0],
+      "2": presentation_scoresheet_details[1],
+      "3": presentation_scoresheet_details[2],
+      "4": presentation_scoresheet_details[3],
+      "5": presentation_scoresheet_details[4],
+      "6": presentation_scoresheet_details[5],
+      "7": presentation_scoresheet_details[6],
+      "8": presentation_scoresheet_details[7],
+      "9": presentation_scoresheet_details[8],
+    }
+
+    journal_scoresheet_response = {
+      "1": journal_scoresheet_details[0],
+      "2": journal_scoresheet_details[1],
+      "3": journal_scoresheet_details[2],
+      "4": journal_scoresheet_details[3],
+      "5": journal_scoresheet_details[4],
+      "6": journal_scoresheet_details[5],
+      "7": journal_scoresheet_details[6],
+      "8": journal_scoresheet_details[7],
+      "9": journal_scoresheet_details[8],
+    }
+
+    machinedesign_scoresheet_response = {
+      "1": machinedesign_scoresheet_details[0],
+      "2": machinedesign_scoresheet_details[1],
+      "3": machinedesign_scoresheet_details[2],
+      "4": machinedesign_scoresheet_details[3],
+      "5": machinedesign_scoresheet_details[4],
+      "6": machinedesign_scoresheet_details[5],
+      "7": machinedesign_scoresheet_details[6],
+      "8": machinedesign_scoresheet_details[7],
+      "9": machinedesign_scoresheet_details[8],
+    }
+
+    run_penalties_scoresheet_response = {
+      "1": run_penalties_scoresheet_details[0],
+      "2": run_penalties_scoresheet_details[1],
+      "3": run_penalties_scoresheet_details[2],
+      "4": run_penalties_scoresheet_details[3],
+      "5": run_penalties_scoresheet_details[4],
+      "6": run_penalties_scoresheet_details[5],
+      "7": run_penalties_scoresheet_details[6],
+      "8": run_penalties_scoresheet_details[7],
+      "9": run_penalties_scoresheet_details[8],
+      "10": run_penalties_scoresheet_details[9],
+      "11": run_penalties_scoresheet_details[10],
+      "12": run_penalties_scoresheet_details[11],
+      "13": run_penalties_scoresheet_details[12],
+      "14": run_penalties_scoresheet_details[13],
+      "15": run_penalties_scoresheet_details[14],
+      "16": run_penalties_scoresheet_details[15],
+    }
+
+    other_penalties_scoresheet_response = {
+      "1": other_penalties_scoresheet_details[0],
+      "2": other_penalties_scoresheet_details[1],
+      "3": other_penalties_scoresheet_details[2],
+      "4": other_penalties_scoresheet_details[3],
+      "5": other_penalties_scoresheet_details[4],
+      "6": other_penalties_scoresheet_details[5],
+      "7": other_penalties_scoresheet_details[6],
+    }
+
+    redesign_scoresheet_response = {
+      "1": redesign_scoresheet_details[0],
+      "2": redesign_scoresheet_details[1],
+      "3": redesign_scoresheet_details[2],
+      "4": redesign_scoresheet_details[3],
+      "5": redesign_scoresheet_details[4],
+      "6": redesign_scoresheet_details[5],
+      "7": redesign_scoresheet_details[6],
+      "8": redesign_scoresheet_details[7],
+    }
+
+    championship_scoresheet_response = {
+      "1": championship_scoresheet_details[0],
+      "2": championship_scoresheet_details[1],
+      "3": championship_scoresheet_details[2],
+      "4": championship_scoresheet_details[3],
+      "5": championship_scoresheet_details[4],
+      "6": championship_scoresheet_details[5],
+      "7": championship_scoresheet_details[6],
+      "8": championship_scoresheet_details[7],
+      "9": championship_scoresheet_details[8],
+    }
+
+    # Check if there are any comments to display
+    has_comments = False
+    for sheet in scoresheets:
+        if sheet.field9 and sheet.field9.strip() != "":
+            if show_all_comments or sheet.id in selected_feedback_ids:
+                has_comments = True
+                break
+
+    return Response({
+      "1": presentation_scoresheet_response,
+      "2": journal_scoresheet_response,
+      "3": machinedesign_scoresheet_response,
+      "4": run_penalties_scoresheet_response,
+      "5": other_penalties_scoresheet_response,
+      "6": redesign_scoresheet_response,
+      "7": championship_scoresheet_response,
+      "has_comments": has_comments,
+    }, status=status.HTTP_200_OK)
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def check_team_has_feedback(request, team_id):
+    """Check if a team has any feedback comments available for display"""
+    contest_id = request.query_params.get('contestid')
+    if not contest_id:
+        return Response({"error": "contestid parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Get selected feedback for this contest (granular control)
+    try:
+        selected_feedback_ids = set(SelectedFeedback.objects.filter(contestid=int(contest_id)).values_list('scoresheet_id', flat=True))
+        # If no feedback has been selected yet, show all comments (fallback behavior)
+        show_all_comments = len(selected_feedback_ids) == 0
+    except Exception as e:
+        # If SelectedFeedback table doesn't exist yet, show all comments
+        print(f"SelectedFeedback table not available: {e}")
+        selected_feedback_ids = set()
+        show_all_comments = True
+    
+    scoresheet_mappings = MapScoresheetToTeamJudge.objects.filter(teamid=team_id)
+    scoresheets = Scoresheet.objects.filter(id__in=scoresheet_mappings.values_list('scoresheetid', flat=True))
+    
+    # Check if there are any comments to display
+    has_comments = False
+    for sheet in scoresheets:
+        if sheet.field9 and sheet.field9.strip() != "":
+            if show_all_comments or sheet.id in selected_feedback_ids:
+                has_comments = True
+                break
+
+    return Response({
+      "has_comments": has_comments,
+    }, status=status.HTTP_200_OK)
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def get_scoresheet_details_for_contest(request):
     contest = get_object_or_404(Contest, id=request.data["contestid"])
+    
+    # Get feedback display settings for the contest
+    feedback_settings = get_feedback_display_settings_for_contest(contest.id)
+    
     team_mappings = MapContestToTeam.objects.filter(contestid=contest.id)
     team_responses = {}
     for mapping in team_mappings:
@@ -809,7 +1103,10 @@ def get_scoresheet_details_for_contest(request):
                 presentation_scoresheet_details[5].append(sheet.field6)
                 presentation_scoresheet_details[6].append(sheet.field7)
                 presentation_scoresheet_details[7].append(sheet.field8)
-                presentation_scoresheet_details[8].append(sheet.field9)
+                if feedback_settings["show_presentation_comments"]:
+                    presentation_scoresheet_details[8].append(sheet.field9)
+                else:
+                    presentation_scoresheet_details[8].append("")
             elif sheet.sheetType == 2:
                 journal_scoresheet_details[0].append(sheet.field1)
                 journal_scoresheet_details[1].append(sheet.field2)
@@ -819,7 +1116,10 @@ def get_scoresheet_details_for_contest(request):
                 journal_scoresheet_details[5].append(sheet.field6)
                 journal_scoresheet_details[6].append(sheet.field7)
                 journal_scoresheet_details[7].append(sheet.field8)
-                journal_scoresheet_details[8].append(sheet.field9)
+                if feedback_settings["show_journal_comments"]:
+                    journal_scoresheet_details[8].append(sheet.field9)
+                else:
+                    journal_scoresheet_details[8].append("")
             elif sheet.sheetType == 3:
                 machinedesign_scoresheet_details[0].append(sheet.field1)
                 machinedesign_scoresheet_details[1].append(sheet.field2)
@@ -829,7 +1129,10 @@ def get_scoresheet_details_for_contest(request):
                 machinedesign_scoresheet_details[5].append(sheet.field6)
                 machinedesign_scoresheet_details[6].append(sheet.field7)
                 machinedesign_scoresheet_details[7].append(sheet.field8)
-                machinedesign_scoresheet_details[8].append(sheet.field9)
+                if feedback_settings["show_machinedesign_comments"]:
+                    machinedesign_scoresheet_details[8].append(sheet.field9)
+                else:
+                    machinedesign_scoresheet_details[8].append("")
             elif sheet.sheetType == 4:
                 run_penalties_scoresheet_details[0].append(sheet.field1)
                 run_penalties_scoresheet_details[1].append(sheet.field2)
@@ -864,17 +1167,23 @@ def get_scoresheet_details_for_contest(request):
                 redesign_scoresheet_details[4].append(sheet.field5)
                 redesign_scoresheet_details[5].append(sheet.field6)
                 redesign_scoresheet_details[6].append(sheet.field7)
-                redesign_scoresheet_details[7].append(sheet.field9)
+                if feedback_settings["show_redesign_comments"]:
+                    redesign_scoresheet_details[7].append(sheet.field9)
+                else:
+                    redesign_scoresheet_details[7].append("")
             elif sheet.sheetType == 7:
-                machinedesign_scoresheet_details[0].append(sheet.field1)
-                machinedesign_scoresheet_details[1].append(sheet.field2)
-                machinedesign_scoresheet_details[2].append(sheet.field3)
-                machinedesign_scoresheet_details[3].append(sheet.field4)
-                machinedesign_scoresheet_details[4].append(sheet.field5)
-                machinedesign_scoresheet_details[5].append(sheet.field6)
-                machinedesign_scoresheet_details[6].append(sheet.field7)
-                machinedesign_scoresheet_details[7].append(sheet.field9)
-                machinedesign_scoresheet_details[8].append(sheet.field9)
+                championship_scoresheet_details[0].append(sheet.field1)
+                championship_scoresheet_details[1].append(sheet.field2)
+                championship_scoresheet_details[2].append(sheet.field3)
+                championship_scoresheet_details[3].append(sheet.field4)
+                championship_scoresheet_details[4].append(sheet.field5)
+                championship_scoresheet_details[5].append(sheet.field6)
+                championship_scoresheet_details[6].append(sheet.field7)
+                championship_scoresheet_details[7].append(sheet.field8)
+                if feedback_settings["show_championship_comments"]:
+                    championship_scoresheet_details[8].append(sheet.field9)
+                else:
+                    championship_scoresheet_details[8].append("")
             
 
 

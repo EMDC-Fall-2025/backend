@@ -11,6 +11,8 @@ from rest_framework.authentication import SessionAuthentication, TokenAuthentica
 from rest_framework.permissions import IsAuthenticated
 
 from ..models import Teams, Scoresheet, MapScoresheetToTeamJudge, MapContestToTeam, ScoresheetEnum, MapClusterToTeam, JudgeClusters, MapContestToCluster
+from .feedback_control import get_feedback_display_settings_for_contest
+from ..models import SelectedFeedback
 
 # reference for this file's functions will be in a markdown file titled *Scoring Tabultaion Outline* in the onedrive
 
@@ -145,12 +147,49 @@ def set_cluster_rank(data):
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def get_scoresheet_comments_by_team_id(request):
-  scoresheeids = MapScoresheetToTeamJudge.objects.filter(teamid=request.data["teamid"])
+  team_id = request.query_params.get("teamid")
+  contest_id = request.query_params.get("contestid")
+  
+  if not team_id or not contest_id:
+    return Response({"error": "teamid and contestid query parameters are required"}, status=status.HTTP_400_BAD_REQUEST)
+  
+  # Get feedback display settings for the contest
+  feedback_settings = get_feedback_display_settings_for_contest(contest_id)
+  
+  scoresheeids = MapScoresheetToTeamJudge.objects.filter(teamid=team_id)
   scoresheets = Scoresheet.objects.filter(id__in=scoresheeids)
-  comments = []
+  
+  comments = {
+    "presentation_comments": [],
+    "journal_comments": [],
+    "machinedesign_comments": [],
+    "redesign_comments": [],
+    "championship_comments": [],
+    "penalty_comments": []
+  }
+  
+  # Get selected feedback for this contest
+  selected_feedback_ids = set(SelectedFeedback.objects.filter(contestid=contest_id).values_list('scoresheet_id', flat=True))
+  
   for sheet in scoresheets:
-    if sheet.field9 != "":
-      comments.append(sheet.field9),
+    if sheet.field9 and sheet.field9.strip() != "":
+      # Check if this specific comment is selected for display
+      is_selected = sheet.id in selected_feedback_ids
+      
+      if is_selected:
+        if sheet.sheetType == ScoresheetEnum.PRESENTATION:
+          comments["presentation_comments"].append(sheet.field9)
+        elif sheet.sheetType == ScoresheetEnum.JOURNAL:
+          comments["journal_comments"].append(sheet.field9)
+        elif sheet.sheetType == ScoresheetEnum.MACHINEDESIGN:
+          comments["machinedesign_comments"].append(sheet.field9)
+        elif sheet.sheetType == ScoresheetEnum.REDESIGN:
+          comments["redesign_comments"].append(sheet.field9)
+        elif sheet.sheetType == ScoresheetEnum.CHAMPIONSHIP:
+          comments["championship_comments"].append(sheet.field9)
+        elif (sheet.sheetType == ScoresheetEnum.RUNPENALTIES or sheet.sheetType == ScoresheetEnum.OTHERPENALTIES):
+          comments["penalty_comments"].append(sheet.field9)
+  
   return Response({"Comments": comments}, status=status.HTTP_200_OK)
 
     
