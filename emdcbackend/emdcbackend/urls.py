@@ -20,12 +20,11 @@ from .views.Maps.MapContestToOrganizer import create_contest_organizer_mapping, 
 from .views.Maps.MapContestToTeam import create_contest_team_mapping, get_teams_by_contest_id, \
     get_contest_id_by_team_id, delete_contest_team_mapping_by_id, get_contests_by_team_ids
 from .views.scoresheets import create_score_sheet, edit_score_sheet, scores_by_id, delete_score_sheet, \
-    edit_score_sheet_field, update_scores, get_scoresheet_details_by_team, get_scoresheet_details_for_contest, get_public_scoresheet_details_by_team, check_team_has_feedback
+    edit_score_sheet_field, update_scores, get_scoresheet_details_by_team, get_scoresheet_details_for_contest
 from .views.admin import create_admin, admins_get_all, admin_by_id, delete_admin, edit_admin
 from .views.Maps.MapUserToRole import create_user_role_mapping, delete_user_role_mapping, get_user_by_role
 from .views.Maps.MapClusterToJudge import create_cluster_judge_mapping, delete_cluster_judge_mapping_by_id, cluster_by_judge_id, judges_by_cluster_id
-from .views.tabulation import tabulate_scores, get_scoresheet_comments_by_team_id
-from .views.feedback_control import get_feedback_display_settings, create_feedback_display_settings, update_feedback_display_settings, delete_feedback_display_settings, get_all_feedback_display_settings, get_all_feedback_for_contest, get_selected_feedback_for_contest, update_selected_feedback
+from .views.tabulation import tabulate_scores
 from .views.Maps.MapAwardToTeam import create_award_team_mapping, get_award_id_by_team_id, delete_award_team_mapping_by_id, update_award_team_mapping, get_all_awards, get_awards_by_role
 from .views.Maps.MapBallotToVote import create_map_ballot_to_vote
 from .views.Maps.MapTeamToVote import create_map_team_to_vote
@@ -165,25 +164,10 @@ urlpatterns = [
     path('api/scoreSheet/edit/editField/', edit_score_sheet_field, name='edit_score_sheet_field'),
     path('api/scoreSheet/edit/updateScores/', update_scores, name='update_scores'),
     path('api/scoreSheet/getDetails/<int:team_id>/', get_scoresheet_details_by_team, name='get_score_sheets_by_team_id'),
-    path('api/scoreSheet/getPublicDetails/<int:team_id>/', get_public_scoresheet_details_by_team, name='get_public_score_sheets_by_team_id'),
-    path('api/scoreSheet/checkFeedback/<int:team_id>/', check_team_has_feedback, name='check_team_has_feedback'),
     path('api/scoreSheet/getMasterDetails/', get_scoresheet_details_for_contest, name='get_scoresheet_details_for_contest'),
 
     # Tabulation
     path('api/tabulation/tabulateScores/',tabulate_scores, name='tabulate_scores'),
-    path('api/tabulation/getScoresheetCommentsByTeamId/', get_scoresheet_comments_by_team_id, name='get_scoresheet_comments_by_team_id'),
-
-    # Feedback Display Control
-    path('api/feedback/settings/<int:contest_id>/', get_feedback_display_settings, name='get_feedback_display_settings'),
-    path('api/feedback/settings/create/', create_feedback_display_settings, name='create_feedback_display_settings'),
-    path('api/feedback/settings/update/', update_feedback_display_settings, name='update_feedback_display_settings'),
-    path('api/feedback/settings/delete/<int:contest_id>/', delete_feedback_display_settings, name='delete_feedback_display_settings'),
-    path('api/feedback/settings/all/', get_all_feedback_display_settings, name='get_all_feedback_display_settings'),
-    
-    # Granular Feedback Control
-    path('api/feedback/all/<int:contest_id>/', get_all_feedback_for_contest, name='get_all_feedback_for_contest'),
-    path('api/feedback/selected/<int:contest_id>/', get_selected_feedback_for_contest, name='get_selected_feedback_for_contest'),
-    path('api/feedback/update-selected/', update_selected_feedback, name='update_selected_feedback'),
 
     # Special Awards
     path('api/mapping/awardToTeam/getAllAwards/', get_all_awards, name='get_all_awards'),

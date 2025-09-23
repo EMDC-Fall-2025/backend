@@ -211,25 +211,4 @@ class MapAwardToContest(models.Model):
     contestid = models.IntegerField()
     awardid = models.IntegerField()
 
-class FeedbackDisplaySettings(models.Model):
-    contestid = models.IntegerField(unique=True)
-    show_presentation_comments = models.BooleanField(default=True)
-    show_journal_comments = models.BooleanField(default=True)
-    show_machinedesign_comments = models.BooleanField(default=True)
-    show_redesign_comments = models.BooleanField(default=True)
-    show_championship_comments = models.BooleanField(default=True)
-    show_penalty_comments = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-class SelectedFeedback(models.Model):
-    contestid = models.IntegerField()
-    scoresheet_id = models.IntegerField()
-    is_selected = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        unique_together = ['contestid', 'scoresheet_id']
-
     
