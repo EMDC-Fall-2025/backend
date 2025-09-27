@@ -2,3 +2,4 @@ emdcbackend/.env
 sqlite3.db
 *.pyc 
 /notes
+venv/

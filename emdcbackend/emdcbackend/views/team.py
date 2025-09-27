@@ -111,7 +111,15 @@ def create_team(request):
                     return other_cluster_mapping_response
                 responses.append(other_cluster_mapping_response)
 
-            # Step 6: Check responses and return
+            # Step 6: Create scoresheets for all judges in the cluster
+            try:
+                make_sheets_for_team(team_response.get("id"), request.data["clusterid"])
+            except Exception as e:
+                # Don't fail the team creation if scoresheet creation fails
+                # Just log the error and continue
+                pass
+            
+            # Step 7: Check responses and return
             return Response({
                 "team": team_response,
                 "coach": coach_response,
