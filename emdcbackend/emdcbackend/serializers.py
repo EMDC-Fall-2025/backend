@@ -24,7 +24,7 @@ class CoachSerializer(serializers.ModelSerializer):
     class Meta:
         model = Coach
         fields = '__all__'
-
+        
 class CoachToTeamSerializer(serializers.ModelSerializer):
     class Meta:
         model = MapCoachToTeam

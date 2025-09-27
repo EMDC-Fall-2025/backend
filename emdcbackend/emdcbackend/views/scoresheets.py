@@ -80,47 +80,67 @@ def edit_score_sheet(request):
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def update_scores(request):
-    scores = get_object_or_404(Scoresheet, id=request.data["id"])
-    if scores.sheetType == ScoresheetEnum.OTHERPENALTIES:
-        scores.field1 = request.data["field1"]
-        scores.field2 = request.data["field2"]
-        scores.field3 = request.data["field3"]
-        scores.field4 = request.data["field4"]
-        scores.field5 = request.data["field5"]
-        scores.field6 = request.data["field6"]
-        scores.field7 = request.data["field7"]
-    if scores.sheetType == ScoresheetEnum.REDESIGN:
-            scores.field1 = request.data["field1"]
-            scores.field2 = request.data["field2"]
-            scores.field3 = request.data["field3"]
-            scores.field4 = request.data["field4"]
-            scores.field5 = request.data["field5"]
-            scores.field6 = request.data["field6"]
-            scores.field7 = request.data["field7"]
-            scores.field9 = request.data["field8"]
-    else:
-        scores.field1 = request.data["field1"]
-        scores.field2 = request.data["field2"]
-        scores.field3 = request.data["field3"]
-        scores.field4 = request.data["field4"]
-        scores.field5 = request.data["field5"]
-        scores.field6 = request.data["field6"]
-        scores.field7 = request.data["field7"]
-        scores.field8 = request.data["field8"]
-        scores.field9 = request.data["field9"]
-        if scores.sheetType == ScoresheetEnum.RUNPENALTIES:
-            scores.field10 = request.data["field10"]
-            scores.field11 = request.data["field11"]
-            scores.field12 = request.data["field12"]
-            scores.field13 = request.data["field13"]
-            scores.field14 = request.data["field14"]
-            scores.field15 = request.data["field15"]
-            scores.field16 = request.data["field16"]
-            scores.field17 = request.data["field17"]
+    try:
+        print(f"Update scores request data: {request.data}")
+        scores = get_object_or_404(Scoresheet, id=request.data["id"])
+        print(f"Found scoresheet: {scores.id}, type: {scores.sheetType}")
+        if scores.sheetType == ScoresheetEnum.OTHERPENALTIES:
+            print("Processing OTHERPENALTIES scoresheet")
+            scores.field1 = request.data.get("field1") or 0
+            scores.field2 = request.data.get("field2") or 0
+            scores.field3 = request.data.get("field3") or 0
+            scores.field4 = request.data.get("field4") or 0
+            scores.field5 = request.data.get("field5") or 0
+            scores.field6 = request.data.get("field6") or 0
+            scores.field7 = request.data.get("field7") or 0
+        elif scores.sheetType == ScoresheetEnum.REDESIGN:
+            print("Processing REDESIGN scoresheet")
+            scores.field1 = request.data.get("field1") or 0
+            scores.field2 = request.data.get("field2") or 0
+            scores.field3 = request.data.get("field3") or 0
+            scores.field4 = request.data.get("field4") or 0
+            scores.field5 = request.data.get("field5") or 0
+            scores.field6 = request.data.get("field6") or 0
+            scores.field7 = request.data.get("field7") or 0
+            scores.field9 = request.data.get("field8") or ""
+        else:
+            print("Processing standard scoresheet")
+            scores.field1 = request.data.get("field1") or 0
+            scores.field2 = request.data.get("field2") or 0
+            scores.field3 = request.data.get("field3") or 0
+            scores.field4 = request.data.get("field4") or 0
+            scores.field5 = request.data.get("field5") or 0
+            scores.field6 = request.data.get("field6") or 0
+            scores.field7 = request.data.get("field7") or 0
+            scores.field8 = request.data.get("field8") or 0
+            scores.field9 = request.data.get("field9") or ""
+            if scores.sheetType == ScoresheetEnum.RUNPENALTIES:
+                print("Processing RUNPENALTIES additional fields")
+                scores.field10 = request.data.get("field10") or 0
+                scores.field11 = request.data.get("field11") or 0
+                scores.field12 = request.data.get("field12") or 0
+                scores.field13 = request.data.get("field13") or 0
+                scores.field14 = request.data.get("field14") or 0
+                scores.field15 = request.data.get("field15") or 0
+                scores.field16 = request.data.get("field16") or 0
+                scores.field17 = request.data.get("field17") or 0
+            
+        print(f"Saving scoresheet with data: field1={scores.field1}, field2={scores.field2}, etc.")
         
-    scores.save()
-    serializer = ScoresheetSerializer(instance=scores)
-    return Response({"updated_sheet": serializer.data})
+        # Only run validation if the scoresheet is being submitted (not just saved as draft)
+        if scores.isSubmitted:
+            scores.full_clean()  # This will run the clean() method and validation
+        
+        scores.save()
+        print("Scoresheet saved successfully")
+        serializer = ScoresheetSerializer(instance=scores)
+        print(f"Serialized data: {serializer.data}")
+        return Response({"updated_sheet": serializer.data})
+    except Exception as e:
+        print(f"Error in update_scores: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, TokenAuthentication])
