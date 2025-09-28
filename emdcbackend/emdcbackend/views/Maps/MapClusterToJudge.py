@@ -55,6 +55,22 @@ def cluster_by_judge_id(request, judge_id):
         return Response({"error": "No cluster found for the given judge"}, status=status.HTTP_404_NOT_FOUND)
 
 
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def all_clusters_by_judge_id(request, judge_id):
+    """Get all clusters for a judge across all contests"""
+    try:
+        mappings = MapJudgeToCluster.objects.filter(judgeid=judge_id)
+        cluster_ids = mappings.values_list('clusterid', flat=True)
+        clusters = JudgeClusters.objects.filter(id__in=cluster_ids)
+        
+        serializer = JudgeClustersSerializer(clusters, many=True)
+        return Response({"Clusters": serializer.data}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @api_view(["DELETE"])
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])

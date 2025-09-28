@@ -15,7 +15,7 @@ from rest_framework.authentication import SessionAuthentication, TokenAuthentica
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 
-from ...models import MapContestToJudge, Judge, Contest
+from ...models import MapContestToJudge, Judge, Contest, MapJudgeToCluster
 from ...serializers import JudgeSerializer
 from .MapContestToJudge import create_contest_to_judge_map
 
@@ -58,25 +58,46 @@ def assign_judge_to_contest(request):
         # Verify contest exists
         contest = get_object_or_404(Contest, id=contest_id)
         
-        # Check if judge is already assigned to this contest
-        existing_mapping = MapContestToJudge.objects.filter(
+        # Check if judge is already assigned to this contest AND cluster combination
+        existing_contest_mapping = MapContestToJudge.objects.filter(
             judgeid=judge_id, 
             contestid=contest_id
         ).first()
         
-        if existing_mapping:
+        existing_cluster_mapping = MapJudgeToCluster.objects.filter(
+            judgeid=judge_id,
+            clusterid=cluster_id
+        ).first()
+        
+        if existing_contest_mapping and existing_cluster_mapping:
             return Response(
-                {"error": f"Judge {judge.first_name} {judge.last_name} is already assigned to contest {contest.name}"}, 
+                {"error": f"Judge {judge.first_name} {judge.last_name} is already assigned to this contest and cluster combination"}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Create the contest-judge mapping
-        mapping_data = {
-            "contestid": contest_id,
-            "judgeid": judge_id
+        # Create the contest-judge mapping (only if not already exists)
+        if not existing_contest_mapping:
+            mapping_data = {
+                "contestid": contest_id,
+                "judgeid": judge_id
+            }
+            mapping_result = create_contest_to_judge_map(mapping_data)
+        else:
+            mapping_result = {"message": "Judge already assigned to contest"}
+        
+        # Create the judge-cluster mapping (needed for dashboard)
+        from ...views.Maps.MapClusterToJudge import map_cluster_to_judge
+        cluster_mapping_data = {
+            "judgeid": judge_id,
+            "clusterid": cluster_id
         }
         
-        mapping_result = create_contest_to_judge_map(mapping_data)
+        try:
+            cluster_mapping_result = map_cluster_to_judge(cluster_mapping_data)
+        except Exception as e:
+            # If cluster mapping fails, we should still proceed
+            # The contest mapping was successful
+            pass
         
         # Create score sheets for the judge in this contest's cluster
         from ...views.scoresheets import create_sheets_for_teams_in_cluster

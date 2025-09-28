@@ -17,6 +17,7 @@ from .Maps.MapClusterToJudge import map_cluster_to_judge,  delete_cluster_judge_
 from .scoresheets import create_sheets_for_teams_in_cluster, delete_sheets_for_teams_in_cluster
 from ..auth.views import create_user
 from ..models import Judge, Scoresheet, MapScoresheetToTeamJudge, MapJudgeToCluster, Teams, MapContestToJudge, MapUserToRole
+from django.db.models import Count
 from ..serializers import JudgeSerializer
 from ..auth.serializers import UserSerializer
 
@@ -92,6 +93,22 @@ def create_judge(request):
 def edit_judge(request):
     try:
         judge = get_object_or_404(Judge, id=request.data["id"])
+        
+        # Clean up any existing duplicate mappings for this judge
+        with transaction.atomic():
+            # Clean up duplicate cluster mappings
+            cluster_duplicates = MapJudgeToCluster.objects.filter(judgeid=judge.id).values('judgeid').annotate(count=Count('id')).filter(count__gt=1)
+            if cluster_duplicates.exists():
+                # Keep the first mapping, delete the rest
+                first_cluster = MapJudgeToCluster.objects.filter(judgeid=judge.id).first()
+                MapJudgeToCluster.objects.filter(judgeid=judge.id).exclude(id=first_cluster.id).delete()
+            
+            # Clean up duplicate user mappings
+            user_duplicates = MapUserToRole.objects.filter(role=3, relatedid=judge.id).values('relatedid').annotate(count=Count('id')).filter(count__gt=1)
+            if user_duplicates.exists():
+                # Keep the first mapping, delete the rest
+                first_user = MapUserToRole.objects.filter(role=3, relatedid=judge.id).first()
+                MapUserToRole.objects.filter(role=3, relatedid=judge.id).exclude(id=first_user.id).delete()
         new_first_name = request.data["first_name"]
         new_last_name = request.data["last_name"]
         new_phone_number = request.data["phone_number"]
@@ -106,9 +123,25 @@ def edit_judge(request):
         new_username = request.data["username"]
         new_role = request.data["role"]
         with transaction.atomic():
-            cluster = MapJudgeToCluster.objects.get(judgeid=judge.id)  # get cluster id from mapping
+            # Handle multiple cluster mappings - get the first one or clean up duplicates
+            cluster_mappings = MapJudgeToCluster.objects.filter(judgeid=judge.id)
+            if cluster_mappings.count() > 1:
+                # Keep the first mapping and delete the rest
+                cluster = cluster_mappings.first()
+                cluster_mappings.exclude(id=cluster.id).delete()
+            else:
+                cluster = cluster_mappings.first()
+            
             clusterid = cluster.clusterid
-            user_mapping = MapUserToRole.objects.get(role=3, relatedid=judge.id)
+            
+            # Handle multiple user mappings - get the first one or clean up duplicates
+            user_mappings = MapUserToRole.objects.filter(role=3, relatedid=judge.id)
+            if user_mappings.count() > 1:
+                # Keep the first mapping and delete the rest
+                user_mapping = user_mappings.first()
+                user_mappings.exclude(id=user_mapping.id).delete()
+            else:
+                user_mapping = user_mappings.first()
             user = get_object_or_404(User, id=user_mapping.uuid)
             if user.username != new_username:
                 user.username = new_username
@@ -215,7 +248,7 @@ def edit_judge(request):
         serializer = JudgeSerializer(instance=judge)
     
     except Exception as e:
-        raise ValidationError({"detail": str(e)})
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
     return Response({"judge": serializer.data, "clusterid": clusterid, "user": user_serializer.data}, status=status.HTTP_200_OK)
 
@@ -343,3 +376,14 @@ def judge_disqualify_team(request):
      team.judge_disqualified = request.data["judge_disqualified"]
      team.save()
      return Response(status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+def get_all_judges(request):
+    """Get all judges"""
+    try:
+        judges = Judge.objects.all()
+        serializer = JudgeSerializer(judges, many=True)
+        return Response({"Judges": serializer.data}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
