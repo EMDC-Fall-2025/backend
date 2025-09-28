@@ -37,13 +37,13 @@ class Judge(models.Model):
     last_name = models.CharField(max_length=50)   # Add max_length
     phone_number = models.CharField(max_length=20)
     contestid = models.IntegerField()
-    presentation=models.BooleanField()
-    mdo=models.BooleanField()
-    journal=models.BooleanField()
-    runpenalties=models.BooleanField()
-    otherpenalties=models.BooleanField()
-    redesign=models.BooleanField()
-    championship=models.BooleanField()
+    presentation=models.BooleanField(default=False)
+    mdo=models.BooleanField(default=False)
+    journal=models.BooleanField(default=False)
+    runpenalties=models.BooleanField(default=False)
+    otherpenalties=models.BooleanField(default=False)
+    redesign=models.BooleanField(default=False)
+    championship=models.BooleanField(default=False)
     role = models.IntegerField(choices=JudgeRoleEnum.choices, null=True, blank=True)
 
 class MapJudgeToCluster(models.Model):

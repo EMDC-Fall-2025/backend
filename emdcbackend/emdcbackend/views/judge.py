@@ -38,7 +38,7 @@ def create_judge(request):
         with transaction.atomic():
             user_response, judge_response = create_user_and_judge(request.data)
 
-            # Map judge to user and contest, create sheets
+            # Map judge to user and contest
             responses = [
                 create_user_role_map({
                     "uuid": user_response.get("user").get("id"),
@@ -52,8 +52,18 @@ def create_judge(request):
                 map_cluster_to_judge({
                     "judgeid": judge_response.get("id"),
                     "clusterid": request.data["clusterid"]
-                }),
-                create_sheets_for_teams_in_cluster(
+                })
+            ]
+
+            # Check for any errors in mapping responses
+            for response in responses:
+                if isinstance(response, Response):
+                    return response
+
+            # Try to create score sheets for teams in cluster (if any teams exist)
+            score_sheets_response = []
+            try:
+                score_sheets_response = create_sheets_for_teams_in_cluster(
                     judge_response.get("id"),
                     request.data["clusterid"],
                     request.data["presentation"],
@@ -64,12 +74,10 @@ def create_judge(request):
                     request.data["redesign"],
                     request.data["championship"],
                 )
-            ]
-
-            # Check for any errors in mapping responses
-            for response in responses:
-                if isinstance(response, Response):
-                    return response
+            except ValidationError as e:
+                # If no teams in cluster, that's okay - judge can still be created
+                # Score sheets will be created when teams are added to the cluster
+                score_sheets_response = []
 
             return Response({
                 "user": user_response,
@@ -77,7 +85,7 @@ def create_judge(request):
                 "user_map": responses[0],
                 "contest_map": responses[1],
                 "cluster_map": responses[2],
-                "score_sheets": responses[3]
+                "score_sheets": score_sheets_response
             }, status=status.HTTP_201_CREATED)
 
     except ValidationError as e:  # Catching ValidationErrors specifically
@@ -261,16 +269,22 @@ def delete_judge(request, judge_id):
         scoresheet_mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
         scoresheet_ids = scoresheet_mappings.values_list('scoresheetid', flat=True)
         scoresheets = Scoresheet.objects.filter(id__in=scoresheet_ids)
-        user_mapping = MapUserToRole.objects.get(role=3, relatedid=judge_id)
-        user = get_object_or_404(User, id=user_mapping.uuid)
-        cluster_mapping = MapJudgeToCluster.objects.get(judgeid=judge_id)
+        user_mapping = MapUserToRole.objects.filter(role=3, relatedid=judge_id).first()
+        if user_mapping:
+            user = get_object_or_404(User, id=user_mapping.uuid)
+        else:
+            user = None
+            
+        cluster_mapping = MapJudgeToCluster.objects.filter(judgeid=judge_id).first()
         teams_mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
         contest_mapping = MapContestToJudge.objects.filter(judgeid=judge_id)
         # scoresheet_team_judge = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
 
-        # delete associataed user
-        user.delete()
-        user_mapping.delete()
+        # delete associated user
+        if user:
+            user.delete()
+        if user_mapping:
+            user_mapping.delete()
 
         # delete associated scoresheets
         for scoresheet in scoresheets:
@@ -284,7 +298,8 @@ def delete_judge(request, judge_id):
         contest_mapping.delete()
 
         # delete associated judge-cluster mapping
-        cluster_mapping.delete()
+        if cluster_mapping:
+            cluster_mapping.delete()
 
         # delete the judge
         judge.delete()
@@ -297,6 +312,10 @@ def delete_judge(request, judge_id):
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 def create_judge_instance(judge_data):
+    """
+    Create a judge instance in the database.
+    Validates judge data and saves to database.
+    """
     serializer = JudgeSerializer(data=judge_data)
     if serializer.is_valid():
         serializer.save()
@@ -305,23 +324,30 @@ def create_judge_instance(judge_data):
 
 
 def create_user_and_judge(data):
+    """
+    Create both user account and judge profile for a new judge.
+    Handles the complete user registration process including authentication setup.
+    """
+    # Create user account for authentication
     user_data = {"username": data["username"], "password": data["password"]}
     user_response = create_user(user_data)
     if not user_response.get('user'):
         raise ValidationError('User creation failed.')
+    
+    # Create judge profile with contest-specific data
     judge_data = {
         "first_name": data["first_name"],
         "last_name": data["last_name"],
         "phone_number": data["phone_number"],
         "contestid": data["contestid"],
-        "presentation": data["presentation"],
-        "mdo": data["mdo"],
-        "journal": data["journal"],
-        "runpenalties": data["runpenalties"],
-        "otherpenalties": data["otherpenalties"],
-        "redesign": data["redesign"],
-        "championship": data["championship"],
-        "role": data["role"]
+        "presentation": data.get("presentation", False),
+        "mdo": data.get("mdo", False),
+        "journal": data.get("journal", False),
+        "runpenalties": data.get("runpenalties", False),
+        "otherpenalties": data.get("otherpenalties", False),
+        "redesign": data.get("redesign", False),
+        "championship": data.get("championship", False),
+        "role": data.get("role", 3)
     }
     judge_response = create_judge_instance(judge_data)
     if not judge_response.get('id'):  # If judge creation fails, raise an exception

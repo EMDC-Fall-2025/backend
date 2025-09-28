@@ -80,8 +80,12 @@ def get_all_contests_by_organizer(request):
         for mapping in mappings:
             organizer_id = mapping.organizerid
             contest_id = mapping.contestid
-            contest = Contest.objects.get(id=contest_id)
-            contests_by_organizer[organizer_id].append(contest)
+            try:
+                contest = Contest.objects.get(id=contest_id)
+                contests_by_organizer[organizer_id].append(contest)
+            except Contest.DoesNotExist:
+                # Skip if contest doesn't exist
+                continue
 
         # Get all organizers
         organizers = Organizer.objects.all()
@@ -113,8 +117,12 @@ def get_organizer_names_by_contests(request):
         for mapping in mappings:
             contest_id = mapping.contestid
             organizer_id = mapping.organizerid
-            organizer = Organizer.objects.get(id=organizer_id)
-            contests_with_organizers[contest_id].append(organizer.first_name + " "+organizer.last_name)  # Assuming the organizer has a 'name' field
+            try:
+                organizer = Organizer.objects.get(id=organizer_id)
+                contests_with_organizers[contest_id].append(organizer.first_name + " "+organizer.last_name)  # Assuming the organizer has a 'name' field
+            except Organizer.DoesNotExist:
+                # Skip if organizer doesn't exist
+                continue
 
         # Get all contests (including those without organizers)
         contests = Contest.objects.all()

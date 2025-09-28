@@ -49,7 +49,7 @@ def get_contest_id_by_team_id(request,team_id):
     serializer = ContestSerializer(instance=contest)
     return Response({"Contest":serializer.data},status=status.HTTP_200_OK)
   except MapContestToTeam.DoesNotExist:
-    return Response({"error: No Contest Found for given Team"},status=status.http_404)
+    return Response({"error": "No Contest Found for given Team"}, status=status.HTTP_404_NOT_FOUND)
 
 
 @api_view(["POST"])
