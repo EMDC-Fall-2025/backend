@@ -1,30 +1,68 @@
 from django.urls import path
 from .auth import views
+
 from .views.Maps.MapClusterToContest import all_clusters_by_contest_id
-from .views.Maps.MapClusterToTeam import create_cluster_team_mapping, delete_cluster_team_mapping_by_id, \
+from .views.Maps.MapClusterToTeam import (
+    create_cluster_team_mapping, delete_cluster_team_mapping_by_id,
     teams_by_cluster_id, cluster_by_team_id, get_teams_by_cluster_rank
-from .views.Maps.MapScoreSheet import create_score_sheet_mapping, score_sheet_by_judge_team, \
-    delete_score_sheet_mapping_by_id, score_sheets_by_judge, submit_all_penalty_sheets_for_judge, all_sheets_submitted_for_contests
-from .views.judge import create_judge, judge_by_id, edit_judge, delete_judge, are_all_score_sheets_submitted, judge_disqualify_team
-from .views.organizer import create_organizer, organizer_by_id, edit_organizer, delete_organizer, \
+)
+from .views.Maps.MapScoreSheet import (
+    create_score_sheet_mapping, score_sheet_by_judge_team,
+    delete_score_sheet_mapping_by_id, score_sheets_by_judge,
+    submit_all_penalty_sheets_for_judge, all_sheets_submitted_for_contests
+)
+from .views.judge import (
+    create_judge, judge_by_id, edit_judge, delete_judge,
+    are_all_score_sheets_submitted, judge_disqualify_team
+)
+from .views.organizer import (
+    create_organizer, organizer_by_id, edit_organizer, delete_organizer,
     organizer_disqualify_team, get_all_organizers
+)
 from .views.coach import create_coach, coach_by_id, edit_coach, delete_coach, coach_get_all
 from .views.contest import contest_by_id, contest_get_all, create_contest, edit_contest, delete_contest
-from .views.team import create_team, team_by_id, edit_team, delete_team_by_id, get_teams_by_team_rank, create_team_after_judge, is_team_disqualified, get_all_teams
-from .views.Maps.MapCoachToTeam import create_coach_team_mapping, coach_by_team_id, delete_coach_team_mapping_by_id, teams_by_coach_id, coaches_by_teams
+from .views.team import (
+    create_team, team_by_id, edit_team, delete_team_by_id, get_teams_by_team_rank,
+    create_team_after_judge, is_team_disqualified, get_all_teams
+)
+from .views.Maps.MapCoachToTeam import (
+    create_coach_team_mapping, coach_by_team_id, delete_coach_team_mapping_by_id,
+    teams_by_coach_id, coaches_by_teams
+)
 from .views.clusters import cluster_by_id, create_cluster, clusters_get_all, delete_cluster, edit_cluster
-from .views.Maps.MapContestToJudge import create_contest_judge_mapping, get_all_judges_by_contest_id, get_contest_id_by_judge_id, delete_contest_judge_mapping_by_id
-from .views.Maps.MapContestToOrganizer import create_contest_organizer_mapping, get_organizers_by_contest_id, get_contests_by_organizer_id, delete_contest_organizer_mapping, \
-    get_all_contests_by_organizer, get_organizer_names_by_contests
-from .views.Maps.MapContestToTeam import create_contest_team_mapping, get_teams_by_contest_id, \
+from .views.Maps.MapContestToJudge import (
+    create_contest_judge_mapping, get_all_judges_by_contest_id, get_contest_id_by_judge_id,
+    delete_contest_judge_mapping_by_id
+)
+from .views.Maps.MapContestToOrganizer import (
+    create_contest_organizer_mapping, get_organizers_by_contest_id, get_contests_by_organizer_id,
+    delete_contest_organizer_mapping, get_all_contests_by_organizer, get_organizer_names_by_contests
+)
+from .views.Maps.MapContestToTeam import (
+    create_contest_team_mapping, get_teams_by_contest_id,
     get_contest_id_by_team_id, delete_contest_team_mapping_by_id, get_contests_by_team_ids
-from .views.scoresheets import create_score_sheet, edit_score_sheet, scores_by_id, delete_score_sheet, \
+)
+from .views.scoresheets import (
+    create_score_sheet, edit_score_sheet, scores_by_id, delete_score_sheet,
     edit_score_sheet_field, update_scores, get_scoresheet_details_by_team, get_scoresheet_details_for_contest
+)
 from .views.admin import create_admin, admins_get_all, admin_by_id, delete_admin, edit_admin
 from .views.Maps.MapUserToRole import create_user_role_mapping, delete_user_role_mapping, get_user_by_role
-from .views.Maps.MapClusterToJudge import create_cluster_judge_mapping, delete_cluster_judge_mapping_by_id, cluster_by_judge_id, judges_by_cluster_id
-from .views.tabulation import tabulate_scores
-from .views.Maps.MapAwardToTeam import create_award_team_mapping, get_award_id_by_team_id, delete_award_team_mapping_by_id, update_award_team_mapping
+from .views.Maps.MapClusterToJudge import (
+    create_cluster_judge_mapping, delete_cluster_judge_mapping_by_id,
+    cluster_by_judge_id, judges_by_cluster_id
+)
+from .views.Maps.MapAwardToTeam import (
+    create_award_team_mapping, get_award_id_by_team_id, delete_award_team_mapping_by_id, update_award_team_mapping
+)
+
+# Tabulation (existing + new)
+from .views.tabulation import (
+    tabulate_scores,          # existing
+    preliminary_results,      # NEW
+    championship_results,     # NEW
+    redesign_results,         # NEW
+)
 
 urlpatterns = [
     # Admins
@@ -76,9 +114,8 @@ urlpatterns = [
     path('api/team/rankedteams/', get_teams_by_team_rank, name='get_teams_by_team_rank'),
     path('api/team/isDisqualified/<int:team_id>/', is_team_disqualified, name='is_team_disqualified'),
     path('api/team/getAllTeams/', get_all_teams, name='get_all_teams'),
-    
-    # Maps
 
+    # Maps
     path('api/mapping/coachToTeam/create/', create_coach_team_mapping, name='create_coach_team_mapping'),
     path('api/mapping/coachToTeam/getCoachByTeam/<int:team_id>/', coach_by_team_id, name='coach_by_team_id'),
     path('api/mapping/coachToTeam/delete/<int:map_id>/', delete_coach_team_mapping_by_id, name='delete_coach_team_mapping'),
@@ -97,10 +134,8 @@ urlpatterns = [
     path('api/mapping/contestToOrganizer/create/', create_contest_organizer_mapping, name='create_contest_organizer_mapping'),
     path('api/mapping/contestToOrganizer/getByOrganizer/<int:organizer_id>/', get_contests_by_organizer_id, name='get_contests_by_organizer_id'),
     path('api/mapping/contestToOrganizer/delete/<int:organizer_id>/<int:contest_id>/', delete_contest_organizer_mapping, name='delete_contest_organizer_mapping'),
-    path('api/mapping/contestToOrganizer/getAllContestsPerOrganizer/', get_all_contests_by_organizer,
-         name='get_all_contests_by_organizer'),
-    path('api/mapping/contestToOrganizer/getOrganizerNames/', get_organizer_names_by_contests,
-         name='get_organizer_names_by_contests'),
+    path('api/mapping/contestToOrganizer/getAllContestsPerOrganizer/', get_all_contests_by_organizer, name='get_all_contests_by_organizer'),
+    path('api/mapping/contestToOrganizer/getOrganizerNames/', get_organizer_names_by_contests, name='get_organizer_names_by_contests'),
 
     path('api/mapping/judgeToContest/getAllJudges/<int:contest_id>/', get_all_judges_by_contest_id, name='get_all_judges_by_contest_id'),
     path('api/mapping/teamToContest/getTeamsByContest/<int:contest_id>/', get_teams_by_contest_id, name='get_teams_by_contest_id'),
@@ -136,7 +171,6 @@ urlpatterns = [
     path('api/cluster/create/', create_cluster, name='create_cluster'),
     path('api/cluster/edit/', edit_cluster, name='edit_cluster'),
     path('api/cluster/delete/<int:cluster_id>/', delete_cluster, name='delete_cluster'),
-    
 
     # Contests
     path('api/contest/get/<int:contest_id>/', contest_by_id, name='contest_by_id'),
@@ -155,13 +189,15 @@ urlpatterns = [
     path('api/scoreSheet/getDetails/<int:team_id>/', get_scoresheet_details_by_team, name='get_score_sheets_by_team_id'),
     path('api/scoreSheet/getMasterDetails/', get_scoresheet_details_for_contest, name='get_scoresheet_details_for_contest'),
 
-    # Tabulation
-    path('api/tabulation/tabulateScores/',tabulate_scores, name='tabulate_scores'),
+    # Tabulation (existing + phases)
+    path('api/tabulation/tabulateScores/', tabulate_scores, name='tabulate_scores'),
+    path('api/tabulation/preliminaryResults/', preliminary_results, name='preliminary_results'),
+    path('api/tabulation/championshipResults/', championship_results, name='championship_results'),
+    path('api/tabulation/redesignResults/', redesign_results, name='redesign_results'),
 
     # Special Awards
     path('api/mapping/awardToTeam/create/', create_award_team_mapping, name='create_award_team_mapping'),
     path('api/mapping/awardToTeam/getAwardByTeam/<int:team_id>/', get_award_id_by_team_id, name='get_award_id_by_team_id'),
     path('api/mapping/awardToTeam/delete/<int:team_id>/<str:award_name>/', delete_award_team_mapping_by_id, name='delete_award_team_mapping_by_id'),
     path('api/mapping/awardToTeam/update/<int:team_id>/<str:award_name>/', update_award_team_mapping, name='update_award_team_mapping'),
-    
 ]
