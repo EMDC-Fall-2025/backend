@@ -78,24 +78,19 @@ def tabulate_scores(request):
           totalscores[5] += 1
 
         elif scoresheet.sheetType == ScoresheetEnum.RUNPENALTIES:
-          # we then check for if there is penalties for run 1, and increment the counter since run penalties are taken as an average
           totalscores[7] += scoresheet.field1+ scoresheet.field2+ scoresheet.field3 + scoresheet.field4 + scoresheet.field5 + scoresheet.field6 + scoresheet.field7 + scoresheet.field8
-          totalscores[8] += 1
-          # we then grab the penalties for run2 and do same style of calculation that we did for run1
           totalscores[9] += scoresheet.field10+ scoresheet.field11+ scoresheet.field12 + scoresheet.field13 + scoresheet.field14 + scoresheet.field15 + scoresheet.field16 + scoresheet.field17
-          totalscores[10] += 1
 
         elif scoresheet.sheetType == ScoresheetEnum.OTHERPENALTIES:
           totalscores[6] += scoresheet.field1+ scoresheet.field2+ scoresheet.field3 + scoresheet.field4 + scoresheet.field5 + scoresheet.field6 + scoresheet.field7
     # scores are compiled but not averaged yet, we're going to average the scores and then save that score as the total score. 
 
-    # problem statement: 
     team.presentation_score = qdiv(totalscores[0], totalscores[1])
     team.journal_score = qdiv(totalscores[2], totalscores[3])
     team.machinedesign_score = qdiv(totalscores[4], totalscores[5])
 
-    team.penalties_score = totalscores[6] + qdiv(totalscores[7], totalscores[8]) + qdiv(totalscores[9], totalscores[10])
-    team.total_score = (team.presentation_score + team.journal_score + team.machinedesign_score) - team.penalties_score
+    team.penalties_score = totalscores[6] + totalscores[7] + totalscores[9]
+    team.total_score = team.presentation_score + team.journal_score + team.machinedesign_score - team.penalties_score
     
     
     team.save()
@@ -130,12 +125,12 @@ def set_cluster_rank(data):
     cluster_team_ids = MapClusterToTeam.objects.filter(clusterid=data["clusterid"])
     clusterteams = []
     for mapping in cluster_team_ids:
-      tempteam = Teams.objects.get(id=mapping.teamid)
-      if tempteam:
+      try:
+        tempteam = Teams.objects.get(id=mapping.teamid)
         if not tempteam.organizer_disqualified:
           clusterteams.append(tempteam)
-      else:
-        raise ValidationError('Team Cannot Be Found.')
+      except Teams.DoesNotExist:
+        continue
     clusterteams.sort(key=lambda x: x.total_score, reverse=True)
     for x in range(len(clusterteams)):
         clusterteams[x].cluster_rank = x+1
