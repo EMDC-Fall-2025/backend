@@ -14,6 +14,8 @@ from ..models import (
     MapClusterToTeam,
     JudgeClusters,
     MapContestToCluster,
+    MapContestToOrganizer,
+    MapUserToRole,
 )
 
 # ---------- shared helpers ----------
@@ -32,7 +34,6 @@ def sort_by_score_with_id_fallback(teams, score_attr: str):
     - primary: score descending (higher first)
     - tie-break: team.id ascending (lower id first)
     """
-    # Implemented as (-score, id) ascending to avoid reverse=True complexity
     def _score(t):
         v = getattr(t, score_attr)
         return float(v) if v is not None else 0.0
@@ -41,11 +42,11 @@ def sort_by_score_with_id_fallback(teams, score_attr: str):
 
 def _compute_totals_for_team(team: Teams):
     """
-    Compute totals/averages exactly like your tabulate_scores loop.
+    Compute totals/averages exactly like your original tabulate loop.
     Mutates and saves the team with updated scores.
     """
     score_map = MapScoresheetToTeamJudge.objects.filter(teamid=team.id)
-    totalscores = [0] * 11  # 0..10 as documented
+    totalscores = [0] * 11  # indices documented below
 
     for mapping in score_map:
         try:
@@ -108,47 +109,7 @@ def recompute_totals_and_ranks(contest_id: int):
     set_team_rank({"contestid": contest_id})
 
 
-# ---------- existing endpoints ----------
-
-@api_view(["PUT"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
-@permission_classes([IsAuthenticated])
-def tabulate_scores(request):
-    contest_id = request.data.get("contestid")
-    if not contest_id:
-        return Response({"detail": "contestid is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-    # collect teams
-    contest_team_ids = MapContestToTeam.objects.filter(contestid=contest_id)
-    contestteams = []
-    for mapping in contest_team_ids:
-        try:
-            tempteam = Teams.objects.get(id=mapping.teamid)
-        except Teams.DoesNotExist:
-            return Response({"detail": f"Team {mapping.teamid} not found"}, status=status.HTTP_404_NOT_FOUND)
-        contestteams.append(tempteam)
-
-    # collect clusters (for later ranking)
-    contest_cluster_ids = MapContestToCluster.objects.filter(contestid=contest_id)
-    clusters = []
-    for mapping in contest_cluster_ids:
-        try:
-            tempcluster = JudgeClusters.objects.get(id=mapping.clusterid)
-        except JudgeClusters.DoesNotExist:
-            return Response({"detail": f"Cluster {mapping.clusterid} not found"}, status=status.HTTP_404_NOT_FOUND)
-        clusters.append(tempcluster)
-
-    # tabulate per team
-    for team in contestteams:
-        _compute_totals_for_team(team)
-
-    # set ranks
-    for cluster in clusters:
-        set_cluster_rank({"clusterid": cluster.id})
-    set_team_rank({"contestid": contest_id})
-
-    return Response(status=status.HTTP_200_OK)
-
+# ---------- ranking primitives ----------
 
 def set_team_rank(data):
     """Set contest-wide rank by total_score for eligible (non-organizer-disqualified) teams."""
@@ -188,41 +149,53 @@ def set_cluster_rank(data):
     return
 
 
-@api_view(["GET"])
+def _ensure_requester_is_organizer_of_contest(user, contest_id: int):
+    """
+    Allow only organizers mapped to this contest.
+    """
+    organizer_ids_for_user = list(
+        MapUserToRole.objects.filter(
+            uuid=user.id, role=MapUserToRole.RoleEnum.ORGANIZER
+        ).values_list("relatedid", flat=True)
+    )
+    return MapContestToOrganizer.objects.filter(
+        contestid=contest_id, organizerid__in=organizer_ids_for_user
+    ).exists()
+
+
+# ---------- endpoints ----------
+
+@api_view(["PUT"])
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
-def get_scoresheet_comments_by_team_id(request):
-    scoresheeids = MapScoresheetToTeamJudge.objects.filter(teamid=request.data.get("teamid"))
-    scoresheets = Scoresheet.objects.filter(id__in=scoresheeids)
-    comments = []
-    for sheet in scoresheets:
-        if sheet.field9 != "":
-            comments.append(sheet.field9)
-    return Response({"Comments": comments}, status=status.HTTP_200_OK)
+def tabulate_scores(request):
+    """
+    Recompute totals and set cluster+contest ranks. Does NOT change advancement flags.
+    Body: { "contestid": <int> }
+    """
+    contest_id = request.data.get("contestid")
+    if not contest_id:
+        return Response({"detail": "contestid is required"}, status=status.HTTP_400_BAD_REQUEST)
 
+    # recompute + ranks
+    recompute_totals_and_ranks(contest_id)
+    return Response(status=status.HTTP_200_OK)
 
-# ---------- NEW: phase endpoints ----------
 
 @api_view(["PUT"])
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def preliminary_results(request):
     """
-    Advance EXACTLY X teams per cluster by total_score.
-    Body: { "contestid": <int>, "advance_count": <int> }
+    NEW behavior: show ranked results per cluster, but DO NOT auto-advance anyone.
+    Organizers will choose advancers using set_advancers().
+    Body: { "contestid": <int> }
     """
     contest_id = request.data.get("contestid")
-    advance_count = request.data.get("advance_count")
     if not contest_id:
         return Response({"ok": False, "message": "contestid is required."}, status=status.HTTP_400_BAD_REQUEST)
-    try:
-        x = int(advance_count)
-        if x <= 0:
-            raise ValueError
-    except Exception:
-        return Response({"ok": False, "message": "advance_count must be a positive integer."}, status=status.HTTP_400_BAD_REQUEST)
 
-    # make totals fresh
+    # recompute + apply ranks
     recompute_totals_and_ranks(contest_id)
 
     response_clusters = []
@@ -237,20 +210,12 @@ def preliminary_results(request):
                 continue
 
         ordered = sort_by_score_with_id_fallback(cluster_teams, "total_score")
-
-        # mark top X as advanced; if fewer than X teams, advance all
-        top = ordered[:x] if x < len(ordered) else ordered[:]
-        top_ids = {t.id for t in top}
-
-        for t in ordered:
-            t.advanced_to_championship = (t.id in top_ids)
-            t.save(update_fields=["advanced_to_championship"])
-
         response_clusters.append({
             "cluster_id": cm.clusterid,
             "teams": [
                 {
                     "team_id": t.id,
+                    "team_name": t.team_name,
                     "total": float(t.total_score or 0.0),
                     "cluster_rank": int(t.cluster_rank) if t.cluster_rank else None,
                     "advanced": bool(t.advanced_to_championship),
@@ -259,7 +224,76 @@ def preliminary_results(request):
             ]
         })
 
-    return Response({"ok": True, "message": "Preliminary complete.", "data": response_clusters}, status=status.HTTP_200_OK)
+    return Response({"ok": True, "message": "Preliminary standings computed.", "data": response_clusters}, status=status.HTTP_200_OK)
+
+
+@api_view(["PUT"])
+@authentication_classes([SessionAuthentication, TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def set_advancers(request):
+    """
+    Organizers pick which teams advance to CHAMPIONSHIP (single pool later).
+    Body: { "contestid": <int>, "team_ids": [1,2,3,...] }  (IDs that ADVANCE)
+    Security: requester must be an organizer of this contest.
+    Behavior:
+      - All teams in the contest are set advanced_to_championship=False
+      - Provided team_ids are set to True
+      - Clears previous championship_rank (if any)
+    """
+    contest_id = request.data.get("contestid")
+    team_ids = request.data.get("team_ids")
+
+    if not contest_id:
+        return Response({"ok": False, "message": "contestid is required"}, status=400)
+    if not isinstance(team_ids, list):
+        return Response({"ok": False, "message": "team_ids must be a list of ints"}, status=400)
+
+    if not _ensure_requester_is_organizer_of_contest(request.user, contest_id):
+        return Response({"ok": False, "message": "Organizer of this contest required."}, status=403)
+
+    # Limit changes to teams actually in the contest
+    contest_team_ids = list(
+        MapContestToTeam.objects.filter(contestid=contest_id).values_list("teamid", flat=True)
+    )
+
+    # reset everyone in contest
+    Teams.objects.filter(id__in=contest_team_ids).update(advanced_to_championship=False, championship_rank=None)
+
+    # set selected advancers (intersection safety)
+    valid_selection = [tid for tid in team_ids if tid in contest_team_ids]
+    Teams.objects.filter(id__in=valid_selection).update(advanced_to_championship=True)
+
+    # Return summary
+    advancers = list(
+        Teams.objects.filter(id__in=contest_team_ids, advanced_to_championship=True)
+            .values("id", "team_name")
+            .order_by("id")
+    )
+    return Response({"ok": True, "advanced_count": len(advancers), "advanced": advancers}, status=200)
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def list_advancers(request):
+    """
+    Convenience endpoint to list current advancers for a contest.
+    Query: ?contestid=<int>
+    """
+    try:
+        contest_id = int(request.GET.get("contestid"))
+    except Exception:
+        return Response({"ok": False, "message": "contestid is required as query param"}, status=400)
+
+    contest_team_ids = list(
+        MapContestToTeam.objects.filter(contestid=contest_id).values_list("teamid", flat=True)
+    )
+    advancers = list(
+        Teams.objects.filter(id__in=contest_team_ids, advanced_to_championship=True)
+            .values("id", "team_name")
+            .order_by("id")
+    )
+    return Response({"ok": True, "advanced_count": len(advancers), "advanced": advancers}, status=200)
 
 
 @api_view(["PUT"])
@@ -267,16 +301,17 @@ def preliminary_results(request):
 @permission_classes([IsAuthenticated])
 def championship_results(request):
     """
-    Championship pool = advanced teams. Rank by journal_score only.
+    Championship pool = teams flagged as advanced_to_championship=True (single pool).
+    Rank by journal_score only.
     Body: { "contestid": <int> }
     """
     contest_id = request.data.get("contestid")
     if not contest_id:
         return Response({"ok": False, "message": "contestid is required."}, status=status.HTTP_400_BAD_REQUEST)
 
+    # keep computed fields fresh (in case penalties/fields changed)
     recompute_totals_and_ranks(contest_id)
 
-    # pool = all advanced teams in this contest
     team_ids = MapContestToTeam.objects.filter(contestid=contest_id).values_list("teamid", flat=True)
     pool = list(Teams.objects.filter(id__in=list(team_ids), advanced_to_championship=True))
 
@@ -287,7 +322,7 @@ def championship_results(request):
         t.save(update_fields=["championship_rank"])
 
     payload = [
-        {"team_id": t.id, "journal": float(t.journal_score or 0.0), "championship_rank": t.championship_rank}
+        {"team_id": t.id, "team_name": t.team_name, "journal": float(t.journal_score or 0.0), "championship_rank": t.championship_rank}
         for t in ordered
     ]
     return Response({"ok": True, "message": "Championship ranking complete.", "data": payload}, status=status.HTTP_200_OK)
@@ -298,7 +333,8 @@ def championship_results(request):
 @permission_classes([IsAuthenticated])
 def redesign_results(request):
     """
-    Redesign pool = NOT advanced teams. Rank by total_score (single pool).
+    Redesign pool = teams with advanced_to_championship=False in this contest (single pool).
+    Rank by total_score.
     Body: { "contestid": <int> }
     """
     contest_id = request.data.get("contestid")
@@ -311,6 +347,6 @@ def redesign_results(request):
     pool = list(Teams.objects.filter(id__in=list(team_ids), advanced_to_championship=False))
 
     ordered = sort_by_score_with_id_fallback(pool, "total_score")
-    payload = [{"team_id": t.id, "total": float(t.total_score or 0.0)} for t in ordered]
+    payload = [{"team_id": t.id, "team_name": t.team_name, "total": float(t.total_score or 0.0)} for t in ordered]
 
     return Response({"ok": True, "message": "Redesign ranking prepared.", "data": payload}, status=status.HTTP_200_OK)

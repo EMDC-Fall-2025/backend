@@ -35,8 +35,9 @@ from .views.Maps.MapContestToJudge import (
     delete_contest_judge_mapping_by_id
 )
 from .views.Maps.MapContestToOrganizer import (
-    create_contest_organizer_mapping, get_organizers_by_contest_id, get_contests_by_organizer_id,
-    delete_contest_organizer_mapping, get_all_contests_by_organizer, get_organizer_names_by_contests
+    create_contest_organizer_mapping, get_contests_by_organizer_id,
+    delete_contest_organizer_mapping, get_all_contests_by_organizer, get_organizer_names_by_contests,
+    get_organizers_by_contest_id
 )
 from .views.Maps.MapContestToTeam import (
     create_contest_team_mapping, get_teams_by_contest_id,
@@ -56,12 +57,14 @@ from .views.Maps.MapAwardToTeam import (
     create_award_team_mapping, get_award_id_by_team_id, delete_award_team_mapping_by_id, update_award_team_mapping
 )
 
-# Tabulation (existing + new)
+# Tabulation (incl. new endpoints)
 from .views.tabulation import (
-    tabulate_scores,          # existing
-    preliminary_results,      # NEW
-    championship_results,     # NEW
-    redesign_results,         # NEW
+    tabulate_scores,
+    preliminary_results,
+    championship_results,
+    redesign_results,
+    set_advancers,      # NEW
+    list_advancers,     # NEW
 )
 
 urlpatterns = [
@@ -136,10 +139,10 @@ urlpatterns = [
     path('api/mapping/contestToOrganizer/delete/<int:organizer_id>/<int:contest_id>/', delete_contest_organizer_mapping, name='delete_contest_organizer_mapping'),
     path('api/mapping/contestToOrganizer/getAllContestsPerOrganizer/', get_all_contests_by_organizer, name='get_all_contests_by_organizer'),
     path('api/mapping/contestToOrganizer/getOrganizerNames/', get_organizer_names_by_contests, name='get_organizer_names_by_contests'),
+    path('api/mapping/organizerToContest/getOrganizersByContest/<int:contest_id>/', get_organizers_by_contest_id, name='get_organizers_by_contest_id'),
 
     path('api/mapping/judgeToContest/getAllJudges/<int:contest_id>/', get_all_judges_by_contest_id, name='get_all_judges_by_contest_id'),
     path('api/mapping/teamToContest/getTeamsByContest/<int:contest_id>/', get_teams_by_contest_id, name='get_teams_by_contest_id'),
-    path('api/mapping/organizerToContest/getOrganizersByContest/<int:contest_id>/', get_organizers_by_contest_id, name='get_organizers_by_contest_id'),
 
     path('api/mapping/userToRole/create/', create_user_role_mapping, name='create_user_role_mapping'),
     path('api/mapping/userToRole/delete/<int:mapping_id>/', delete_user_role_mapping, name='delete_user_role_mapping'),
@@ -189,11 +192,13 @@ urlpatterns = [
     path('api/scoreSheet/getDetails/<int:team_id>/', get_scoresheet_details_by_team, name='get_score_sheets_by_team_id'),
     path('api/scoreSheet/getMasterDetails/', get_scoresheet_details_for_contest, name='get_scoresheet_details_for_contest'),
 
-    # Tabulation (existing + phases)
+    # Tabulation
     path('api/tabulation/tabulateScores/', tabulate_scores, name='tabulate_scores'),
     path('api/tabulation/preliminaryResults/', preliminary_results, name='preliminary_results'),
     path('api/tabulation/championshipResults/', championship_results, name='championship_results'),
     path('api/tabulation/redesignResults/', redesign_results, name='redesign_results'),
+    path('api/tabulation/setAdvancers/', set_advancers, name='set_advancers'),           # NEW
+    path('api/tabulation/listAdvancers/', list_advancers, name='list_advancers'),       # NEW
 
     # Special Awards
     path('api/mapping/awardToTeam/create/', create_award_team_mapping, name='create_award_team_mapping'),
