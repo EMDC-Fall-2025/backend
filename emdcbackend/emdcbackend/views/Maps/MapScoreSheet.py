@@ -208,3 +208,32 @@ def map_score_sheets_for_team_in_cluster(team_id, cluster_id):
     serializer = ScoresheetSerializer(scoresheets, many=True)
 
     return serializer.data
+
+
+# Per-team submission status: how many assigned score sheets have been submitted
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def all_submitted_for_team(request, team_id: int):
+    try:
+        mappings = MapScoresheetToTeamJudge.objects.filter(teamid=team_id)
+        total = mappings.count()
+        if total == 0:
+            return Response({
+                "teamId": team_id,
+                "submittedCount": 0,
+                "totalCount": 0,
+                "allSubmitted": False,
+            }, status=status.HTTP_200_OK)
+
+        sheet_ids = mappings.values_list("scoresheetid", flat=True)
+        submitted_count = Scoresheet.objects.filter(id__in=sheet_ids, isSubmitted=True).count()
+
+        return Response({
+            "teamId": team_id,
+            "submittedCount": submitted_count,
+            "totalCount": total,
+            "allSubmitted": submitted_count == total,
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

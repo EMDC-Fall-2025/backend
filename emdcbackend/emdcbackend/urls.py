@@ -4,7 +4,7 @@ from .views.Maps.MapClusterToContest import all_clusters_by_contest_id
 from .views.Maps.MapClusterToTeam import create_cluster_team_mapping, delete_cluster_team_mapping_by_id, \
     teams_by_cluster_id, cluster_by_team_id, get_teams_by_cluster_rank
 from .views.Maps.MapScoreSheet import create_score_sheet_mapping, score_sheet_by_judge_team, \
-    delete_score_sheet_mapping_by_id, score_sheets_by_judge, submit_all_penalty_sheets_for_judge, all_sheets_submitted_for_contests
+    delete_score_sheet_mapping_by_id, score_sheets_by_judge, submit_all_penalty_sheets_for_judge, all_sheets_submitted_for_contests, all_submitted_for_team
 from .views.judge import create_judge, judge_by_id, edit_judge, delete_judge, are_all_score_sheets_submitted, judge_disqualify_team, get_all_judges
 from .views.organizer import create_organizer, organizer_by_id, edit_organizer, delete_organizer, \
     organizer_disqualify_team, get_all_organizers
@@ -142,6 +142,7 @@ urlpatterns = [
     path('api/mapping/scoreSheet/getSheetsByJudge/<int:judge_id>/', score_sheets_by_judge, name='score_sheets_by_judge'),
     path('api/mapping/scoreSheet/submitAllPenalties/', submit_all_penalty_sheets_for_judge, name='submit_all_penalty_sheets_for_judge'),
     path('api/mapping/scoreSheet/allSheetsSubmittedForContests/', all_sheets_submitted_for_contests, name="all_sheets_submitted_for_contests"),
+    path('api/mapping/scoreSheet/allSubmittedForTeam/<int:team_id>/', all_submitted_for_team, name='all_submitted_for_team'),
 
     # Clusters
     path('api/cluster/get/<int:cluster_id>/', cluster_by_id, name='cluster_by_id'),
