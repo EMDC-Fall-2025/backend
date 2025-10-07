@@ -29,23 +29,22 @@ def qdiv(numer, denom):
 @permission_classes([IsAuthenticated])
 def tabulate_scores(request):
   contest_team_ids = MapContestToTeam.objects.filter(contestid=request.data["contestid"])
-
   contestteams = []
   for mapping in contest_team_ids:
-    tempteam = Teams.objects.get(id=mapping.teamid)
-    if tempteam:
+    try:
+      tempteam = Teams.objects.get(id=mapping.teamid)
       contestteams.append(tempteam)
-    else:
-      return Response({"Error: Team Not Found"},status=status.HTTP_404_NOT_FOUND)
+    except Teams.DoesNotExist:
+      continue
   
   contest_cluster_ids = MapContestToCluster.objects.filter(contestid=request.data["contestid"])
   clusters = []
   for mapping in contest_cluster_ids:
-    tempcluster = JudgeClusters.objects.get(id=mapping.clusterid)
-    if tempcluster:
+    try:
+      tempcluster = JudgeClusters.objects.get(id=mapping.clusterid)
       clusters.append(tempcluster)
-    else:
-      return Response({"Error: Cluster Not Found"},status=status.HTTP_404_NOT_FOUND)
+    except JudgeClusters.DoesNotExist:
+      continue
   # at this point, we should have all of the teams for the contest, and we're going to go tabulate all of the total scores.
 
   for team in contestteams:
@@ -58,6 +57,7 @@ def tabulate_scores(request):
         scoresheets.append(tempscoresheet)
       else:
         return Response({"Error: Score Sheet Data Not Found from Mapping!"},status=status.HTTP_404_NOT_FOUND)
+    
     
     # tabulation time!
     # initialize a temp array to hold scores
@@ -79,23 +79,25 @@ def tabulate_scores(request):
 
         elif scoresheet.sheetType == ScoresheetEnum.RUNPENALTIES:
           # we then check for if there is penalties for run 1, and increment the counter since run penalties are taken as an average
-          totalscores[7] = totalscores[8] + scoresheet.field1+ scoresheet.field2+ scoresheet.field3 + scoresheet.field4 + scoresheet.field5 + scoresheet.field6 + scoresheet.field7 + scoresheet.field8
+          totalscores[7] += scoresheet.field1+ scoresheet.field2+ scoresheet.field3 + scoresheet.field4 + scoresheet.field5 + scoresheet.field6 + scoresheet.field7 + scoresheet.field8
           totalscores[8] += 1
           # we then grab the penalties for run2 and do same style of calculation that we did for run1
-          totalscores[9] = totalscores[10] + scoresheet.field10+ scoresheet.field11+ scoresheet.field12 + scoresheet.field13 + scoresheet.field14 + scoresheet.field15 + scoresheet.field16 + scoresheet.field17
+          totalscores[9] += scoresheet.field10+ scoresheet.field11+ scoresheet.field12 + scoresheet.field13 + scoresheet.field14 + scoresheet.field15 + scoresheet.field16 + scoresheet.field17
           totalscores[10] += 1
 
         elif scoresheet.sheetType == ScoresheetEnum.OTHERPENALTIES:
-          totalscores[6] = + scoresheet.field1+ scoresheet.field2+ scoresheet.field3 + scoresheet.field4 + scoresheet.field5 + scoresheet.field6 + scoresheet.field7
+          totalscores[6] += scoresheet.field1+ scoresheet.field2+ scoresheet.field3 + scoresheet.field4 + scoresheet.field5 + scoresheet.field6 + scoresheet.field7
     # scores are compiled but not averaged yet, we're going to average the scores and then save that score as the total score. 
 
     # problem statement: 
-    team.presentation_score = totalscores[0] / totalscores[1]
-    team.journal_score = totalscores[2] / totalscores[3]
-    team.machinedesign_score = totalscores[4] / totalscores[5]
+    team.presentation_score = qdiv(totalscores[0], totalscores[1])
+    team.journal_score = qdiv(totalscores[2], totalscores[3])
+    team.machinedesign_score = qdiv(totalscores[4], totalscores[5])
 
-    team.penalties_score = totalscores[6] + totalscores[7]/totalscores[8] +  totalscores[9]/totalscores[10]
+    team.penalties_score = totalscores[6] + qdiv(totalscores[7], totalscores[8]) + qdiv(totalscores[9], totalscores[10])
     team.total_score = (team.presentation_score + team.journal_score + team.machinedesign_score) - team.penalties_score
+    
+    
     team.save()
 
   # this is where we set the ranks for the teams in terms of clusters and contest.
@@ -110,12 +112,12 @@ def set_team_rank(data):
   contest_team_ids = MapContestToTeam.objects.filter(contestid = data["contestid"])
   contestteams = []
   for mapping in contest_team_ids:
-    tempteam = Teams.objects.get(id=mapping.teamid)
-    if tempteam:
+    try:
+      tempteam = Teams.objects.get(id=mapping.teamid)
       if not tempteam.organizer_disqualified:
         contestteams.append(tempteam)
-    else:
-      raise ValidationError('Team Cannot Be Found.')
+    except Teams.DoesNotExist:
+      continue
   # next goal: sort the array of teams by their total score!
   contestteams.sort(key=lambda x: x.total_score, reverse=True)
   for x in range(len(contestteams)):

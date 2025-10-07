@@ -59,6 +59,7 @@ class MapClusterToTeam(models.Model):
 
 class Teams(models.Model):
     team_name = models.CharField(max_length=99)
+    school_name = models.CharField(max_length=255, default='MNSU')
     journal_score = models.FloatField()
     presentation_score = models.FloatField()
     machinedesign_score = models.FloatField()

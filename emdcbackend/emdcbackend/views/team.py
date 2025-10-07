@@ -4,7 +4,6 @@ from ..models import Teams, Scoresheet, MapScoresheetToTeamJudge, MapContestToTe
 from .coach import create_coach, create_user_and_coach, get_coach
 from ..serializers import TeamSerializer, ScoresheetSerializer, CoachSerializer
 from .scoresheets import create_score_sheets_for_team, make_sheets_for_team
-from ..serializers import TeamSerializer
 from .Maps.MapUserToRole import get_role_mapping, create_user_role_map
 from .Maps.MapCoachToTeam import create_coach_to_team_map
 from .Maps.MapContestToTeam import create_team_to_contest_map
@@ -21,15 +20,10 @@ from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
-from ..serializers import TeamSerializer
-from .Maps.MapUserToRole import get_role_mapping, create_user_role_map
-from .Maps.MapCoachToTeam import create_coach_to_team_map
-from .Maps.MapContestToTeam import create_team_to_contest_map
-from .Maps.MapClusterToTeam import create_team_to_cluster_map
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 
-# get team
+# Get team by ID
 @api_view(["GET"])
 def team_by_id(request, team_id):
     team = get_object_or_404(Teams, id=team_id)
@@ -37,6 +31,7 @@ def team_by_id(request, team_id):
     return Response({"Team": serializer.data}, status=status.HTTP_200_OK)
 
 
+# Create a new team with coach and assign to contest/cluster
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -153,6 +148,9 @@ def edit_team(request):
             # Update team name if necessary
             if request.data["team_name"] != team.team_name:
                 team.team_name = request.data["team_name"]
+            # Update school name if provided
+            if "school_name" in request.data and request.data["school_name"] != team.__dict__.get("school_name", "NA"):
+                team.school_name = request.data.get("school_name") or "MNSU"
 
             # Update coach and user mappings if username has changed
             if request.data["username"] != user.username:
@@ -253,6 +251,7 @@ def make_team_instance(team_data):
 def make_team(data):
     team_data = {
         "team_name":data["team_name"],
+        "school_name": data.get("school_name", "MNSU"),
         "journal_score":data["journal_score"],
         "presentation_score":data["presentation_score"],
         "machinedesign_score":data["machinedesign_score"],
