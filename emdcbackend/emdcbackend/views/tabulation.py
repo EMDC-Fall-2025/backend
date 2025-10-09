@@ -1,156 +1,162 @@
 from rest_framework import status
-from rest_framework.decorators import (
-    api_view,
-    authentication_classes,
-    permission_classes,
-)
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.exceptions import ValidationError
-from django.contrib.auth.models import User
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
+from django.contrib.auth.models import User
 
-from ..models import Teams, Scoresheet, MapScoresheetToTeamJudge, MapContestToTeam, ScoresheetEnum, MapClusterToTeam, JudgeClusters, MapContestToCluster
+from ..models import (
+    Teams,
+    Scoresheet,
+    MapScoresheetToTeamJudge,
+    MapContestToTeam,
+    ScoresheetEnum,
+    MapClusterToTeam,
+    JudgeClusters,
+    MapContestToCluster,
+    MapContestToOrganizer,
+    MapUserToRole,
+)
 
-# reference for this file's functions will be in a markdown file titled *Scoring Tabultaion Outline* in the onedrive
+# ---------- Shared Helpers ----------
 
 def qdiv(numer, denom):
-    """
-    Quiet division: returns 0.0 if denom is falsy/zero.
-    Keeps your tabulation running even when no submissions exist for a category.
-    """
+    """Quiet division: returns 0.0 if denom is falsy/zero."""
     try:
         return float(numer) / float(denom) if denom else 0.0
     except Exception:
         return 0.0
-    
+
+
+def sort_by_score_with_id_fallback(teams, score_attr: str):
+    """Sort by score descending, then team.id ascending."""
+    def _score(t):
+        v = getattr(t, score_attr)
+        return float(v) if v is not None else 0.0
+    return sorted(teams, key=lambda t: (-_score(t), t.id))
+
+
+def _compute_totals_for_team(team: Teams):
+    """Compute totals and averages for a given team."""
+    score_map = MapScoresheetToTeamJudge.objects.filter(teamid=team.id)
+    totals = [0] * 11
+
+    for mapping in score_map:
+        try:
+            sheet = Scoresheet.objects.get(id=mapping.scoresheetid)
+        except Scoresheet.DoesNotExist:
+            continue
+        if not sheet.isSubmitted:
+            continue
+
+        if sheet.sheetType == ScoresheetEnum.PRESENTATION:
+            totals[0] += sum(getattr(sheet, f"field{i}") for i in range(1, 9))
+            totals[1] += 1
+        elif sheet.sheetType == ScoresheetEnum.JOURNAL:
+            totals[2] += sum(getattr(sheet, f"field{i}") for i in range(1, 9))
+            totals[3] += 1
+        elif sheet.sheetType == ScoresheetEnum.MACHINEDESIGN:
+            totals[4] += sum(getattr(sheet, f"field{i}") for i in range(1, 9))
+            totals[5] += 1
+        elif sheet.sheetType == ScoresheetEnum.RUNPENALTIES:
+            totals[7] += sum(getattr(sheet, f"field{i}") for i in range(1, 9))
+            totals[8] += 1
+            totals[9] += sum(getattr(sheet, f"field{i}") for i in range(10, 18))
+            totals[10] += 1
+        elif sheet.sheetType == ScoresheetEnum.OTHERPENALTIES:
+            totals[6] += sum(getattr(sheet, f"field{i}") for i in range(1, 8))
+
+    # compute averages and totals
+    team.presentation_score = qdiv(totals[0], totals[1])
+    team.journal_score = qdiv(totals[2], totals[3])
+    team.machinedesign_score = qdiv(totals[4], totals[5])
+
+    run1_avg = qdiv(totals[7], totals[8])
+    run2_avg = qdiv(totals[9], totals[10])
+    team.penalties_score = totals[6] + run1_avg + run2_avg
+    team.total_score = (
+        team.presentation_score + team.journal_score + team.machinedesign_score
+    ) - team.penalties_score
+    team.save()
+
+
+def set_team_rank(data):
+    """Set contest-wide rank by total_score for eligible teams."""
+    contest_team_ids = MapContestToTeam.objects.filter(contestid=data["contestid"])
+    contestteams = []
+    for mapping in contest_team_ids:
+        try:
+            t = Teams.objects.get(id=mapping.teamid)
+            if not t.organizer_disqualified:
+                contestteams.append(t)
+        except Teams.DoesNotExist:
+            continue
+
+    contestteams.sort(key=lambda x: x.total_score, reverse=True)
+    for rank, team in enumerate(contestteams, start=1):
+        team.team_rank = rank
+        team.save()
+
+
+def set_cluster_rank(data):
+    """Set per-cluster rank by total_score for eligible teams."""
+    cluster_team_ids = MapClusterToTeam.objects.filter(clusterid=data["clusterid"])
+    clusterteams = []
+    for mapping in cluster_team_ids:
+        try:
+            t = Teams.objects.get(id=mapping.teamid)
+            if not t.organizer_disqualified:
+                clusterteams.append(t)
+        except Teams.DoesNotExist:
+            continue
+
+    clusterteams.sort(key=lambda x: x.total_score, reverse=True)
+    for rank, team in enumerate(clusterteams, start=1):
+        team.cluster_rank = rank
+        team.save()
+
+
+def _ensure_requester_is_organizer_of_contest(user, contest_id: int):
+    """Allow only organizers mapped to this contest."""
+    organizer_ids_for_user = list(
+        MapUserToRole.objects.filter(
+            uuid=user.id, role=MapUserToRole.RoleEnum.ORGANIZER
+        ).values_list("relatedid", flat=True)
+    )
+    return MapContestToOrganizer.objects.filter(
+        contestid=contest_id, organizerid__in=organizer_ids_for_user
+    ).exists()
+
+
+def recompute_totals_and_ranks(contest_id: int):
+    """Recompute all teams' totals for a contest, then reapply cluster & contest ranks."""
+    contest_team_ids = MapContestToTeam.objects.filter(contestid=contest_id)
+    teams = []
+    for m in contest_team_ids:
+        try:
+            teams.append(Teams.objects.get(id=m.teamid))
+        except Teams.DoesNotExist:
+            continue
+
+    for t in teams:
+        _compute_totals_for_team(t)
+
+    for m in MapContestToCluster.objects.filter(contestid=contest_id):
+        set_cluster_rank({"clusterid": m.clusterid})
+    set_team_rank({"contestid": contest_id})
+
+
+# ---------- Endpoints ----------
+
 @api_view(["PUT"])
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def tabulate_scores(request):
-  contest_team_ids = MapContestToTeam.objects.filter(contestid=request.data["contestid"])
-  contestteams = []
-  for mapping in contest_team_ids:
-    try:
-      tempteam = Teams.objects.get(id=mapping.teamid)
-      contestteams.append(tempteam)
-    except Teams.DoesNotExist:
-      continue
-  
-  contest_cluster_ids = MapContestToCluster.objects.filter(contestid=request.data["contestid"])
-  clusters = []
-  for mapping in contest_cluster_ids:
-    try:
-      tempcluster = JudgeClusters.objects.get(id=mapping.clusterid)
-      clusters.append(tempcluster)
-    except JudgeClusters.DoesNotExist:
-      continue
-  # at this point, we should have all of the teams for the contest, and we're going to go tabulate all of the total scores.
+    """Recompute totals and ranks for all teams."""
+    contest_id = request.data.get("contestid")
+    if not contest_id:
+        return Response({"detail": "contestid is required"}, status=400)
 
-  for team in contestteams:
-    # for each team, we're going to go get the team's scoresheets,
-    score_sheet_ids = MapScoresheetToTeamJudge.objects.filter(teamid=team.id)
-    scoresheets = []
-    for mapping in score_sheet_ids:
-      tempscoresheet = Scoresheet.objects.get(id=mapping.scoresheetid)
-      if tempscoresheet:
-        scoresheets.append(tempscoresheet)
-      else:
-        return Response({"Error: Score Sheet Data Not Found from Mapping!"},status=status.HTTP_404_NOT_FOUND)
-    
-    
-    # tabulation time!
-    # initialize a temp array to hold scores
-    totalscores = [0] * 11
-    for scoresheet in scoresheets:
-      if scoresheet.isSubmitted:
-          # We're going to keep track for each sheet type how many times we've seen the type, since for each of the sheets we're taking the average of the scores.
-        if scoresheet.sheetType == ScoresheetEnum.PRESENTATION:
-          totalscores[0] = totalscores[0] + scoresheet.field1+ scoresheet.field2+ scoresheet.field3+ scoresheet.field4+ scoresheet.field5+ scoresheet.field6+ scoresheet.field7+ scoresheet.field8
-          totalscores[1] += 1
-
-        elif scoresheet.sheetType == ScoresheetEnum.JOURNAL:
-          totalscores[2] = totalscores[2] + scoresheet.field1+ scoresheet.field2+ scoresheet.field3+ scoresheet.field4+ scoresheet.field5+ scoresheet.field6+ scoresheet.field7+ scoresheet.field8
-          totalscores[3] += 1
-
-        elif scoresheet.sheetType == ScoresheetEnum.MACHINEDESIGN:
-          totalscores[4] = totalscores[4] + scoresheet.field1+ scoresheet.field2+ scoresheet.field3+ scoresheet.field4+ scoresheet.field5+ scoresheet.field6+ scoresheet.field7+ scoresheet.field8
-          totalscores[5] += 1
-
-        elif scoresheet.sheetType == ScoresheetEnum.RUNPENALTIES:
-          totalscores[7] += scoresheet.field1+ scoresheet.field2+ scoresheet.field3 + scoresheet.field4 + scoresheet.field5 + scoresheet.field6 + scoresheet.field7 + scoresheet.field8
-          totalscores[9] += scoresheet.field10+ scoresheet.field11+ scoresheet.field12 + scoresheet.field13 + scoresheet.field14 + scoresheet.field15 + scoresheet.field16 + scoresheet.field17
-
-        elif scoresheet.sheetType == ScoresheetEnum.OTHERPENALTIES:
-          totalscores[6] += scoresheet.field1+ scoresheet.field2+ scoresheet.field3 + scoresheet.field4 + scoresheet.field5 + scoresheet.field6 + scoresheet.field7
-    # scores are compiled but not averaged yet, we're going to average the scores and then save that score as the total score. 
-
-    team.presentation_score = qdiv(totalscores[0], totalscores[1])
-    team.journal_score = qdiv(totalscores[2], totalscores[3])
-    team.machinedesign_score = qdiv(totalscores[4], totalscores[5])
-
-    team.penalties_score = totalscores[6] + totalscores[7] + totalscores[9]
-    team.total_score = team.presentation_score + team.journal_score + team.machinedesign_score - team.penalties_score
-    
-    
-    team.save()
-
-  # this is where we set the ranks for the teams in terms of clusters and contest.
-  for cluster in clusters:
-    set_cluster_rank({"clusterid":cluster.id})
-  set_team_rank({"contestid":request.data["contestid"]})
-
-  return Response(status=status.HTTP_200_OK)
-
-# this function iterates through each team in the contest and sets the rank of the team based on the total score.
-def set_team_rank(data):
-  contest_team_ids = MapContestToTeam.objects.filter(contestid = data["contestid"])
-  contestteams = []
-  for mapping in contest_team_ids:
-    try:
-      tempteam = Teams.objects.get(id=mapping.teamid)
-      if not tempteam.organizer_disqualified:
-        contestteams.append(tempteam)
-    except Teams.DoesNotExist:
-      continue
-  # next goal: sort the array of teams by their total score!
-  contestteams.sort(key=lambda x: x.total_score, reverse=True)
-  for x in range(len(contestteams)):
-    contestteams[x].team_rank = x+1
-    contestteams[x].save()
-  return
-
-# function to set the rank of the teams in a cluster
-def set_cluster_rank(data):
-    cluster_team_ids = MapClusterToTeam.objects.filter(clusterid=data["clusterid"])
-    clusterteams = []
-    for mapping in cluster_team_ids:
-      try:
-        tempteam = Teams.objects.get(id=mapping.teamid)
-        if not tempteam.organizer_disqualified:
-          clusterteams.append(tempteam)
-      except Teams.DoesNotExist:
-        continue
-    clusterteams.sort(key=lambda x: x.total_score, reverse=True)
-    for x in range(len(clusterteams)):
-        clusterteams[x].cluster_rank = x+1
-        clusterteams[x].save()
-    return 
-
-# function to get all scoresheets that a team has submitted
-@api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
-@permission_classes([IsAuthenticated])
-def get_scoresheet_comments_by_team_id(request):
-  scoresheeids = MapScoresheetToTeamJudge.objects.filter(teamid=request.data["teamid"])
-  scoresheets = Scoresheet.objects.filter(id__in=scoresheeids)
-  comments = []
-  for sheet in scoresheets:
-    if sheet.field9 != "":
-      comments.append(sheet.field9),
-  return Response({"Comments": comments}, status=status.HTTP_200_OK)
-
-    
-
-    
-
+    recompute_totals_and_ranks(contest_id)
+    return Response(status=200)
