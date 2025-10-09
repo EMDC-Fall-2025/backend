@@ -3,3 +3,9 @@ sqlite3.db
 *.pyc 
 /notes
 venv/
+
+# env files
+.env
+.env.local
+.env.development
+!.env.docker.example
