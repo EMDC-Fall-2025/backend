@@ -107,20 +107,9 @@ def all_clusters_by_judge_id(request, judge_id):
         clusters = JudgeClusters.objects.filter(id__in=cluster_ids)
         print(f"DEBUG: Found {clusters.count()} clusters in database")
         
-        # Filter by is_active status if the field exists
-        try:
-            # Check if is_active field exists by trying to filter on it
-            test_cluster = clusters.first()
-            if test_cluster and hasattr(test_cluster, 'is_active'):
-                print(f"DEBUG: is_active field exists, filtering by active status")
-                clusters = clusters.filter(
-                    models.Q(is_active=True) | models.Q(is_active__isnull=True)
-                )
-                print(f"DEBUG: After filtering by is_active: {clusters.count()} clusters")
-            else:
-                print(f"DEBUG: is_active field does not exist, returning all clusters")
-        except Exception as filter_error:
-            print(f"DEBUG: Error filtering by is_active: {str(filter_error)}, returning all clusters")
+        # Filter by is_active status (now that field exists)
+        clusters = clusters.filter(is_active=True)
+        print(f"DEBUG: After filtering by is_active: {clusters.count()} clusters")
         
         serializer = JudgeClustersSerializer(clusters, many=True)
         cluster_data = serializer.data

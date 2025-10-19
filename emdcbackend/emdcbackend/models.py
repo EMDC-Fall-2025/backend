@@ -63,6 +63,12 @@ class MapJudgeToCluster(models.Model):
 
 class JudgeClusters(models.Model):
     cluster_name = models.CharField(max_length=50)
+    is_active = models.BooleanField(default=True)
+    cluster_type = models.CharField(max_length=20, default='preliminary', choices=[
+        ('preliminary', 'Preliminary'),
+        ('championship', 'Championship'),
+        ('redesign', 'Redesign')
+    ])
 
     def __str__(self):
         return f"{self.id} - {self.cluster_name}"
