@@ -67,6 +67,8 @@ def create_cluster(request):
 def edit_cluster(request):
     cluster = get_object_or_404(JudgeClusters, id=request.data["id"])
     cluster.cluster_name = request.data["cluster_name"]
+    if "cluster_type" in request.data:
+        cluster.cluster_type = request.data["cluster_type"]
     cluster.save()
 
     serializer = JudgeClustersSerializer(instance=cluster)
@@ -90,7 +92,10 @@ def make_judge_cluster_instance(data):
 
 
 def make_cluster(data):
-  cluster_data = {"cluster_name":data["cluster_name"]}
+  cluster_data = {
+    "cluster_name": data["cluster_name"],
+    "cluster_type": data.get("cluster_type", "preliminary")
+  }
   cluster_response = make_judge_cluster_instance(cluster_data)
   if not cluster_response.get('id'):
         raise ValidationError('Cluster creation failed.')

@@ -41,18 +41,31 @@ def get_all_judges_by_contest_id(request, contest_id):
 @api_view(['GET'])
 def get_contest_id_by_judge_id(request, judge_id):
   try:
+    print(f"DEBUG: get_contest_id_by_judge_id called for judge_id: {judge_id}")
     # Get all contests for this judge (since judge can be in multiple contests)
     current_maps = MapContestToJudge.objects.filter(judgeid=judge_id)
+    print(f"DEBUG: Found {current_maps.count()} mappings for judge {judge_id}")
+    
+    # Debug: List all mappings
+    for mapping in current_maps:
+      print(f"DEBUG: Mapping - judgeid: {mapping.judgeid}, contestid: {mapping.contestid}")
+    
     if not current_maps.exists():
+      print(f"DEBUG: No mappings found for judge {judge_id}")
       return Response({"There is No Contest Found for the given Judge"}, status=status.HTTP_404_NOT_FOUND)
     
     # For now, return the first contest (to maintain compatibility)
     # In the future, this could be modified to return all contests
     contest_id = current_maps.first().contestid
+    print(f"DEBUG: Using contest_id: {contest_id}")
     contest = Contest.objects.get(id=contest_id)
+    print(f"DEBUG: Found contest: {contest.name}")
     serializer = ContestSerializer(instance=contest)
     return Response({"Contest": serializer.data}, status=status.HTTP_200_OK)
   except Exception as e:
+    print(f"DEBUG: Error in get_contest_id_by_judge_id: {str(e)}")
+    import traceback
+    print(f"DEBUG: Traceback: {traceback.format_exc()}")
     return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(["DELETE"])

@@ -277,117 +277,193 @@ def create_base_score_sheet_Redesign():
 # note: changed order of parameters to match judge serializer
 def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journal, mdo, runpenalties, otherpenalties, redesign, championship):
     try:
+        print(f"DEBUG: create_sheets_for_teams_in_cluster called with judge_id={judge_id}, cluster_id={cluster_id}")
+        print(f"DEBUG: Parameters - presentation={presentation}, journal={journal}, mdo={mdo}")
+        print(f"DEBUG: Parameters - runpenalties={runpenalties}, otherpenalties={otherpenalties}")
+        print(f"DEBUG: Parameters - redesign={redesign}, championship={championship}")
+        
         # Fetch all mappings for the teams in the cluster
         mappings = MapClusterToTeam.objects.filter(clusterid=cluster_id)
+        print(f"DEBUG: Found {mappings.count()} team mappings in cluster {cluster_id}")
 
         # Check if mappings exist
         if not mappings.exists():
-            raise ValidationError("No teams found for the specified cluster.")  # Raise an exception here
+            # For championship/redesign clusters, it's okay to have no teams initially
+            # Teams will be added later when championship advancement occurs
+            print(f"DEBUG: No teams found in cluster {cluster_id} for judge {judge_id}")
+            print(f"DEBUG: This is normal for championship/redesign clusters before advancement")
+            return []  # Return empty list instead of raising error
 
         # Extract all the team_ids from the mappings
         team_ids = mappings.values_list('teamid', flat=True)
 
         # Fetch all teams with the given team_ids
         teams_in_cluster = Teams.objects.filter(id__in=team_ids)
+        print(f"DEBUG: Found {teams_in_cluster.count()} teams in database for cluster {cluster_id}")
 
         # List to store responses
         created_score_sheets = []
 
         for team in teams_in_cluster:
+            print(f"DEBUG: Processing team {team.id} ({team.team_name}) for judge {judge_id}")
+            
+            # Check for existing scoresheets to prevent duplicates
+            existing_mappings = MapScoresheetToTeamJudge.objects.filter(
+                teamid=team.id, 
+                judgeid=judge_id
+            )
+            print(f"DEBUG: Found {existing_mappings.count()} existing scoresheet mappings for team {team.id} and judge {judge_id}")
+            
             if runpenalties:
-                sheet = create_base_score_sheet_runpenalties()
-                map_data = {"teamid": team.id, "judgeid": judge_id, "scoresheetid": sheet.id, "sheetType": 4}
-                map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
-                if map_serializer.is_valid():
-                    map_serializer.save()
-                    created_score_sheets.append({
-                        "team_id": team.id,
-                        "judge_id": judge_id,
-                        "scoresheet_id": sheet.id,
-                        "sheetType": 4
-                    })
+                # Check if runpenalties scoresheet already exists
+                existing_runpenalties = existing_mappings.filter(sheetType=4).exists()
+                if not existing_runpenalties:
+                    print(f"DEBUG: Creating runpenalties scoresheet for team {team.id}")
+                    sheet = create_base_score_sheet_runpenalties()
+                    map_data = {"teamid": team.id, "judgeid": judge_id, "scoresheetid": sheet.id, "sheetType": 4}
+                    map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
+                    if map_serializer.is_valid():
+                        map_serializer.save()
+                        created_score_sheets.append({
+                            "team_id": team.id,
+                            "judge_id": judge_id,
+                            "scoresheet_id": sheet.id,
+                            "sheetType": 4
+                        })
+                    else:
+                        raise ValidationError(map_serializer.errors)
                 else:
-                    raise ValidationError(map_serializer.errors)
+                    print(f"DEBUG: Runpenalties scoresheet already exists for team {team.id}, skipping")
             if otherpenalties:
-                sheet = create_base_score_sheet_otherpenalties()
-                map_data = {"teamid": team.id, "judgeid": judge_id, "scoresheetid": sheet.id, "sheetType": 5}
-                map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
-                if map_serializer.is_valid():
-                    map_serializer.save()
-                    created_score_sheets.append({
-                        "team_id": team.id,
-                        "judge_id": judge_id,
-                        "scoresheet_id": sheet.id,
-                        "sheetType": 5
-                    })
+                # Check if otherpenalties scoresheet already exists
+                existing_otherpenalties = existing_mappings.filter(sheetType=5).exists()
+                if not existing_otherpenalties:
+                    print(f"DEBUG: Creating otherpenalties scoresheet for team {team.id}")
+                    sheet = create_base_score_sheet_otherpenalties()
+                    map_data = {"teamid": team.id, "judgeid": judge_id, "scoresheetid": sheet.id, "sheetType": 5}
+                    map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
+                    if map_serializer.is_valid():
+                        map_serializer.save()
+                        created_score_sheets.append({
+                            "team_id": team.id,
+                            "judge_id": judge_id,
+                            "scoresheet_id": sheet.id,
+                            "sheetType": 5
+                        })
+                    else:
+                        raise ValidationError(map_serializer.errors)
+                else:
+                    print(f"DEBUG: Otherpenalties scoresheet already exists for team {team.id}, skipping")
             if presentation:
-                sheet = create_base_score_sheet(1)
-                map_data = {"teamid": team.id, "judgeid": judge_id, "scoresheetid": sheet.id, "sheetType": 1}
-                map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
-                if map_serializer.is_valid():
-                    map_serializer.save()
-                    created_score_sheets.append({
-                        "team_id": team.id,
-                        "judge_id": judge_id,
-                        "scoresheet_id": sheet.id,
-                        "sheetType": 1
-                    })
+                # Check if presentation scoresheet already exists
+                existing_presentation = existing_mappings.filter(sheetType=1).exists()
+                if not existing_presentation:
+                    print(f"DEBUG: Creating presentation scoresheet for team {team.id}")
+                    sheet = create_base_score_sheet(1)
+                    map_data = {"teamid": team.id, "judgeid": judge_id, "scoresheetid": sheet.id, "sheetType": 1}
+                    map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
+                    if map_serializer.is_valid():
+                        map_serializer.save()
+                        created_score_sheets.append({
+                            "team_id": team.id,
+                            "judge_id": judge_id,
+                            "scoresheet_id": sheet.id,
+                            "sheetType": 1
+                        })
+                    else:
+                        raise ValidationError(map_serializer.errors)
                 else:
-                    raise ValidationError(map_serializer.errors)
+                    print(f"DEBUG: Presentation scoresheet already exists for team {team.id}, skipping")
             if journal:
-                sheet = create_base_score_sheet(2)
-                map_data = {"teamid": team.id, "judgeid": judge_id, "scoresheetid": sheet.id, "sheetType": 2}
-                map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
-                if map_serializer.is_valid():
-                    map_serializer.save()
-                    created_score_sheets.append({
-                        "team_id": team.id,
-                        "judge_id": judge_id,
-                        "scoresheet_id": sheet.id,
-                        "sheetType": 2
-                    })
+                # Check if journal scoresheet already exists
+                existing_journal = existing_mappings.filter(sheetType=2).exists()
+                if not existing_journal:
+                    print(f"DEBUG: Creating journal scoresheet for team {team.id}")
+                    sheet = create_base_score_sheet(2)
+                    map_data = {"teamid": team.id, "judgeid": judge_id, "scoresheetid": sheet.id, "sheetType": 2}
+                    map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
+                    if map_serializer.is_valid():
+                        map_serializer.save()
+                        created_score_sheets.append({
+                            "team_id": team.id,
+                            "judge_id": judge_id,
+                            "scoresheet_id": sheet.id,
+                            "sheetType": 2
+                        })
+                    else:
+                        raise ValidationError(map_serializer.errors)
                 else:
-                    raise ValidationError(map_serializer.errors)
+                    print(f"DEBUG: Journal scoresheet already exists for team {team.id}, skipping")
             if redesign:
-                sheet = create_base_score_sheet_Redesign()
-                map_data = {"teamid": team.id, "judgeid": judge_id, "scoresheetid": sheet.id, "sheetType": 6}
-                map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
-                if map_serializer.is_valid():
-                    map_serializer.save()
-                    created_score_sheets.append({
-                        "team_id": team.id,
-                        "judge_id": judge_id,
-                        "scoresheet_id": sheet.id,
-                        "sheetType": 6
-                    })
+                # Check if redesign scoresheet already exists
+                existing_redesign = existing_mappings.filter(sheetType=6).exists()
+                if not existing_redesign:
+                    print(f"DEBUG: Creating redesign scoresheet for team {team.id}")
+                    sheet = create_base_score_sheet_Redesign()
+                    map_data = {"teamid": team.id, "judgeid": judge_id, "scoresheetid": sheet.id, "sheetType": 6}
+                    map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
+                    if map_serializer.is_valid():
+                        map_serializer.save()
+                        created_score_sheets.append({
+                            "team_id": team.id,
+                            "judge_id": judge_id,
+                            "scoresheet_id": sheet.id,
+                            "sheetType": 6
+                        })
+                    else:
+                        raise ValidationError(map_serializer.errors)
                 else:
-                    raise ValidationError(map_serializer.errors)
+                    print(f"DEBUG: Redesign scoresheet already exists for team {team.id}, skipping")
             if mdo:
-                sheet = create_base_score_sheet(3)
-                map_data = {"teamid": team.id, "judgeid": judge_id, "scoresheetid": sheet.id, "sheetType": 3}
-                map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
-                if map_serializer.is_valid():
-                    map_serializer.save()
-                    created_score_sheets.append({
-                        "team_id": team.id,
-                        "judge_id": judge_id,
-                        "scoresheet_id": sheet.id,
-                        "sheetType": 3
-                    })
-            if championship:
-                sheet = create_base_score_sheet(7)
-                map_data = {"teamid": team.id, "judgeid": judge_id, "scoresheetid": sheet.id, "sheetType": 7}
-                map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
-                if map_serializer.is_valid():
-                    map_serializer.save()
-                    created_score_sheets.append({
-                        "team_id": team.id,
-                        "judge_id": judge_id,
-                        "scoresheet_id": sheet.id,
-                        "sheetType": 7
-                    })
+                # Check if MDO scoresheet already exists
+                existing_mdo = existing_mappings.filter(sheetType=3).exists()
+                if not existing_mdo:
+                    print(f"DEBUG: Creating MDO scoresheet for team {team.id}")
+                    sheet = create_base_score_sheet(3)
+                    map_data = {"teamid": team.id, "judgeid": judge_id, "scoresheetid": sheet.id, "sheetType": 3}
+                    map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
+                    if map_serializer.is_valid():
+                        map_serializer.save()
+                        created_score_sheets.append({
+                            "team_id": team.id,
+                            "judge_id": judge_id,
+                            "scoresheet_id": sheet.id,
+                            "sheetType": 3
+                        })
+                    else:
+                        raise ValidationError(map_serializer.errors)
                 else:
-                    raise ValidationError(map_serializer.errors)
+                    print(f"DEBUG: MDO scoresheet already exists for team {team.id}, skipping")
+            if championship:
+                # Check if championship scoresheet already exists
+                existing_championship = existing_mappings.filter(sheetType=7).exists()
+                if not existing_championship:
+                    print(f"DEBUG: Creating championship scoresheet for team {team.id} and judge {judge_id}")
+                    try:
+                        sheet = create_base_score_sheet(7)
+                        print(f"DEBUG: Created base scoresheet {sheet.id} with type 7")
+                        map_data = {"teamid": team.id, "judgeid": judge_id, "scoresheetid": sheet.id, "sheetType": 7}
+                        print(f"DEBUG: Championship scoresheet mapping data: {map_data}")
+                        map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
+                        if map_serializer.is_valid():
+                            map_serializer.save()
+                            print(f"DEBUG: Successfully created championship scoresheet {sheet.id} for team {team.id}")
+                            created_score_sheets.append({
+                                "team_id": team.id,
+                                "judge_id": judge_id,
+                                "scoresheet_id": sheet.id,
+                                "sheetType": 7
+                            })
+                        else:
+                            print(f"DEBUG: Error creating championship scoresheet mapping: {map_serializer.errors}")
+                            raise ValidationError(map_serializer.errors)
+                    except Exception as e:
+                        print(f"DEBUG: Exception creating championship scoresheet: {str(e)}")
+                        raise e
+                else:
+                    print(f"DEBUG: Championship scoresheet already exists for team {team.id}, skipping")
+            else:
+                print(f"DEBUG: Championship flag is False for judge {judge_id}, skipping championship scoresheet creation")
 
         return created_score_sheets
 
@@ -457,7 +533,9 @@ def delete_sheets_for_teams_in_cluster(judge_id, cluster_id,  presentation, jour
 
         # Check if mappings exist
         if not mappings.exists():
-            raise ValidationError("No teams found for the specified cluster.")  # Raise an exception here
+            # For championship/redesign clusters, it's okay to have no teams initially
+            # Teams will be added later when championship advancement occurs
+            return []  # Return empty list instead of raising error
 
         # Extract all the team_ids from the mappings
         team_ids = mappings.values_list('teamid', flat=True)
@@ -996,3 +1074,76 @@ def get_scoresheet_details_for_contest(request):
         }
 
     return Response({"teams": team_responses}, status=status.HTTP_200_OK)
+
+
+def create_scoresheets_for_judges_in_cluster(cluster_id):
+    """
+    Create scoresheets for all judges in a cluster when teams are added.
+    This is called after teams are moved to championship/redesign clusters.
+    """
+    print("=" * 50)
+    print(f"DEBUG: create_scoresheets_for_judges_in_cluster CALLED for cluster {cluster_id}")
+    print("=" * 50)
+    try:
+        print(f"DEBUG: Creating scoresheets for all judges in cluster {cluster_id}")
+        
+        # Get all judges in this cluster
+        judge_mappings = MapJudgeToCluster.objects.filter(clusterid=cluster_id)
+        print(f"DEBUG: Found {len(judge_mappings)} judges in cluster {cluster_id}")
+        
+        # Get all teams in this cluster
+        team_mappings = MapClusterToTeam.objects.filter(clusterid=cluster_id)
+        print(f"DEBUG: Found {len(team_mappings)} teams in cluster {cluster_id}")
+        
+        if len(judge_mappings) == 0:
+            print(f"DEBUG: No judges found in cluster {cluster_id}")
+            return []
+        
+        if len(team_mappings) == 0:
+            print(f"DEBUG: No teams found in cluster {cluster_id}")
+            return []
+        
+        created_scoresheets = []
+        
+        for judge_mapping in judge_mappings:
+            try:
+                judge = Judge.objects.get(id=judge_mapping.judgeid)
+                print(f"DEBUG: Creating scoresheets for judge {judge.id} ({judge.first_name} {judge.last_name})")
+                print(f"DEBUG: Judge scoresheet flags - presentation: {judge.presentation}, journal: {judge.journal}, mdo: {judge.mdo}")
+                print(f"DEBUG: Judge scoresheet flags - runpenalties: {judge.runpenalties}, otherpenalties: {judge.otherpenalties}")
+                print(f"DEBUG: Judge scoresheet flags - redesign: {judge.redesign}, championship: {judge.championship}")
+                
+                # Create scoresheets for this judge and all teams in the cluster
+                print(f"DEBUG: Calling create_sheets_for_teams_in_cluster for judge {judge.id} in cluster {cluster_id}")
+                print(f"DEBUG: Judge flags - presentation: {judge.presentation}, journal: {judge.journal}, mdo: {judge.mdo}")
+                print(f"DEBUG: Judge flags - runpenalties: {judge.runpenalties}, otherpenalties: {judge.otherpenalties}")
+                print(f"DEBUG: Judge flags - redesign: {judge.redesign}, championship: {judge.championship}")
+                
+                sheets = create_sheets_for_teams_in_cluster(
+                    judge.id,
+                    cluster_id,
+                    judge.presentation,
+                    judge.journal,
+                    judge.mdo,
+                    judge.runpenalties,
+                    judge.otherpenalties,
+                    judge.redesign,
+                    judge.championship
+                )
+                
+                created_scoresheets.extend(sheets)
+                print(f"DEBUG: Created {len(sheets)} scoresheets for judge {judge.id}")
+                
+            except Judge.DoesNotExist:
+                print(f"DEBUG: Judge {judge_mapping.judgeid} does not exist")
+                continue
+            except Exception as e:
+                print(f"DEBUG: Error creating scoresheets for judge {judge_mapping.judgeid}: {str(e)}")
+                continue
+        
+        print(f"DEBUG: Total created scoresheets: {len(created_scoresheets)}")
+        return created_scoresheets
+        
+    except Exception as e:
+        print(f"DEBUG: Error in create_scoresheets_for_judges_in_cluster: {str(e)}")
+        raise ValidationError({"detail": str(e)})

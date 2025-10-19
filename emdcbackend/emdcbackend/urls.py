@@ -6,7 +6,7 @@ from .views.Maps.MapClusterToTeam import (
     create_cluster_team_mapping, delete_cluster_team_mapping_by_id,
     teams_by_cluster_id, cluster_by_team_id, get_teams_by_cluster_rank)
 from .views.Maps.MapScoreSheet import create_score_sheet_mapping, score_sheet_by_judge_team, \
-    delete_score_sheet_mapping_by_id, score_sheets_by_judge, submit_all_penalty_sheets_for_judge, all_sheets_submitted_for_contests, all_submitted_for_team
+    delete_score_sheet_mapping_by_id, score_sheets_by_judge, score_sheets_by_judge_and_cluster, submit_all_penalty_sheets_for_judge, all_sheets_submitted_for_contests, all_submitted_for_team
 from .views.judge import create_judge, judge_by_id, edit_judge, delete_judge, are_all_score_sheets_submitted, judge_disqualify_team, get_all_judges
 from .views.organizer import create_organizer, organizer_by_id, edit_organizer, delete_organizer, \
     organizer_disqualify_team, get_all_organizers
@@ -23,7 +23,7 @@ from .views.Maps.MapCoachToTeam import (
 )
 from .views.clusters import cluster_by_id, create_cluster, clusters_get_all, delete_cluster, edit_cluster
 from .views.Maps.MapContestToJudge import create_contest_judge_mapping, get_all_judges_by_contest_id, get_contest_id_by_judge_id, delete_contest_judge_mapping_by_id
-from .views.Maps.AssignJudgeToContest import assign_judge_to_contest, get_judge_contests, remove_judge_from_contest
+from .views.Maps.AssignJudgeToContest import assign_judge_to_contest, get_judge_contests, remove_judge_from_contest, remove_judge_from_cluster
 from .views.Maps.MapContestToOrganizer import create_contest_organizer_mapping, get_organizers_by_contest_id, get_contests_by_organizer_id, delete_contest_organizer_mapping, \
     get_all_contests_by_organizer, get_organizer_names_by_contests
 from .views.Maps.MapContestToTeam import create_contest_team_mapping, get_teams_by_contest_id, \
@@ -36,7 +36,7 @@ from .views.scoresheets import (
 from .views.admin import create_admin, admins_get_all, admin_by_id, delete_admin, edit_admin
 from .views.Maps.MapUserToRole import create_user_role_mapping, delete_user_role_mapping, get_user_by_role
 from .views.Maps.MapClusterToJudge import create_cluster_judge_mapping, delete_cluster_judge_mapping_by_id, cluster_by_judge_id, judges_by_cluster_id, all_clusters_by_judge_id
-from .views.tabulation import tabulate_scores, preliminary_results, championship_results, redesign_results, set_advancers, list_advancers
+from .views.tabulation import tabulate_scores, preliminary_results, championship_results, redesign_results, set_advancers, list_advancers, advance_to_championship, undo_championship_advancement
 from .views.Maps.MapAwardToTeam import create_award_team_mapping, get_award_id_by_team_id, delete_award_team_mapping_by_id, update_award_team_mapping, get_all_awards, get_awards_by_role
 from .views.Maps.MapBallotToVote import create_map_ballot_to_vote
 from .views.Maps.MapTeamToVote import create_map_team_to_vote
@@ -111,6 +111,7 @@ urlpatterns = [
     path('api/mapping/contestToJudge/assign/', assign_judge_to_contest, name='assign_judge_to_contest'),
     path('api/mapping/contestToJudge/judge-contests/<int:judge_id>/', get_judge_contests, name='get_judge_contests'),
     path('api/mapping/contestToJudge/remove/<int:judge_id>/<int:contest_id>/', remove_judge_from_contest, name='remove_judge_from_contest'),
+    path('api/mapping/clusterToJudge/remove/<int:judge_id>/<int:cluster_id>/', remove_judge_from_cluster, name='remove_judge_from_cluster'),
 
     path('api/mapping/contestToTeam/create/', create_contest_team_mapping, name='create_contest_team_mapping'),
     path('api/mapping/contestToTeam/getContestByTeam/<int:team_id>/', get_contest_id_by_team_id, name='get_contest_id_by_team_id'),
@@ -149,6 +150,7 @@ urlpatterns = [
     path('api/mapping/scoreSheet/getByTeamJudge/<int:sheetType>/<int:judge_id>/<int:team_id>/', score_sheet_by_judge_team, name='score_sheets_by_judge_team'),
     path('api/mapping/scoreSheet/delete/', delete_score_sheet_mapping_by_id, name='delete_score_sheet_mapping_by_id'),
     path('api/mapping/scoreSheet/getSheetsByJudge/<int:judge_id>/', score_sheets_by_judge, name='score_sheets_by_judge'),
+    path('api/mapping/scoreSheet/getSheetsByJudgeAndCluster/<int:judge_id>/<int:cluster_id>/', score_sheets_by_judge_and_cluster, name='score_sheets_by_judge_and_cluster'),
     path('api/mapping/scoreSheet/submitAllPenalties/', submit_all_penalty_sheets_for_judge, name='submit_all_penalty_sheets_for_judge'),
     path('api/mapping/scoreSheet/allSheetsSubmittedForContests/', all_sheets_submitted_for_contests, name="all_sheets_submitted_for_contests"),
     path('api/mapping/scoreSheet/allSubmittedForTeam/<int:team_id>/', all_submitted_for_team, name='all_submitted_for_team'),
@@ -184,6 +186,8 @@ urlpatterns = [
     path('api/tabulation/redesignResults/', redesign_results, name='redesign_results'),
     path('api/tabulation/setAdvancers/', set_advancers, name='set_advancers'),           # NEW
     path('api/tabulation/listAdvancers/', list_advancers, name='list_advancers'),       # NEW
+    path('api/tabulation/advanceToChampionship/', advance_to_championship, name='advance_to_championship'),  # NEW
+    path('api/tabulation/undoChampionshipAdvancement/', undo_championship_advancement, name='undo_championship_advancement'),  # NEW
 
     # Special Awards
     path('api/mapping/awardToTeam/getAllAwards/', get_all_awards, name='get_all_awards'),

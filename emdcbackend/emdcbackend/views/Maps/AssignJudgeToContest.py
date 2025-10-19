@@ -15,7 +15,7 @@ from rest_framework.authentication import SessionAuthentication, TokenAuthentica
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 
-from ...models import MapContestToJudge, Judge, Contest, MapJudgeToCluster
+from ...models import MapContestToJudge, Judge, Contest, MapJudgeToCluster, MapContestToTeam, MapScoresheetToTeamJudge, Scoresheet, MapClusterToTeam
 from ...serializers import JudgeSerializer
 from .MapContestToJudge import create_contest_to_judge_map
 
@@ -102,17 +102,60 @@ def assign_judge_to_contest(request):
         # Create score sheets for the judge in this contest's cluster
         from ...views.scoresheets import create_sheets_for_teams_in_cluster
         
+        # Get cluster information to determine if it's championship/redesign
+        from ...models import JudgeClusters
+        try:
+            cluster = JudgeClusters.objects.get(id=cluster_id)
+            cluster_type = getattr(cluster, 'cluster_type', None)
+            is_championship_cluster = cluster_type == 'championship' or 'championship' in cluster.cluster_name.lower()
+            is_redesign_cluster = cluster_type == 'redesign' or 'redesign' in cluster.cluster_name.lower()
+            
+            print(f"DEBUG: Cluster {cluster.cluster_name} type: {cluster_type}")
+            print(f"DEBUG: Is championship cluster: {is_championship_cluster}")
+            print(f"DEBUG: Is redesign cluster: {is_redesign_cluster}")
+        except JudgeClusters.DoesNotExist:
+            is_championship_cluster = False
+            is_redesign_cluster = False
+            print(f"DEBUG: Cluster {cluster_id} not found")
+        
+        # Auto-set championship/redesign flags based on cluster type
+        presentation = request.data.get("presentation", False)
+        journal = request.data.get("journal", False)
+        mdo = request.data.get("mdo", False)
+        runpenalties = request.data.get("runpenalties", False)
+        otherpenalties = request.data.get("otherpenalties", False)
+        redesign = request.data.get("redesign", False) or is_redesign_cluster
+        championship = request.data.get("championship", False) or is_championship_cluster
+        
+        print(f"DEBUG: Final scoresheet flags - presentation: {presentation}, journal: {journal}, mdo: {mdo}")
+        print(f"DEBUG: Final scoresheet flags - runpenalties: {runpenalties}, otherpenalties: {otherpenalties}")
+        print(f"DEBUG: Final scoresheet flags - redesign: {redesign}, championship: {championship}")
+        
         sheets_result = create_sheets_for_teams_in_cluster(
             judge_id,
             cluster_id,
-            request.data.get("presentation", False),
-            request.data.get("journal", False),
-            request.data.get("mdo", False),
-            request.data.get("runpenalties", False),
-            request.data.get("otherpenalties", False),
-            request.data.get("redesign", False),
-            request.data.get("championship", False),
+            presentation,
+            journal,
+            mdo,
+            runpenalties,
+            otherpenalties,
+            redesign,
+            championship,
         )
+        
+        # Update judge's scoresheet flags in the database to match the auto-set values
+        if is_championship_cluster and not judge.championship:
+            judge.championship = True
+            print(f"DEBUG: Auto-setting championship flag to True for judge {judge.id}")
+        if is_redesign_cluster and not judge.redesign:
+            judge.redesign = True
+            print(f"DEBUG: Auto-setting redesign flag to True for judge {judge.id}")
+        
+        # Save the judge if any flags were updated
+        if (is_championship_cluster and not request.data.get("championship", False)) or \
+           (is_redesign_cluster and not request.data.get("redesign", False)):
+            judge.save()
+            print(f"DEBUG: Updated judge {judge.id} scoresheet flags in database")
         
         return Response({
             "message": f"Judge {judge.first_name} {judge.last_name} successfully assigned to contest {contest.name}",
@@ -172,6 +215,8 @@ def remove_judge_from_contest(request, judge_id, contest_id):
     This will also clean up their score sheets for that contest.
     """
     try:
+        print(f"DEBUG: Removing judge {judge_id} from contest {contest_id}")
+        
         # Find the mapping
         mapping = get_object_or_404(
             MapContestToJudge, 
@@ -179,16 +224,111 @@ def remove_judge_from_contest(request, judge_id, contest_id):
             contestid=contest_id
         )
         
-        # Delete the mapping
-        mapping.delete()
+        # Get the judge's cluster to clean up scoresheets
+        cluster_mapping = MapJudgeToCluster.objects.filter(judgeid=judge_id).first()
+        print(f"DEBUG: Found cluster mapping: {cluster_mapping}")
         
-        # TODO: Clean up score sheets for this judge-contest combination
-        # This would require additional logic to identify and delete
-        # score sheets that belong to this judge-contest pair
+        # Clean up scoresheets for this judge-contest combination
+        if cluster_mapping:
+            # Get all teams in the contest
+            contest_teams = MapContestToTeam.objects.filter(contestid=contest_id)
+            team_ids = contest_teams.values_list('teamid', flat=True)
+            print(f"DEBUG: Found {len(team_ids)} teams in contest")
+            
+            # Delete scoresheets for this judge and contest teams
+            scoresheet_mappings = MapScoresheetToTeamJudge.objects.filter(
+                judgeid=judge_id,
+                teamid__in=team_ids
+            )
+            print(f"DEBUG: Found {scoresheet_mappings.count()} scoresheet mappings")
+            
+            # Get scoresheet IDs to delete
+            scoresheet_ids = scoresheet_mappings.values_list('scoresheetid', flat=True)
+            print(f"DEBUG: Deleting {len(scoresheet_ids)} scoresheets")
+            
+            # Delete the scoresheets
+            deleted_scoresheets = Scoresheet.objects.filter(id__in=scoresheet_ids).delete()
+            print(f"DEBUG: Deleted {deleted_scoresheets[0]} scoresheets")
+            
+            # Delete the scoresheet mappings
+            deleted_mappings = scoresheet_mappings.delete()
+            print(f"DEBUG: Deleted {deleted_mappings[0]} scoresheet mappings")
+            
+            # Delete the cluster-judge mapping
+            cluster_mapping.delete()
+            print(f"DEBUG: Deleted cluster-judge mapping")
+        
+        # Delete the contest-judge mapping
+        mapping.delete()
+        print(f"DEBUG: Deleted contest-judge mapping")
         
         return Response({
-            "message": f"Judge {judge_id} removed from contest {contest_id}"
+            "message": f"Judge {judge_id} removed from contest {contest_id}",
+            "details": {
+                "scoresheets_deleted": deleted_scoresheets[0] if cluster_mapping else 0,
+                "mappings_deleted": deleted_mappings[0] if cluster_mapping else 0
+            }
         }, status=status.HTTP_200_OK)
         
     except Exception as e:
+        print(f"ERROR: Failed to remove judge {judge_id} from contest {contest_id}: {str(e)}")
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["DELETE"])
+@authentication_classes([SessionAuthentication, TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def remove_judge_from_cluster(request, judge_id, cluster_id):
+    """
+    Remove a judge from a specific cluster only.
+    This will clean up their score sheets for that cluster but keep them in the contest.
+    """
+    try:
+        print(f"DEBUG: Removing judge {judge_id} from cluster {cluster_id}")
+        
+        # Find the cluster-judge mapping
+        cluster_mapping = get_object_or_404(
+            MapJudgeToCluster, 
+            judgeid=judge_id, 
+            clusterid=cluster_id
+        )
+        
+        # Get all teams in the specific cluster
+        cluster_teams = MapClusterToTeam.objects.filter(clusterid=cluster_id)
+        team_ids = cluster_teams.values_list('teamid', flat=True)
+        print(f"DEBUG: Found {len(team_ids)} teams in cluster {cluster_id}")
+        
+        # Delete scoresheets for this judge and cluster teams only
+        scoresheet_mappings = MapScoresheetToTeamJudge.objects.filter(
+            judgeid=judge_id,
+            teamid__in=team_ids
+        )
+        print(f"DEBUG: Found {scoresheet_mappings.count()} scoresheet mappings for this cluster")
+        
+        # Get scoresheet IDs to delete
+        scoresheet_ids = scoresheet_mappings.values_list('scoresheetid', flat=True)
+        print(f"DEBUG: Deleting {len(scoresheet_ids)} scoresheets for this cluster")
+        
+        # Delete the scoresheets
+        deleted_scoresheets = Scoresheet.objects.filter(id__in=scoresheet_ids).delete()
+        print(f"DEBUG: Deleted {deleted_scoresheets[0]} scoresheets")
+        
+        # Delete the scoresheet mappings
+        deleted_mappings = scoresheet_mappings.delete()
+        print(f"DEBUG: Deleted {deleted_mappings[0]} scoresheet mappings")
+        
+        # Delete the cluster-judge mapping
+        cluster_mapping.delete()
+        print(f"DEBUG: Deleted cluster-judge mapping")
+        
+        return Response({
+            "message": f"Judge {judge_id} removed from cluster {cluster_id}",
+            "details": {
+                "scoresheets_deleted": deleted_scoresheets[0],
+                "mappings_deleted": deleted_mappings[0]
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        print(f"ERROR: Failed to remove judge {judge_id} from cluster {cluster_id}: {str(e)}")
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
