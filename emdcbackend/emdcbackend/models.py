@@ -97,6 +97,13 @@ class Teams(models.Model):
     # NEW: multi-round flags/results
     advanced_to_championship = models.BooleanField(default=False)
     championship_rank = models.IntegerField(null=True, blank=True)
+    
+    # Preliminary results storage (preserved when advancing)
+    preliminary_presentation_score = models.FloatField(default=0.0)
+    preliminary_journal_score = models.FloatField(default=0.0)
+    preliminary_machinedesign_score = models.FloatField(default=0.0)
+    preliminary_penalties_score = models.FloatField(default=0.0)
+    preliminary_total_score = models.FloatField(default=0.0)
 
     def __str__(self):
         return f"{self.id} - {self.team_name}"

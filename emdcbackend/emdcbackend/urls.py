@@ -36,7 +36,8 @@ from .views.scoresheets import (
 from .views.admin import create_admin, admins_get_all, admin_by_id, delete_admin, edit_admin
 from .views.Maps.MapUserToRole import create_user_role_mapping, delete_user_role_mapping, get_user_by_role
 from .views.Maps.MapClusterToJudge import create_cluster_judge_mapping, delete_cluster_judge_mapping_by_id, cluster_by_judge_id, judges_by_cluster_id, all_clusters_by_judge_id
-from .views.tabulation import tabulate_scores, preliminary_results, championship_results, redesign_results, set_advancers, list_advancers, advance_to_championship, undo_championship_advancement
+from .views.tabulation import tabulate_scores, preliminary_results, championship_results, redesign_results, set_advancers, list_advancers
+from .views.advance import advance_to_championship, undo_championship_advancement
 from .views.Maps.MapAwardToTeam import create_award_team_mapping, get_award_id_by_team_id, delete_award_team_mapping_by_id, update_award_team_mapping, get_all_awards, get_awards_by_role
 from .views.Maps.MapBallotToVote import create_map_ballot_to_vote
 from .views.Maps.MapTeamToVote import create_map_team_to_vote
@@ -182,12 +183,14 @@ urlpatterns = [
     # Tabulation
     path('api/tabulation/tabulateScores/', tabulate_scores, name='tabulate_scores'),
     path('api/tabulation/preliminaryResults/', preliminary_results, name='preliminary_results'),
+    
+    # advancement endpoints
     path('api/tabulation/championshipResults/', championship_results, name='championship_results'),
     path('api/tabulation/redesignResults/', redesign_results, name='redesign_results'),
-    path('api/tabulation/setAdvancers/', set_advancers, name='set_advancers'),           # NEW
-    path('api/tabulation/listAdvancers/', list_advancers, name='list_advancers'),       # NEW
-    path('api/tabulation/advanceToChampionship/', advance_to_championship, name='advance_to_championship'),  # NEW
-    path('api/tabulation/undoChampionshipAdvancement/', undo_championship_advancement, name='undo_championship_advancement'),  # NEW
+    path('api/tabulation/setAdvancers/', set_advancers, name='set_advancers'),           
+    path('api/tabulation/listAdvancers/', list_advancers, name='list_advancers'),     
+    path('api/advance/advanceToChampionship/', advance_to_championship, name='advance_to_championship'),  
+    path('api/advance/undoChampionshipAdvancement/', undo_championship_advancement, name='undo_championship_advancement'), 
 
     # Special Awards
     path('api/mapping/awardToTeam/getAllAwards/', get_all_awards, name='get_all_awards'),
