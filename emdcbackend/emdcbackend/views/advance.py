@@ -98,7 +98,6 @@ def advance_to_championship(request):
                 team.preliminary_total_score = team.total_score
                 
                 # Championship round: only need journal from preliminary + championship score
-                # Reset championship-specific scores
                 team.championship_score = 0.0
                 team.total_score = 0.0  # Will be calculated by championship tabulation
                 
@@ -120,7 +119,7 @@ def advance_to_championship(request):
                 team.preliminary_total_score = team.total_score
                 
                 # Redesign round: only need redesign score (all categories in one scoresheet)
-                # Reset redesign-specific scores
+                
                 team.redesign_score = 0.0
                 team.total_score = 0.0  # Will be calculated by redesign tabulation
                 

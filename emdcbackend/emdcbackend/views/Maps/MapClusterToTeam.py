@@ -31,28 +31,10 @@ def create_cluster_team_mapping(request):
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def teams_by_cluster_id(request, cluster_id):
-    print(f"DEBUG: teams_by_cluster_id called for cluster {cluster_id}")
-    
     mappings = MapClusterToTeam.objects.filter(clusterid=cluster_id)
-    print(f"DEBUG: Found {mappings.count()} team mappings for cluster {cluster_id}")
-    
     team_ids = mappings.values_list('teamid', flat=True)
-    print(f"DEBUG: Team IDs in cluster {cluster_id}: {list(team_ids)}")
-    
     teams = Teams.objects.filter(id__in=team_ids)
-    print(f"DEBUG: Found {teams.count()} teams in database for cluster {cluster_id}")
-
     serializer = TeamSerializer(teams, many=True)
-    print(f"DEBUG: Returning {len(serializer.data)} teams for cluster {cluster_id}")
-    
-    # Debug: Check if advanced_to_championship field is included
-    if serializer.data:
-        first_team = serializer.data[0]
-        print(f"DEBUG: First team data: {first_team}")
-        print(f"DEBUG: advanced_to_championship field in response: {'advanced_to_championship' in first_team}")
-        if 'advanced_to_championship' in first_team:
-            print(f"DEBUG: advanced_to_championship value: {first_team['advanced_to_championship']}")
-
     return Response({"Teams": serializer.data}, status=status.HTTP_200_OK)
 
 

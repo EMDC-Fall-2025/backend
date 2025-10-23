@@ -104,6 +104,19 @@ class Teams(models.Model):
     preliminary_machinedesign_score = models.FloatField(default=0.0)
     preliminary_penalties_score = models.FloatField(default=0.0)
     preliminary_total_score = models.FloatField(default=0.0)
+    
+    # Championship results storage
+    championship_presentation_score = models.FloatField(default=0.0)
+    championship_machinedesign_score = models.FloatField(default=0.0)
+    championship_penalties_score = models.FloatField(default=0.0)
+    championship_score = models.FloatField(default=0.0)
+    
+    # Redesign results storage
+    redesign_presentation_score = models.FloatField(default=0.0)
+    redesign_machinedesign_score = models.FloatField(default=0.0)
+    redesign_journal_score = models.FloatField(default=0.0)
+    redesign_penalties_score = models.FloatField(default=0.0)
+    redesign_score = models.FloatField(default=0.0)
 
     def __str__(self):
         return f"{self.id} - {self.team_name}"

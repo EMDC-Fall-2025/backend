@@ -274,6 +274,28 @@ def create_base_score_sheet_Redesign():
     else:
         raise ValidationError(serializer.errors)
 
+def create_base_score_sheet_Championship():
+    base_score_data = {
+        "sheetType": 7,
+        "isSubmitted": False,
+        "field1": 0.0,
+        "field2": 0.0,
+        "field3": 0.0,
+        "field4": 0.0,
+        "field5": 0.0,
+        "field6": 0.0,
+        "field7": 0.0,
+        "field8": 0.0,
+        "field9": ""
+    }
+
+    serializer = ScoresheetSerializer(data=base_score_data)
+    if serializer.is_valid():
+        score_sheet = serializer.save()
+        return score_sheet
+    else:
+        raise ValidationError(serializer.errors)
+
 # note: changed order of parameters to match judge serializer
 def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journal, mdo, runpenalties, otherpenalties, redesign, championship):
     try:
@@ -510,7 +532,7 @@ def create_score_sheets_for_team(team, judges):
                 teamid=team.id, judgeid=judge.id, scoresheetid=score_sheet.id, sheetType=ScoresheetEnum.REDESIGN
             )
         if judge.championship:
-            score_sheet = create_base_score_sheet(ScoresheetEnum.CHAMPIONSHIP)
+            score_sheet = create_base_score_sheet_Championship()
             MapScoresheetToTeamJudge.objects.create(
                 teamid=team.id, judgeid=judge.id, scoresheetid=score_sheet.id, sheetType=ScoresheetEnum.CHAMPIONSHIP
             )
