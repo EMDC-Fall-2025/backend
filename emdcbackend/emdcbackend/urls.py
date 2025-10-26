@@ -1,5 +1,11 @@
 from django.urls import path
-from .auth import views
+from .auth import views as auth_views
+from .auth.password_views import (
+    request_set_password,
+    request_password_reset,
+    validate_password_token,
+    complete_password_set,
+)
 
 from .views.Maps.MapClusterToContest import all_clusters_by_contest_id
 from .views.Maps.MapClusterToTeam import (
@@ -63,29 +69,39 @@ from .views.tabulation import (
     preliminary_results,
     championship_results,
     redesign_results,
-    set_advancers,      # NEW
-    list_advancers,     # NEW
+    set_advancers,
+    list_advancers,
 )
 
 urlpatterns = [
-    # Admins
+    # -----------------------
+    # Authentication (existing)
+    # -----------------------
+    path('api/login/', auth_views.login, name='login'),
+    path('api/signup/', auth_views.signup, name='signup'),
+    path('api/testToken/', auth_views.test_token, name='test_token'),
+    path('api/user/get/<int:user_id>/', auth_views.user_by_id, name='user_by_id'),
+    path('api/user/edit/', auth_views.edit_user, name='edit_user'),
+    path('api/user/delete/<int:user_id>/', auth_views.delete_user_by_id, name='delete_user_by_id'),
+
+    # -----------------------
+    # NEW: Password set/reset endpoints
+    # -----------------------
+    path('api/auth/send-set-password/', request_set_password, name='request_set_password'),         # Auth-required re-send
+    path('api/auth/forgot-password/', request_password_reset, name='request_password_reset'),       # Public
+    path('api/auth/password-token/validate/', validate_password_token, name='validate_password_token'),
+    path('api/auth/password/complete/', complete_password_set, name='complete_password_set'),
+
+    # -----------------------
+    # Admins (existing)
+    # -----------------------
     path('api/admin/get/<int:admin_id>/', admin_by_id, name='admin_by_id'),
     path('api/admin/getAll/', admins_get_all, name='admins_get_all'),
     path('api/admin/create/', create_admin, name='create_admin'),
     path('api/admin/edit/', edit_admin, name='edit_admin'),
     path('api/admin/delete/<int:admin_id>/', delete_admin, name='delete_admin'),
 
-    # Authentication
-    path('api/login/', views.login, name='login'),
-    path('api/signup/', views.signup, name='signup'),
-    path('api/testToken/', views.test_token, name='test_token'),
-
-    # Users
-    path('api/user/get/<int:user_id>/', views.user_by_id, name='user_by_id'),
-    path('api/user/edit/', views.edit_user, name='edit_user'),
-    path('api/user/delete/<int:user_id>/', views.delete_user_by_id, name='delete_user_by_id'),
-
-    # Judges
+    # Judges (existing)
     path('api/judge/get/<int:judge_id>/', judge_by_id, name='judge_by_id'),
     path('api/judge/create/', create_judge, name='create_judge'),
     path('api/judge/edit/', edit_judge, name='edit_judge'),
@@ -93,7 +109,7 @@ urlpatterns = [
     path('api/judge/allScoreSheetsSubmitted/', are_all_score_sheets_submitted, name='are_all_score_sheets_submitted'),
     path('api/judge/disqualifyTeam/', judge_disqualify_team, name='judge_disqualify_team'),
 
-    # Organizers
+    # Organizers (existing)
     path('api/organizer/get/<int:organizer_id>/', organizer_by_id, name='organizer_by_id'),
     path('api/organizer/create/', create_organizer, name='create_organizer'),
     path('api/organizer/edit/', edit_organizer, name='edit_organizer'),
@@ -101,14 +117,14 @@ urlpatterns = [
     path('api/organizer/disqualifyTeam/', organizer_disqualify_team, name='organizer_disqualify_team'),
     path('api/organizer/getAll/', get_all_organizers, name='get_all_organizers'),
 
-    # Coaches
+    # Coaches (existing)
     path('api/coach/get/<int:coach_id>/', coach_by_id, name='coach_by_id'),
     path('api/coach/getAll/', coach_get_all, name='coach_get_all'),
     path('api/coach/create/', create_coach, name='create_coach'),
     path('api/coach/edit/', edit_coach, name='edit_coach'),
     path('api/coach/delete/<int:coach_id>/', delete_coach, name='delete_coach'),
 
-    # Teams
+    # Teams (existing)
     path('api/team/get/<int:team_id>/', team_by_id, name='team_by_id'),
     path('api/team/create/', create_team, name='create_team'),
     path('api/team/createAfterJudge/', create_team_after_judge, name='create_team_after_judge'),
@@ -118,7 +134,7 @@ urlpatterns = [
     path('api/team/isDisqualified/<int:team_id>/', is_team_disqualified, name='is_team_disqualified'),
     path('api/team/getAllTeams/', get_all_teams, name='get_all_teams'),
 
-    # Maps
+    # Maps (existing)
     path('api/mapping/coachToTeam/create/', create_coach_team_mapping, name='create_coach_team_mapping'),
     path('api/mapping/coachToTeam/getCoachByTeam/<int:team_id>/', coach_by_team_id, name='coach_by_team_id'),
     path('api/mapping/coachToTeam/delete/<int:map_id>/', delete_coach_team_mapping_by_id, name='delete_coach_team_mapping'),
@@ -197,8 +213,8 @@ urlpatterns = [
     path('api/tabulation/preliminaryResults/', preliminary_results, name='preliminary_results'),
     path('api/tabulation/championshipResults/', championship_results, name='championship_results'),
     path('api/tabulation/redesignResults/', redesign_results, name='redesign_results'),
-    path('api/tabulation/setAdvancers/', set_advancers, name='set_advancers'),           # NEW
-    path('api/tabulation/listAdvancers/', list_advancers, name='list_advancers'),       # NEW
+    path('api/tabulation/setAdvancers/', set_advancers, name='set_advancers'),
+    path('api/tabulation/listAdvancers/', list_advancers, name='list_advancers'),
 
     # Special Awards
     path('api/mapping/awardToTeam/create/', create_award_team_mapping, name='create_award_team_mapping'),
