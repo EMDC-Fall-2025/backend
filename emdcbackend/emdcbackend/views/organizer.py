@@ -18,6 +18,10 @@ from .Maps.MapContestToOrganizer import map_contest_to_organizer
 from ..models import MapUserToRole
 from ..auth.views import User, delete_user_by_id
 
+# ✅ ADDED imports
+from django.contrib.auth import get_user_model
+from ..auth.password_utils import send_set_password_email
+
 # get organizer by id
 @api_view(["GET"])
 def organizer_by_id(request, organizer_id):
@@ -61,6 +65,11 @@ def create_user_and_organizer(data):
     user_response = create_user(user_data)
     if not user_response.get('user'):
         raise ValidationError('User creation failed.')
+
+    # ✅ ADDED: send set-password email to the newly created user
+    UserModel = get_user_model()
+    created_user = UserModel.objects.get(id=user_response["user"]["id"])
+    send_set_password_email(created_user)
     
     organizer_data = {"first_name": data["first_name"], "last_name": data["last_name"]}
     organizer_response = make_organizer(organizer_data)

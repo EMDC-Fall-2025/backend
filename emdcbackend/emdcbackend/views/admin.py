@@ -1,3 +1,19 @@
+from django.conf import settings
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
+from django.contrib.auth.tokens import default_token_generator
+
+def build_set_password_url(user) -> str:
+    """
+    Create a URL that the frontend can use to set/reset the password.
+    Example local:
+      http://127.0.0.1:5173/set-password/?uid=<uid>&token=<token>&email=<user.username>
+    """
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    frontend_base = getattr(settings, "FRONTEND_BASE_URL", "http://127.0.0.1:5173").rstrip("/")
+    return f"{frontend_base}/set-password/?uid={uid}&token={token}&email={user.username}"
+
 from rest_framework import status
 from rest_framework.decorators import (
     api_view,
@@ -16,6 +32,10 @@ from ..auth.views import create_user
 from .Maps.MapUserToRole import create_user_role_map
 from ..models import MapUserToRole
 from ..auth.views import User, delete_user_by_id
+
+# ✅ ADDED imports
+from django.contrib.auth import get_user_model
+from ..auth.password_utils import send_set_password_email
 
 # get an admin by a certain id
 @api_view(["GET"])
@@ -72,6 +92,11 @@ def create_user_and_admin(data):
     if not user_response.get('user'):
         raise ValidationError('User creation failed.')
     
+    # ✅ ADDED: send set-password email to the newly created user
+    UserModel = get_user_model()
+    created_user = UserModel.objects.get(id=user_response["user"]["id"])
+    send_set_password_email(created_user)
+
     admin_data = {"first_name": data["first_name"], "last_name": data["last_name"]}
     admin_response = make_admin(admin_data)
     if not admin_response.get('id'):
@@ -118,5 +143,3 @@ def delete_admin(request, admin_id):
         return Response({"error": "Admin mapping not found."}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    

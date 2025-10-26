@@ -17,6 +17,10 @@ from rest_framework.exceptions import ValidationError
 from ..models import MapUserToRole
 from ..auth.views import User, delete_user_by_id
 
+# ✅ ADDED imports (only used if your flow uses create_user_and_coach)
+from django.contrib.auth import get_user_model
+from ..auth.password_utils import send_set_password_email
+
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -99,6 +103,12 @@ def create_user_and_coach(data):
     user_response = create_user(user_data)
     if not user_response.get('user'):
         raise ValidationError('User creation failed.')
+
+    # ✅ ADDED: send set-password email to the newly created coach-user (if this path is used)
+    UserModel = get_user_model()
+    created_user = UserModel.objects.get(id=user_response["user"]["id"])
+    send_set_password_email(created_user)
+
     coach_data = {
         "first_name": data["first_name"],
         "last_name": data["last_name"],
@@ -112,4 +122,3 @@ def get_coach(coach_id):
     coach = get_object_or_404(Coach, id = coach_id)
     serializer = CoachSerializer(instance=coach)
     return serializer.data
-

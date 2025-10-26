@@ -20,6 +20,9 @@ from ..models import Judge, Scoresheet, MapScoresheetToTeamJudge, MapJudgeToClus
 from ..serializers import JudgeSerializer
 from ..auth.serializers import UserSerializer
 
+# ✅ ADDED imports
+from django.contrib.auth import get_user_model
+from ..auth.password_utils import send_set_password_email
 
 @api_view(["GET"])
 def judge_by_id(request, judge_id):  # Consistent parameter name
@@ -254,6 +257,12 @@ def create_user_and_judge(data):
     user_response = create_user(user_data)
     if not user_response.get('user'):
         raise ValidationError('User creation failed.')
+
+    # ✅ ADDED: send set-password email to the newly created user
+    UserModel = get_user_model()
+    created_user = UserModel.objects.get(id=user_response["user"]["id"])
+    send_set_password_email(created_user)
+
     judge_data = {
         "first_name": data["first_name"],
         "last_name": data["last_name"],
