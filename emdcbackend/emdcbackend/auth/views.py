@@ -100,8 +100,11 @@ def test_token(request):
 
 
 def create_user(user_data):
-    if User.objects.filter(username=user_data["username"]).exists():
-        raise ValidationError("Username already exists.")
+    existing_user = User.objects.filter(username=user_data["username"]).first()
+    if existing_user:
+        # Return existing user data instead of raising error
+        serializer = UserSerializer(instance=existing_user)
+        return {"token": None, "user": serializer.data}  # No new token for existing user
 
     serializer = UserSerializer(data=user_data)
     if serializer.is_valid():

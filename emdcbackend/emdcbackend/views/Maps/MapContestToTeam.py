@@ -30,6 +30,10 @@ def create_contest_team_mapping(request):
 @permission_classes([IsAuthenticated])
 def get_teams_by_contest_id(request,contest_id):
     try:
+      # Ensure all team scores are up-to-date by running tabulation
+      from ...views.tabulation import recompute_totals_and_ranks
+      recompute_totals_and_ranks(contest_id)
+      
       mappings = MapContestToTeam.objects.filter(contestid=contest_id)
       team_ids = mappings.values_list('teamid',flat=True)
       teams = Teams.objects.filter(id__in=team_ids).order_by('team_rank')
@@ -43,19 +47,14 @@ def get_teams_by_contest_id(request,contest_id):
 @permission_classes([IsAuthenticated])
 def get_contest_id_by_team_id(request,team_id):
   try:
-    print(f"DEBUG: get_contest_id_by_team_id called for team_id: {team_id}")
     map = MapContestToTeam.objects.get(teamid=team_id)
-    print(f"DEBUG: Found mapping: contestid={map.contestid}")
     contest_id=map.contestid
     contest=Contest.objects.get(id=contest_id)
-    print(f"DEBUG: Found contest: {contest.name}")
     serializer = ContestSerializer(instance=contest)
     return Response({"Contest":serializer.data},status=status.HTTP_200_OK)
   except MapContestToTeam.DoesNotExist:
-    print(f"DEBUG: No mapping found for team_id: {team_id}")
     return Response({"error": "No Contest Found for given Team"}, status=status.HTTP_404_NOT_FOUND)
   except Exception as e:
-    print(f"DEBUG: Error in get_contest_id_by_team_id: {str(e)}")
     return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

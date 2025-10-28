@@ -13,7 +13,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from .Maps.MapUserToRole import create_user_role_map
 from .Maps.MapContestToJudge import create_contest_to_judge_map
-from .Maps.MapClusterToJudge import map_cluster_to_judge,  delete_cluster_judge_mapping
+from .Maps.MapClusterToJudge import map_cluster_to_judge
 from .scoresheets import create_sheets_for_teams_in_cluster, delete_sheets_for_teams_in_cluster
 from ..auth.views import create_user
 from ..models import Judge, Scoresheet, MapScoresheetToTeamJudge, MapJudgeToCluster, Teams, MapContestToJudge, MapUserToRole
@@ -37,6 +37,9 @@ def create_judge(request):
     try:
         with transaction.atomic():
             user_response, judge_response = create_user_and_judge(request.data)
+
+            # Check for existing mappings and clean up before creating new ones
+            judge_id = judge_response.get("id")
 
             # Map judge to user and contest
             responses = [
@@ -102,21 +105,17 @@ def edit_judge(request):
     try:
         judge = get_object_or_404(Judge, id=request.data["id"])
         
+        # Get the current cluster ID before cleanup
+        current_cluster_mapping = MapJudgeToCluster.objects.filter(judgeid=judge.id).first()
+        current_cluster_id = current_cluster_mapping.clusterid if current_cluster_mapping else None
+        
         # Clean up any existing duplicate mappings for this judge
         with transaction.atomic():
-            # Clean up duplicate cluster mappings
-            cluster_duplicates = MapJudgeToCluster.objects.filter(judgeid=judge.id).values('judgeid').annotate(count=Count('id')).filter(count__gt=1)
-            if cluster_duplicates.exists():
-                # Keep the first mapping, delete the rest
-                first_cluster = MapJudgeToCluster.objects.filter(judgeid=judge.id).first()
-                MapJudgeToCluster.objects.filter(judgeid=judge.id).exclude(id=first_cluster.id).delete()
+            # Clean up ALL existing cluster mappings for this judge
+            MapJudgeToCluster.objects.filter(judgeid=judge.id).delete()
             
-            # Clean up duplicate user mappings
-            user_duplicates = MapUserToRole.objects.filter(role=3, relatedid=judge.id).values('relatedid').annotate(count=Count('id')).filter(count__gt=1)
-            if user_duplicates.exists():
-                # Keep the first mapping, delete the rest
-                first_user = MapUserToRole.objects.filter(role=3, relatedid=judge.id).first()
-                MapUserToRole.objects.filter(role=3, relatedid=judge.id).exclude(id=first_user.id).delete()
+            # Clean up ALL existing user role mappings for this judge
+            MapUserToRole.objects.filter(role=3, relatedid=judge.id).delete()
         new_first_name = request.data["first_name"]
         new_last_name = request.data["last_name"]
         new_phone_number = request.data["phone_number"]
@@ -131,26 +130,11 @@ def edit_judge(request):
         new_username = request.data["username"]
         new_role = request.data["role"]
         with transaction.atomic():
-            # Handle multiple cluster mappings - get the first one or clean up duplicates
-            cluster_mappings = MapJudgeToCluster.objects.filter(judgeid=judge.id)
-            if cluster_mappings.count() > 1:
-                # Keep the first mapping and delete the rest
-                cluster = cluster_mappings.first()
-                cluster_mappings.exclude(id=cluster.id).delete()
-            else:
-                cluster = cluster_mappings.first()
+            # Get the current cluster ID from the request data
+            clusterid = new_cluster
             
-            clusterid = cluster.clusterid
-            
-            # Handle multiple user mappings - get the first one or clean up duplicates
-            user_mappings = MapUserToRole.objects.filter(role=3, relatedid=judge.id)
-            if user_mappings.count() > 1:
-                # Keep the first mapping and delete the rest
-                user_mapping = user_mappings.first()
-                user_mappings.exclude(id=user_mapping.id).delete()
-            else:
-                user_mapping = user_mappings.first()
-            user = get_object_or_404(User, id=user_mapping.uuid)
+            # Get the user from the username in request data
+            user = get_object_or_404(User, username=new_username)
             if user.username != new_username:
                 user.username = new_username
                 user.save()
@@ -165,89 +149,95 @@ def edit_judge(request):
             if new_role != judge.role:
                 judge.role = new_role
 
-            # if the judge is being moved to a new cluster
-            if clusterid != new_cluster:
-                # delete all scoresheets and mappings for the judge
-                delete_sheets_for_teams_in_cluster(judge.id, clusterid, judge.penalties, judge.presentation, judge.journal, judge.redesign, judge.mdo)
+            # Only recreate scoresheets if cluster has changed or scoresheet types have changed
+            cluster_changed = current_cluster_id != new_cluster
+            scoresheet_types_changed = (
+                judge.presentation != new_presentation or
+                judge.journal != new_journal or
+                judge.mdo != new_mdo or
+                judge.runpenalties != new_runpenalties or
+                judge.otherpenalties != new_otherpenalties or
+                judge.redesign != new_redesign or
+                judge.championship != new_championship
+            )
+            
+            # Also ensure scoresheets exist for judge in target cluster (e.g., if mappings were wiped earlier)
+            from ..models import MapClusterToTeam, MapScoresheetToTeamJudge
+            missing_scoresheets = False
+            try:
+                cluster_team_mappings = MapClusterToTeam.objects.filter(clusterid=new_cluster)
+                team_ids = list(cluster_team_mappings.values_list('teamid', flat=True))
+                if team_ids:
+                    # Look for at least one mapping in this cluster for this judge
+                    existing_cluster_mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge.id, teamid__in=team_ids)
+                    missing_scoresheets = not existing_cluster_mappings.exists()
+            except Exception:
+                # If any lookup fails, fall back to not missing
+                missing_scoresheets = False
 
-                # create new blank scoresheets
-                create_sheets_for_teams_in_cluster(judge.id, new_cluster, new_runpenalties, new_presentation, new_journal, new_mdo, new_redesign)
+            should_delete = cluster_changed or scoresheet_types_changed
+            if should_delete:
+                # Delete all existing scoresheets for this judge (from current cluster)
+                if current_cluster_id:
+                    delete_sheets_for_teams_in_cluster(
+                        judge.id,
+                        current_cluster_id,
+                        judge.presentation,
+                        judge.journal,
+                        judge.mdo,
+                        judge.runpenalties,
+                        judge.otherpenalties,
+                        judge.redesign,
+                        judge.championship,
+                    )
 
-                # delete the old cluster-judge mapping and create a new one
-                delete_cluster_judge_mapping(cluster.id)
-                map_cluster_to_judge({
-                    "judgeid": judge.id,
-                    "clusterid": new_cluster
-                })
+            if should_delete or missing_scoresheets:
+                # Create new blank scoresheets (either after delete or if missing)
+                create_sheets_for_teams_in_cluster(
+                    judge.id,
+                    new_cluster,
+                    new_presentation,
+                    new_journal,
+                    new_mdo,
+                    new_runpenalties,
+                    new_otherpenalties,
+                    new_redesign,
+                    new_championship,
+                )
 
-                # update the boolean values
-                if judge.presentation != new_presentation:
-                    judge.presentation = new_presentation
-                if judge.mdo != new_mdo:
-                    judge.mdo = new_mdo
-                if judge.journal != new_journal:
-                    judge.journal = new_journal
-                if judge.runpenalties != new_runpenalties:
-                    judge.runpenalties = new_runpenalties
-                if judge.otherpenalties != new_otherpenalties:
-                    judge.otherpenalties = new_otherpenalties
-                if judge.redesign != new_redesign:
-                    judge.redesign = new_redesign
-                if judge.championship != new_championship:
-                    judge.championship = new_championship
+            # Always ensure cluster-judge mapping exists
+            map_cluster_to_judge({
+                "judgeid": judge.id,
+                "clusterid": new_cluster
+            })
+            
+            # Ensure contest-judge mapping exists (some flows may lack it)
+            try:
+                from ..models import MapContestToJudge
+                if not MapContestToJudge.objects.filter(judgeid=judge.id, contestid=judge.contestid).exists():
+                    from .Maps.MapContestToJudge import create_contest_to_judge_map
+                    create_contest_to_judge_map({
+                        "contestid": judge.contestid,
+                        "judgeid": judge.id,
+                    })
+            except Exception:
+                pass
+            
+            # Create new user-role mapping
+            create_user_role_map({
+                "uuid": user.id,
+                "role": 3,
+                "relatedid": judge.id
+            })
 
-                clusterid = new_cluster
-
-            else:
-                # if adding or removing scoresheets (no cluster change)
-                if new_presentation != judge.presentation and new_presentation == False:
-                        delete_sheets_for_teams_in_cluster(judge.id, clusterid, True, False, False, False, False, False, False)
-                        judge.presentation = False
-                elif new_presentation != judge.presentation and new_presentation == True:
-                        create_sheets_for_teams_in_cluster(judge.id, clusterid, True, False, False, False, False, False, False)
-                        judge.presentation = True
-
-                if new_journal != judge.journal and new_journal == False:
-                        delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, True, False, False, False, False,False)
-                        judge.journal = False
-                elif new_journal != judge.journal and new_journal == True:
-                        create_sheets_for_teams_in_cluster(judge.id, clusterid, False, True, False, False, False, False,False)
-                        judge.journal = True
-
-                if new_mdo != judge.mdo and new_mdo == False:
-                        delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, True, False, False, False,False)
-                        judge.mdo = False
-                elif new_mdo != judge.mdo and new_mdo == True:
-                        create_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, True, False, False, False,False)
-                        judge.mdo = True
-
-                if new_runpenalties != judge.runpenalties and new_runpenalties == False:
-                        delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, True, False, False,False)
-                        judge.runpenalties = False
-                elif new_runpenalties != judge.runpenalties and new_runpenalties == True:
-                        create_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, True, False, False,False)
-                        judge.runpenalties = True
-
-                if new_otherpenalties != judge.otherpenalties and new_otherpenalties == False:
-                        delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, False, True, False,False)
-                        judge.otherpenalties = False
-                elif new_otherpenalties != judge.otherpenalties and new_otherpenalties == True:
-                        create_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, False, True, False,False)
-                        judge.otherpenalties = True
-                
-                if new_redesign != judge.redesign and new_redesign == False:
-                    delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, False, False, True,False)
-                    judge.redesign = False
-                elif new_redesign != judge.redesign and new_redesign == True:
-                    create_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, False, False, True,False)
-                    judge.redesign = True
-
-                if new_championship != judge.championship and new_championship == False:
-                    delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, False, False, True,False)
-                    judge.championship = False
-                elif new_championship != judge.championship and new_championship == True:
-                    create_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, False, False, True,False)
-                    judge.championship = True
+            # Update the boolean values (always update to match request data)
+            judge.presentation = new_presentation
+            judge.mdo = new_mdo
+            judge.journal = new_journal
+            judge.runpenalties = new_runpenalties
+            judge.otherpenalties = new_otherpenalties
+            judge.redesign = new_redesign
+            judge.championship = new_championship
 
 
 
@@ -265,44 +255,52 @@ def edit_judge(request):
 @permission_classes([IsAuthenticated])
 def delete_judge(request, judge_id):
     try:
-        judge = get_object_or_404(Judge, id=judge_id)
-        scoresheet_mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
-        scoresheet_ids = scoresheet_mappings.values_list('scoresheetid', flat=True)
-        scoresheets = Scoresheet.objects.filter(id__in=scoresheet_ids)
-        user_mapping = MapUserToRole.objects.filter(role=3, relatedid=judge_id).first()
-        if user_mapping:
-            user = get_object_or_404(User, id=user_mapping.uuid)
-        else:
-            user = None
+        with transaction.atomic():
+            judge = get_object_or_404(Judge, id=judge_id)
             
-        cluster_mapping = MapJudgeToCluster.objects.filter(judgeid=judge_id).first()
-        teams_mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
-        contest_mapping = MapContestToJudge.objects.filter(judgeid=judge_id)
-        # scoresheet_team_judge = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
+            # Get all related data
+            scoresheet_mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
+            scoresheet_ids = scoresheet_mappings.values_list('scoresheetid', flat=True)
+            scoresheets = Scoresheet.objects.filter(id__in=scoresheet_ids)
+            user_mappings = MapUserToRole.objects.filter(role=3, relatedid=judge_id)
+            cluster_mappings = MapJudgeToCluster.objects.filter(judgeid=judge_id)
+            contest_mappings = MapContestToJudge.objects.filter(judgeid=judge_id)
+            
+            # Get user if exists
+            user = None
+            if user_mappings.exists():
+                user_id = user_mappings.first().uuid
+                try:
+                    user = get_object_or_404(User, id=user_id)
+                except User.DoesNotExist:
+                    user = None
 
-        # delete associated user
-        if user:
-            user.delete()
-        if user_mapping:
-            user_mapping.delete()
+            # Delete all associated scoresheets
+            for scoresheet in scoresheets:
+                scoresheet.delete()
 
-        # delete associated scoresheets
-        for scoresheet in scoresheets:
-            scoresheet.delete()
+            # Delete all scoresheet mappings
+            for mapping in scoresheet_mappings:
+                mapping.delete()
 
-        # delete associated judge-teams mappings
-        for mapping in teams_mappings:
-            mapping.delete()
+            # Delete all contest mappings
+            for mapping in contest_mappings:
+                mapping.delete()
 
-        # delete associated judge-contest mapping
-        contest_mapping.delete()
+            # Delete all cluster mappings
+            for mapping in cluster_mappings:
+                mapping.delete()
 
-        # delete associated judge-cluster mapping
-        if cluster_mapping:
-            cluster_mapping.delete()
+            # Delete all user role mappings
+            for mapping in user_mappings:
+                mapping.delete()
 
-        # delete the judge
-        judge.delete()
+            # Delete associated user
+            if user:
+                user.delete()
+
+            # Finally, delete the judge
+            judge.delete()
 
         return Response({"detail": "Judge deleted successfully."}, status=status.HTTP_200_OK)
     
@@ -316,6 +314,17 @@ def create_judge_instance(judge_data):
     Create a judge instance in the database.
     Validates judge data and saves to database.
     """
+    # Check if a judge with the same name already exists
+    existing_judge = Judge.objects.filter(
+        first_name=judge_data["first_name"],
+        last_name=judge_data["last_name"]
+    ).first()
+    
+    if existing_judge:
+        # Return the existing judge data instead of creating a new one
+        serializer = JudgeSerializer(instance=existing_judge)
+        return serializer.data
+    
     serializer = JudgeSerializer(data=judge_data)
     if serializer.is_valid():
         serializer.save()

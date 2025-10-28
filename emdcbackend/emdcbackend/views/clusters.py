@@ -66,6 +66,17 @@ def create_cluster(request):
 @permission_classes([IsAuthenticated])
 def edit_cluster(request):
     cluster = get_object_or_404(JudgeClusters, id=request.data["id"])
+    
+    # Cannot change from preliminary to championship/redesign
+    original_type = (cluster.cluster_type or "preliminary").lower()
+    new_type = request.data.get("cluster_type", original_type).lower()
+    
+    if original_type == "preliminary" and new_type in ["championship", "redesign"]:
+        return Response(
+            {"error": "Cannot change preliminary cluster to championship/redesign."}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
     cluster.cluster_name = request.data["cluster_name"]
     if "cluster_type" in request.data:
         cluster.cluster_type = request.data["cluster_type"]

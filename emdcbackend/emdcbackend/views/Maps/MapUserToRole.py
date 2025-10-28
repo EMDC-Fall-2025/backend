@@ -99,9 +99,22 @@ def get_role(user_id):
         return {"user_type": mapping.role, "user": roleSerializer.data}
 
 def create_user_role_map(mapData):
-    existing_mapping = MapUserToRole.objects.filter(uuid=mapData.get("uuid")).first()
+    # Check for existing mapping with same user and role
+    existing_mapping = MapUserToRole.objects.filter(
+        uuid=mapData.get("uuid"),
+        role=mapData.get("role"),
+        relatedid=mapData.get("relatedid")
+    ).first()
+    
     if existing_mapping:
-        raise ValidationError({"detail": "This user is already mapped to a role."})
+        # Return existing mapping data instead of creating duplicate
+        serializer = MapUserToRoleSerializer(existing_mapping)
+        return serializer.data
+    
+    # Check if user has any other role mappings and clean them up
+    other_mappings = MapUserToRole.objects.filter(uuid=mapData.get("uuid"))
+    if other_mappings.exists():
+        other_mappings.delete()
 
     serializer = MapUserToRoleSerializer(data=mapData)
     if serializer.is_valid():

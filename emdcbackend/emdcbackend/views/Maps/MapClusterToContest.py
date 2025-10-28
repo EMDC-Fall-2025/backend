@@ -13,21 +13,6 @@ from ...models import JudgeClusters, Contest, MapContestToCluster
 from ...serializers import JudgeClustersSerializer, ContestSerializer, ClusterToContestSerializer
 
 
-# make non http request to create mapping
-@api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
-@permission_classes([IsAuthenticated])
-def create_cluster_contest_mapping(request):
-    try:
-        map_data = request.data
-        result = map_cluster_to_contest(map_data)
-        return Response(result, status=status.HTTP_201_CREATED)
-
-    except ValidationError as e:
-        return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
-
-    except Exception as e:
-        return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, TokenAuthentication])
@@ -111,6 +96,5 @@ def get_all_teams_cluster(contest_id):
     except JudgeClusters.DoesNotExist:
         return {"error": "'All Teams' cluster not found."}, None
     except Exception as e:
-        print(f"Error retrieving 'All Teams' cluster: {str(e)}")
         return {"error": str(e)}, None
 

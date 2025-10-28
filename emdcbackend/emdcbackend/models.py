@@ -109,6 +109,8 @@ class Teams(models.Model):
     championship_presentation_score = models.FloatField(default=0.0)
     championship_machinedesign_score = models.FloatField(default=0.0)
     championship_penalties_score = models.FloatField(default=0.0)
+    championship_general_penalties_score = models.FloatField(default=0.0)
+    championship_run_penalties_score = models.FloatField(default=0.0)
     championship_score = models.FloatField(default=0.0)
     
     # Redesign results storage
@@ -183,6 +185,32 @@ class Scoresheet(models.Model):
     field15 = models.FloatField(null=True, blank=True)
     field16 = models.FloatField(null=True, blank=True)
     field17 = models.FloatField(null=True, blank=True)
+    field18 = models.CharField(null=True, blank=True, max_length=500)
+    # Championship penalty fields (19-42)
+    field19 = models.FloatField(null=True, blank=True)
+    field20 = models.FloatField(null=True, blank=True)
+    field21 = models.FloatField(null=True, blank=True)
+    field22 = models.FloatField(null=True, blank=True)
+    field23 = models.FloatField(null=True, blank=True)
+    field24 = models.FloatField(null=True, blank=True)
+    field25 = models.FloatField(null=True, blank=True)
+    field26 = models.FloatField(null=True, blank=True)
+    field27 = models.FloatField(null=True, blank=True)
+    field28 = models.FloatField(null=True, blank=True)
+    field29 = models.FloatField(null=True, blank=True)
+    field30 = models.FloatField(null=True, blank=True)
+    field31 = models.FloatField(null=True, blank=True)
+    field32 = models.FloatField(null=True, blank=True)
+    field33 = models.FloatField(null=True, blank=True)
+    field34 = models.FloatField(null=True, blank=True)
+    field35 = models.FloatField(null=True, blank=True)
+    field36 = models.FloatField(null=True, blank=True)
+    field37 = models.FloatField(null=True, blank=True)
+    field38 = models.FloatField(null=True, blank=True)
+    field39 = models.FloatField(null=True, blank=True)
+    field40 = models.FloatField(null=True, blank=True)
+    field41 = models.FloatField(null=True, blank=True)
+    field42 = models.FloatField(null=True, blank=True)
 
     def clean(self):
         if self.sheetType == ScoresheetEnum.RUNPENALTIES:
@@ -209,13 +237,20 @@ class Scoresheet(models.Model):
                 if getattr(self, field) is None:
                     errors[field] = error_message
             if errors:
-                raise ValidationError(errors)
+                raise ModelValidationError(errors)
         elif self.sheetType == ScoresheetEnum.OTHERPENALTIES or ScoresheetEnum.REDESIGN:
             required_fields = ['field1', 'field2', 'field3', 'field4', 'field5', 'field6', 'field7']
             for field in required_fields:
                 if getattr(self, field) is None:
                     raise ModelValidationError({field: f'{field.capitalize()} is required.'})
-
+        elif self.sheetType == ScoresheetEnum.CHAMPIONSHIP:
+            # Championship: Machine Design fields 1-8, Presentation fields 10-17 required
+            # Comment fields 9, 18 are optional
+            required_fields = ['field1', 'field2', 'field3', 'field4', 'field5', 'field6', 'field7', 'field8',
+                             'field10', 'field11', 'field12', 'field13', 'field14', 'field15', 'field16', 'field17']
+            for field in required_fields:
+                if getattr(self, field) is None:
+                    raise ModelValidationError({field: f'{field.capitalize()} is required for Championship.'})
         else:
             # Presentation / Journal / Machine Design: fields 1..8 required
             required_fields = ['field1', 'field2', 'field3', 'field4', 'field5', 'field6', 'field7', 'field8']
@@ -224,7 +259,9 @@ class Scoresheet(models.Model):
                     raise ModelValidationError({field: f'{field.capitalize()} is required.'})
 
     def save(self, *args, **kwargs):
-        self.clean()
+        # Only run validation if the scoresheet is being submitted (not just saved as draft)
+        if self.isSubmitted:
+            self.clean()
         super().save(*args, **kwargs)
 
 

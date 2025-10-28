@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from ...models import MapScoresheetToTeamJudge, Scoresheet, MapContestToJudge, MapJudgeToCluster
+from ...models import MapScoresheetToTeamJudge, Scoresheet, MapContestToJudge, MapJudgeToCluster, MapClusterToTeam
 from ...serializers import MapScoreSheetToTeamJudgeSerializer, ScoresheetSerializer
 
 
@@ -102,8 +102,8 @@ def score_sheets_by_judge(request, judge_id):
         mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
 
         if not mappings.exists():
-            return Response({"error": "No mappings found for the provided judge."},
-                            status=status.HTTP_404_NOT_FOUND)
+            # Return empty list instead of 404 to simplify client handling
+            return Response({"ScoreSheets": []}, status=status.HTTP_200_OK)
 
         # Prepare data to return mappings with scoresheets
         results = []
@@ -169,7 +169,6 @@ def score_sheets_by_judge_and_cluster(request, judge_id, cluster_id):
     """
     try:
         # Get all teams in the cluster
-        from ..models import MapClusterToTeam
         cluster_team_mappings = MapClusterToTeam.objects.filter(clusterid=cluster_id)
         team_ids = cluster_team_mappings.values_list('teamid', flat=True)
         
@@ -180,8 +179,8 @@ def score_sheets_by_judge_and_cluster(request, judge_id, cluster_id):
         )
 
         if not mappings.exists():
-            return Response({"error": "No mappings found for the provided judge in this cluster."},
-                            status=status.HTTP_404_NOT_FOUND)
+            # Return empty list instead of 404 to simplify client handling
+            return Response({"ScoreSheets": []}, status=status.HTTP_200_OK)
 
         # Prepare data to return mappings with scoresheets
         results = []

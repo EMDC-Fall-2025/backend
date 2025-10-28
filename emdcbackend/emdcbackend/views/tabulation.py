@@ -45,22 +45,23 @@ def sort_by_score_with_id_fallback(teams, score_attr: str):
 def _compute_totals_for_team(team: Teams):
     """Compute totals and averages for a given team."""
     score_map = MapScoresheetToTeamJudge.objects.filter(teamid=team.id)
-    totals = [0] * 12  
-
-    # Check if team is in championship or redesign cluster first
-    team_clusters = MapClusterToTeam.objects.filter(teamid=team.id)
-    is_championship_round = False
-    is_redesign_round = False
     
-    for mapping in team_clusters:
-        try:
-            cluster = JudgeClusters.objects.get(id=mapping.clusterid)
-            if cluster.cluster_type == 'championship':
-                is_championship_round = True
-            elif cluster.cluster_type == 'redesign':
-                is_redesign_round = True
-        except JudgeClusters.DoesNotExist:
-            continue
+    # ALL teams should be processed for preliminary results first
+    # Then additional processing for championship/redesign if applicable
+    is_championship_round = team.advanced_to_championship
+    
+    # Check if team has redesign scoresheets to determine if it's a redesign round
+    has_redesign_sheets = any(
+        Scoresheet.objects.get(id=mapping.scoresheetid).sheetType == ScoresheetEnum.REDESIGN
+        for mapping in score_map
+        if Scoresheet.objects.filter(id=mapping.scoresheetid).exists()
+    )
+    is_redesign_round = not team.advanced_to_championship and has_redesign_sheets
+    
+
+    # Separate totals for preliminary and championship
+    preliminary_totals = [0] * 12  # For preliminary scoresheets
+    championship_totals = [0] * 12  # For championship scoresheets
 
     for mapping in score_map:
         try:
@@ -70,47 +71,76 @@ def _compute_totals_for_team(team: Teams):
         
         if not sheet.isSubmitted:
             continue
-
-        # For championship rounds, only process championship scoresheets
-        if is_championship_round and sheet.sheetType != ScoresheetEnum.CHAMPIONSHIP:
-            continue
             
-        # For redesign rounds, only process redesign scoresheets  
-        if is_redesign_round and sheet.sheetType != ScoresheetEnum.REDESIGN:
+
+        # For redesign rounds, process both redesign and preliminary scoresheets
+        # (teams can have both types of scoresheets)
+        if is_redesign_round and sheet.sheetType == ScoresheetEnum.REDESIGN:
+            # Process redesign scoresheet (handled later in the elif chain)
+            pass
+        elif is_redesign_round and sheet.sheetType not in [ScoresheetEnum.PRESENTATION, ScoresheetEnum.JOURNAL, ScoresheetEnum.MACHINEDESIGN, ScoresheetEnum.RUNPENALTIES, ScoresheetEnum.OTHERPENALTIES]:
+            # Skip non-preliminary, non-redesign scoresheets for redesign teams
             continue
 
         if sheet.sheetType == ScoresheetEnum.PRESENTATION:
-            totals[0] += sum(getattr(sheet, f"field{i}", 0) for i in range(1, 9))
-            totals[1] += 1
+            preliminary_totals[0] += sum(getattr(sheet, f"field{i}", 0) for i in range(1, 9))
+            preliminary_totals[1] += 1
         elif sheet.sheetType == ScoresheetEnum.JOURNAL:
-            totals[2] += sum(getattr(sheet, f"field{i}", 0) for i in range(1, 9))
-            totals[3] += 1
+            preliminary_totals[2] += sum(getattr(sheet, f"field{i}", 0) for i in range(1, 9))
+            preliminary_totals[3] += 1
         elif sheet.sheetType == ScoresheetEnum.MACHINEDESIGN:
-            totals[4] += sum(getattr(sheet, f"field{i}", 0) for i in range(1, 9))
-            totals[5] += 1
+            preliminary_totals[4] += sum(getattr(sheet, f"field{i}", 0) for i in range(1, 9))
+            preliminary_totals[5] += 1
         elif sheet.sheetType == ScoresheetEnum.RUNPENALTIES:
-            # RUNPENALTIES should be treated as one penalty type, not two separate ones
-            totals[7] += sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(1, 18))  # All fields combined, handle string fields
-            totals[8] += 1
+            # RUNPENALTIES has 16 numeric fields: fields 1-8 and 10-17 (skip field 9 which is dummy)
+            penalty_sum = sum(
+                (getattr(sheet, f"field{i}", 0) or 0)
+                for i in range(1, 18)
+                if i != 9
+            )
+            preliminary_totals[7] += penalty_sum
+            preliminary_totals[8] += 1
         elif sheet.sheetType == ScoresheetEnum.OTHERPENALTIES:
-            totals[6] += sum(getattr(sheet, f"field{i}", 0) for i in range(1, 8))
-            totals[11] += 1  # Count of OTHERPENALTIES judges
+            preliminary_totals[6] += sum(getattr(sheet, f"field{i}", 0) for i in range(1, 8))
+            preliminary_totals[11] += 1  # Count of OTHERPENALTIES judges
         elif sheet.sheetType == ScoresheetEnum.REDESIGN:
             # Redesign scoresheet contains all categories in one sheet
             # field1-7: Good scores, penalties kept at 0 for now
-            team.redesign_presentation_score = sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(1, 3))
-            team.redesign_machinedesign_score = sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(3, 5))
-            team.redesign_journal_score = sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(5, 7))
-            team.redesign_penalties_score = 0  # Keep penalties at 0 for now
-            team.redesign_score = team.redesign_presentation_score + team.redesign_machinedesign_score + team.redesign_journal_score - team.redesign_penalties_score
+            # Initialize redesign totals if not already set
+            if not hasattr(team, '_redesign_presentation_total') or team._redesign_presentation_total is None:
+                team._redesign_presentation_total = 0
+                team._redesign_machinedesign_total = 0
+                team._redesign_journal_total = 0
+                team._redesign_judge_count = 0
+            
+            # Add scores from this scoresheet and count judges
+            team._redesign_presentation_total += sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(1, 3))
+            team._redesign_machinedesign_total += sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(3, 5))
+            team._redesign_journal_total += sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(5, 7))
+            team._redesign_judge_count += 1
 
         elif sheet.sheetType == ScoresheetEnum.CHAMPIONSHIP:
+            # Championship scoresheets: always process championship scoresheets
+            
             # Accumulate scores for averaging (like preliminary round)
-            totals[0] += sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(1, 5))  # Presentation
-            totals[1] += 1  # Count of presentation judges
-            totals[2] += sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(5, 9))  # Machine Design
-            totals[3] += 1  # Count of machine design judges
-            totals[6] += sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(9, 10))  # Penalties
+            # New championship structure: fields 1-9 = Machine Design, fields 10-18 = Presentation
+            # Machine Design fields 1-8 (field9 is CharField for comments, so skip it)
+            machine_design_score = sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(1, 9))  # Machine Design (fields 1-8)
+            championship_totals[0] += machine_design_score
+            championship_totals[1] += 1  # Count of machine design judges
+            
+            # Presentation fields 10-17 (field18 is CharField for comments, so skip it)
+            presentation_score = sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(10, 18))  # Presentation (fields 10-17)
+            championship_totals[2] += presentation_score
+            championship_totals[3] += 1  # Count of presentation judges
+            
+            # Championship penalties: separate general (19-25) and run (26-42) penalties
+            general_penalties_score = sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(19, 26))  # General Penalties (fields 19-25)
+            run_penalties_score = sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(26, 43))  # Run Penalties (fields 26-42)
+            total_penalties_score = general_penalties_score + run_penalties_score
+            
+            championship_totals[6] += general_penalties_score  # Store general penalties in index 6
+            championship_totals[7] += run_penalties_score      # Store run penalties in index 7
 
     # compute averages and totals based on round type
     # Check if team is in championship or redesign cluster
@@ -128,49 +158,75 @@ def _compute_totals_for_team(team: Teams):
         except JudgeClusters.DoesNotExist:
             continue
     
+    # ALWAYS calculate preliminary scores for ALL teams first
+    team.presentation_score = qdiv(preliminary_totals[0], preliminary_totals[1])
+    team.journal_score = qdiv(preliminary_totals[2], preliminary_totals[3])
+    team.machinedesign_score = qdiv(preliminary_totals[4], preliminary_totals[5])
+    team.preliminary_journal_score = team.journal_score  # Store for championship use
+    team.preliminary_presentation_score = team.presentation_score  # Store for championship use
+    team.preliminary_machinedesign_score = team.machinedesign_score  # Store for championship use
+
+    # Penalties should be summed (not averaged) because each penalty represents a specific deduction
+    team.preliminary_penalties_score = preliminary_totals[6]  # Total OTHERPENALTIES (not averaged)
+    team.penalties_score = preliminary_totals[7]  # Total RUNPENALTIES (not averaged)
+    
+    
+    # Total penalties for calculation (both types combined)
+    total_penalties = preliminary_totals[6] + preliminary_totals[7]
+    preliminary_total = (
+        team.preliminary_presentation_score + team.preliminary_journal_score + team.preliminary_machinedesign_score
+    ) - total_penalties
+    
+    # Store preliminary total score
+    team.preliminary_total_score = preliminary_total
+    
+    # Set total_score to preliminary_total by default
+    team.total_score = preliminary_total
+
     if is_championship_round:
         # Championship round: journal from preliminary + championship score
-        # Calculate averages from accumulated totals
-        team.championship_presentation_score = qdiv(totals[0], totals[1])  # Average presentation score
-        team.championship_machinedesign_score = qdiv(totals[2], totals[3])  # Average machine design score
-        team.championship_penalties_score = qdiv(totals[6], 1)  # Total penalties (not averaged)
         
-        # Championship total = presentation + machine design + preliminary journal - penalties
+        # Then calculate championship scores
+        
+        team.championship_machinedesign_score = qdiv(championship_totals[0], championship_totals[1]) if championship_totals[1] > 0 else 0  # Average machine design score
+        team.championship_presentation_score = qdiv(championship_totals[2], championship_totals[3]) if championship_totals[3] > 0 else 0  # Average presentation score
+        
+        # Store separate penalty scores for championship
+        team.championship_general_penalties_score = championship_totals[6]  # General penalties (fields 19-25)
+        team.championship_run_penalties_score = championship_totals[7]      # Run penalties (fields 26-42)
+        team.championship_penalties_score = championship_totals[6] + championship_totals[7]  # Total penalties for calculation
+        
+        # Championship total = machine design + presentation + preliminary journal - total penalties
         journal_score = team.preliminary_journal_score or 0
-        championship_score = team.championship_presentation_score + team.championship_machinedesign_score
+        championship_score = team.championship_machinedesign_score + team.championship_presentation_score
         team.total_score = journal_score + championship_score - team.championship_penalties_score
         
     elif is_redesign_round:
         # Redesign round: only redesign score (all categories combined)
-        team.total_score = qdiv(team.redesign_score or 0, 1)  # Safe division
+        # Calculate average redesign scores after processing all scoresheets
+        if hasattr(team, '_redesign_judge_count') and team._redesign_judge_count > 0:
+            team.redesign_presentation_score = team._redesign_presentation_total / team._redesign_judge_count
+            team.redesign_machinedesign_score = team._redesign_machinedesign_total / team._redesign_judge_count
+            team.redesign_journal_score = team._redesign_journal_total / team._redesign_judge_count
+            team.redesign_penalties_score = 0  # Keep penalties at 0 for now
+            
+            # Calculate total redesign score
+            team.redesign_score = team.redesign_presentation_score + team.redesign_machinedesign_score + team.redesign_journal_score - team.redesign_penalties_score
+        else:
+            team.redesign_score = 0
+        
+        # Always set total_score to redesign_score for redesign teams
+        team.total_score = team.redesign_score
     else:
-        # Preliminary round: normal calculation
-        team.presentation_score = qdiv(totals[0], totals[1])
-        team.journal_score = qdiv(totals[2], totals[3])
-        team.machinedesign_score = qdiv(totals[4], totals[5])
-
-        run_penalties_avg = qdiv(totals[7], totals[8])  # Average RUNPENALTIES by judge count
-        other_penalties_avg = qdiv(totals[6], totals[11]) if totals[11] > 0 else 0  # Average OTHERPENALTIES by judge count
-        
-        # Store separate penalty types
-        team.preliminary_penalties_score = other_penalties_avg  # General penalties (OTHERPENALTIES)
-        team.penalties_score = run_penalties_avg  # Run penalties (RUNPENALTIES)
-        
-        # Total penalties for calculation
-        total_penalties = other_penalties_avg + run_penalties_avg
-        preliminary_total = (
-            team.presentation_score + team.journal_score + team.machinedesign_score
-        ) - total_penalties
-        
-        # Store preliminary total score
-        team.preliminary_total_score = preliminary_total
-        team.total_score = preliminary_total
+        # Teams that are neither championship nor redesign keep their preliminary scores
+        # (already calculated above for ALL teams)
+        pass
     
     team.save()
 
 
 def set_team_rank(data):
-    """Set contest-wide rank by total_score for eligible teams."""
+    """Set preliminary rank by preliminary_total_score for ALL teams in the contest."""
     contest_team_ids = MapContestToTeam.objects.filter(contestid=data["contestid"])
     contestteams = []
     for mapping in contest_team_ids:
@@ -181,7 +237,8 @@ def set_team_rank(data):
         except Teams.DoesNotExist:
             continue
 
-    contestteams.sort(key=lambda x: x.total_score, reverse=True)
+    # Sort by preliminary_total_score for preliminary ranking
+    contestteams.sort(key=lambda x: x.preliminary_total_score or 0, reverse=True)
     for rank, team in enumerate(contestteams, start=1):
         team.team_rank = rank
         team.save()
@@ -205,27 +262,45 @@ def set_cluster_rank(data):
         team.save()
 
 
-def set_championship_rank(contest_id):
-    """Set championship rankings for teams in championship clusters for a specific contest."""
-    # Get teams that are in this specific contest
-    contest_team_ids = MapContestToTeam.objects.filter(contestid=contest_id).values_list('teamid', flat=True)
+def set_redesign_rank(contest_id):
+    """Set redesign-specific rank by redesign_score for teams in redesign clusters only."""
+    # Get all redesign clusters
+    redesign_clusters = JudgeClusters.objects.filter(cluster_type='redesign')
+    redesign_teams = []
     
-    # Get all championship clusters
-    championship_clusters = JudgeClusters.objects.filter(cluster_type='championship')
-    championship_teams = []
-    
-    for cluster in championship_clusters:
-        # Get teams in this championship cluster
+    for cluster in redesign_clusters:
+        # Get teams in this redesign cluster
         cluster_team_ids = MapClusterToTeam.objects.filter(clusterid=cluster.id)
         for team_mapping in cluster_team_ids:
             try:
                 team = Teams.objects.get(id=team_mapping.teamid)
                 # Only include teams from this specific contest
-                if team.id in contest_team_ids:
-                    championship_teams.append(team)
+                contest_mapping = MapContestToTeam.objects.filter(teamid=team.id, contestid=contest_id)
+                if contest_mapping.exists() and not team.organizer_disqualified:
+                    redesign_teams.append(team)
             except Teams.DoesNotExist:
                 continue
+
+    # Sort by redesign_score instead of total_score
+    redesign_teams.sort(key=lambda x: x.redesign_score or 0, reverse=True)
     
+    for rank, team in enumerate(redesign_teams, start=1):
+        team.team_rank = rank
+        team.save()
+
+
+def set_championship_rank(contest_id):
+    """Set championship rankings for teams that advanced to championship for a specific contest."""
+    contest_team_ids = MapContestToTeam.objects.filter(contestid=contest_id)
+    championship_teams = []
+    for mapping in contest_team_ids:
+        try:
+            t = Teams.objects.get(id=mapping.teamid)
+            if not t.organizer_disqualified and t.advanced_to_championship:
+                championship_teams.append(t)
+        except Teams.DoesNotExist:
+            continue
+
     # Sort championship teams by total_score and set rankings
     championship_teams.sort(key=lambda x: x.total_score, reverse=True)
     for rank, team in enumerate(championship_teams, start=1):
@@ -264,6 +339,9 @@ def recompute_totals_and_ranks(contest_id: int):
     
     # Set championship rankings for teams in championship clusters
     set_championship_rank(contest_id)
+    
+    # Set redesign rankings for redesign teams only
+    set_redesign_rank(contest_id)
 
 
 # ---------- Endpoints ----------
@@ -420,10 +498,12 @@ def championship_results(request):
             "team_name": team.team_name,
             "school": getattr(team, 'school', '') or getattr(team, 'school_name', ''),
             "team_rank": i,
-            "journal_score": float(team.journal_score or 0.0),  # From preliminary
+            "journal_score": float(team.preliminary_journal_score or 0.0),  # From preliminary
             "presentation_score": float(team.championship_presentation_score or 0.0),  # From championship
             "machinedesign_score": float(team.championship_machinedesign_score or 0.0),  # From championship
-            "penalties_score": float(team.championship_penalties_score or 0.0),  # From championship
+            "penalties_score": float(team.championship_penalties_score or 0.0),  # From championship (total)
+            "championship_general_penalties_score": float(team.championship_general_penalties_score or 0.0),  # General penalties
+            "championship_run_penalties_score": float(team.championship_run_penalties_score or 0.0),  # Run penalties
             "total_score": float(team.total_score or 0.0),  # Combined
             "is_championship": True
         })
@@ -443,7 +523,7 @@ def redesign_results(request):
     team_ids = MapContestToTeam.objects.filter(contest_id=contest_id).values_list("teamid", flat=True)
     redesign_teams = Teams.objects.filter(
         id__in=list(team_ids)
-    ).order_by('-redesign_score', 'id')
+    ).order_by('-total_score', 'id')
 
     results = []
     for i, team in enumerate(redesign_teams, 1):
@@ -456,7 +536,7 @@ def redesign_results(request):
             "presentation_score": 0.0,  # Not used in redesign
             "machinedesign_score": 0.0,  # Not used in redesign
             "penalties_score": 0.0,  # Not used in redesign
-            "total_score": float(team.redesign_score or 0.0),
+            "total_score": float(team.total_score or 0.0),
             "redesign_score": float(team.redesign_score or 0.0),
             "is_redesign": True
         })

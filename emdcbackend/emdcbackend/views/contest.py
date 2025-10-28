@@ -13,10 +13,9 @@ from django.shortcuts import get_object_or_404
 
 from ..models import Contest
 from ..serializers import ContestSerializer
-from .clusters import create_cluster, make_cluster
-from .Maps.MapClusterToContest import map_cluster_to_contest,create_cluster_contest_mapping
+from .clusters import make_cluster
+from .Maps.MapClusterToContest import map_cluster_to_contest
 
-# TO-DO: Add Get Contest by Date/Time
 
 # get a contest by a certain id:
 @api_view(["GET"])
@@ -88,7 +87,30 @@ def edit_contest(request):
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_contest(request,contest_id):
-  contest = get_object_or_404(Contest, id=contest_id)
-  contest.delete()
-  return Response({"detail": "Contest deleted successfully."}, status=status.HTTP_200_OK)
+  try:
+    contest = get_object_or_404(Contest, id=contest_id)
+    
+    # Clean up all mappings before deleting the contest
+    from ..models import MapContestToJudge, MapContestToTeam, MapContestToOrganizer, MapContestToCluster
+    
+    # Delete all mappings related to this contest
+    judge_mappings = MapContestToJudge.objects.filter(contestid=contest_id)
+    team_mappings = MapContestToTeam.objects.filter(contestid=contest_id)
+    organizer_mappings = MapContestToOrganizer.objects.filter(contestid=contest_id)
+    cluster_mappings = MapContestToCluster.objects.filter(contestid=contest_id)
+    
+    
+    # Delete all mappings
+    judge_mappings.delete()
+    team_mappings.delete()
+    organizer_mappings.delete()
+    cluster_mappings.delete()
+    
+    # Now delete the contest
+    contest.delete()
+    
+    return Response({"detail": "Contest and all associated mappings deleted successfully."}, status=status.HTTP_200_OK)
+    
+  except Exception as e:
+    return Response({"detail": f"Error deleting contest: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

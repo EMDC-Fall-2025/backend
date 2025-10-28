@@ -47,12 +47,19 @@ def get_contest_id_by_judge_id(request, judge_id):
     if not current_maps.exists():
       return Response({"There is No Contest Found for the given Judge"}, status=status.HTTP_404_NOT_FOUND)
     
-    # For now, return the first contest (to maintain compatibility)
-    # In the future, this could be modified to return all contests
-    contest_id = current_maps.first().contestid
-    contest = Contest.objects.get(id=contest_id)
-    serializer = ContestSerializer(instance=contest)
-    return Response({"Contest": serializer.data}, status=status.HTTP_200_OK)
+    # Find the first valid contest (that actually exists)
+    for mapping in current_maps:
+      try:
+        contest = Contest.objects.get(id=mapping.contestid)
+        serializer = ContestSerializer(instance=contest)
+        return Response({"Contest": serializer.data}, status=status.HTTP_200_OK)
+      except Contest.DoesNotExist:
+        # Skip this mapping and try the next one
+        continue
+    
+    # If no valid contest found, return 404
+    return Response({"There is No Valid Contest Found for the given Judge"}, status=status.HTTP_404_NOT_FOUND)
+    
   except Exception as e:
     return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -66,6 +73,16 @@ def delete_contest_judge_mapping_by_id(request, map_id):
 
 
 def create_contest_to_judge_map(map_data):
+    # Check for existing mappings to prevent duplicates
+    existing = MapContestToJudge.objects.filter(
+        judgeid=map_data["judgeid"],
+        contestid=map_data["contestid"]
+    )
+    if existing.exists():
+        # Return existing mapping data instead of creating duplicate
+        serializer = MapContestToJudgeSerializer(existing.first())
+        return serializer.data
+    
     serializer = MapContestToJudgeSerializer(data=map_data)
     if serializer.is_valid():
         serializer.save()
