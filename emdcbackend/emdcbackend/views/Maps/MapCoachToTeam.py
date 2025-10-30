@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from ...models import MapCoachToTeam, Coach, Teams, MapUserToRole
+from ...models import MapCoachToTeam, Coach, Teams, MapUserToRole, Contest, MapContestToTeam
 from ...serializers import CoachToTeamSerializer, CoachSerializer, TeamSerializer
 
 @api_view(["POST"])
@@ -32,8 +32,37 @@ def teams_by_coach_id(request, coach_id):
     mappings = MapCoachToTeam.objects.filter(coachid=coach_id)
     team_ids = mappings.values_list('teamid', flat=True)
     teams = Teams.objects.filter(id__in=team_ids).order_by('-id')
-    serializer = TeamSerializer(instance=teams, many=True)
-    return Response({"Teams": serializer.data}, status=status.HTTP_200_OK)
+    
+    # Get contests for these teams and check if results should be hidden
+    team_contest_map = {}
+    for team in teams:
+        contest_mapping = MapContestToTeam.objects.filter(teamid=team.id).first()
+        if contest_mapping:
+            team_contest_map[team.id] = contest_mapping.contestid
+    
+    team_data = []
+    for team in teams:
+        team_dict = TeamSerializer(instance=team).data
+        contest_id = team_contest_map.get(team.id)
+        if contest_id:
+            try:
+                contest = Contest.objects.get(id=contest_id)
+                # Hide scores if contest is open or not tabulated
+                if getattr(contest, 'is_open', False) or not getattr(contest, 'is_tabulated', False):
+                    # Clear all score fields
+                    team_dict['journal_score'] = 0
+                    team_dict['presentation_score'] = 0
+                    team_dict['machinedesign_score'] = 0
+                    team_dict['penalties_score'] = 0
+                    team_dict['redesign_score'] = 0
+                    team_dict['championship_score'] = 0
+                    team_dict['total_score'] = 0
+                    team_dict['team_rank'] = None
+            except Contest.DoesNotExist:
+                pass
+        team_data.append(team_dict)
+    
+    return Response({"Teams": team_data}, status=status.HTTP_200_OK)
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, TokenAuthentication])

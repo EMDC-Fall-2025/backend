@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from ...models import MapContestToTeam, Contest, Teams
+from ...models import MapContestToTeam, Contest, Teams, MapUserToRole
 from ...serializers import MapContestToTeamSerializer, ContestSerializer, TeamSerializer
 
 @api_view(["POST"])
@@ -30,6 +30,15 @@ def create_contest_team_mapping(request):
 @permission_classes([IsAuthenticated])
 def get_teams_by_contest_id(request,contest_id):
     try:
+      # If the requester is a COACH, hide results until contest is tabulated (or contest closed)
+      try:
+        contest = Contest.objects.get(id=contest_id)
+        is_coach = MapUserToRole.objects.filter(uuid=request.user.id, role=MapUserToRole.RoleEnum.COACH).exists()
+        if is_coach and (getattr(contest, 'is_open', False) or not getattr(contest, 'is_tabulated', False)):
+          return Response({"detail": "Results available after the contest ends."}, status=status.HTTP_403_FORBIDDEN)
+      except Exception:
+        pass
+
       # Ensure all team scores are up-to-date by running tabulation
       from ...views.tabulation import recompute_totals_and_ranks
       recompute_totals_and_ranks(contest_id)
