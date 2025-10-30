@@ -104,19 +104,12 @@ def _compute_totals_for_team(team: Teams):
             preliminary_totals[6] += sum(getattr(sheet, f"field{i}", 0) for i in range(1, 8))
             preliminary_totals[11] += 1  # Count of OTHERPENALTIES judges
         elif sheet.sheetType == ScoresheetEnum.REDESIGN:
-            # Redesign scoresheet contains all categories in one sheet
-            # field1-7: Good scores, penalties kept at 0 for now
-            # Initialize redesign totals if not already set
-            if not hasattr(team, '_redesign_presentation_total') or team._redesign_presentation_total is None:
-                team._redesign_presentation_total = 0
-                team._redesign_machinedesign_total = 0
-                team._redesign_journal_total = 0
+            # Initialize redesign rolling totals once per team
+            if not hasattr(team, '_redesign_total') or team._redesign_total is None:
+                team._redesign_total = 0
                 team._redesign_judge_count = 0
-            
-            # Add scores from this scoresheet and count judges
-            team._redesign_presentation_total += sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(1, 3))
-            team._redesign_machinedesign_total += sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(3, 5))
-            team._redesign_journal_total += sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(5, 7))
+            # Sum all redesign fields (1..6) and count judges
+            team._redesign_total += sum((getattr(sheet, f"field{i}", 0) or 0) for i in range(1, 7))
             team._redesign_judge_count += 1
 
         elif sheet.sheetType == ScoresheetEnum.CHAMPIONSHIP:
@@ -162,9 +155,9 @@ def _compute_totals_for_team(team: Teams):
     team.presentation_score = qdiv(preliminary_totals[0], preliminary_totals[1])
     team.journal_score = qdiv(preliminary_totals[2], preliminary_totals[3])
     team.machinedesign_score = qdiv(preliminary_totals[4], preliminary_totals[5])
-    team.preliminary_journal_score = team.journal_score  # Store for championship use
-    team.preliminary_presentation_score = team.presentation_score  # Store for championship use
-    team.preliminary_machinedesign_score = team.machinedesign_score  # Store for championship use
+    team.preliminary_journal_score = team.journal_score  
+    team.preliminary_presentation_score = team.presentation_score  
+    team.preliminary_machinedesign_score = team.machinedesign_score  
 
     # Penalties should be summed (not averaged) because each penalty represents a specific deduction
     team.preliminary_penalties_score = preliminary_totals[6]  # Total OTHERPENALTIES (not averaged)
@@ -202,24 +195,14 @@ def _compute_totals_for_team(team: Teams):
         team.total_score = journal_score + championship_score - team.championship_penalties_score
         
     elif is_redesign_round:
-        # Redesign round: only redesign score (all categories combined)
-        # Calculate average redesign scores after processing all scoresheets
-        if hasattr(team, '_redesign_judge_count') and team._redesign_judge_count > 0:
-            team.redesign_presentation_score = team._redesign_presentation_total / team._redesign_judge_count
-            team.redesign_machinedesign_score = team._redesign_machinedesign_total / team._redesign_judge_count
-            team.redesign_journal_score = team._redesign_journal_total / team._redesign_judge_count
-            team.redesign_penalties_score = 0  # Keep penalties at 0 for now
-            
-            # Calculate total redesign score
-            team.redesign_score = team.redesign_presentation_score + team.redesign_machinedesign_score + team.redesign_journal_score - team.redesign_penalties_score
+        # Use summed redesign total only (no per-section fields, no averaging)
+        if hasattr(team, '_redesign_total') and team._redesign_judge_count > 0:
+            team.redesign_score = team._redesign_total
         else:
             team.redesign_score = 0
-        
-        # Always set total_score to redesign_score for redesign teams
         team.total_score = team.redesign_score
     else:
-        # Teams that are neither championship nor redesign keep their preliminary scores
-        # (already calculated above for ALL teams)
+        
         pass
     
     team.save()
@@ -532,10 +515,6 @@ def redesign_results(request):
             "team_name": team.team_name,
             "school": getattr(team, 'school', '') or getattr(team, 'school_name', ''),
             "team_rank": i,  # Redesign rank
-            "journal_score": 0.0,  # Not used in redesign
-            "presentation_score": 0.0,  # Not used in redesign
-            "machinedesign_score": 0.0,  # Not used in redesign
-            "penalties_score": 0.0,  # Not used in redesign
             "total_score": float(team.total_score or 0.0),
             "redesign_score": float(team.redesign_score or 0.0),
             "is_redesign": True

@@ -62,3 +62,4 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f'Successfully removed {total_removed} orphaned mappings'))
         
         self.stdout.write('Cleanup completed!')
+

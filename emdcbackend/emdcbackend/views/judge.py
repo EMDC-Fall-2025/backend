@@ -20,16 +20,16 @@ from ..models import Judge, Scoresheet, MapScoresheetToTeamJudge, MapJudgeToClus
 from django.db.models import Count
 from ..serializers import JudgeSerializer
 from ..auth.serializers import UserSerializer
-
+from ..models import ScoresheetEnum
 
 @api_view(["GET"])
 def judge_by_id(request, judge_id):  # Consistent parameter name
-    judge = get_object_or_404(Judge, id=judge_id)  # Use user_id here
+    judge = get_object_or_404(Judge, id=judge_id) 
     serializer = JudgeSerializer(instance=judge)
     return Response({"Judge": serializer.data}, status=status.HTTP_200_OK)
 
 
-# Create Judge API View
+
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -385,20 +385,26 @@ def are_all_score_sheets_submitted(request):
     # Iterate over each judge object in the list
     for judge in judges:
         judge_id = judge.get('id')
-        # Retrieve all mappings for the judge
         mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
 
         if not mappings.exists():
             results[judge_id] = False
             continue
 
-        # Check if all score sheets for the retrieved mappings are submitted
+        required_sheet_ids = [
+            m.scoresheetid for m in mappings
+            if m.sheetType not in (ScoresheetEnum.RUNPENALTIES, ScoresheetEnum.OTHERPENALTIES)
+        ]
+
+        if not required_sheet_ids:
+            results[judge_id] = True
+            continue
+
         all_submitted = not Scoresheet.objects.filter(
-            id__in=[m.scoresheetid for m in mappings],
+            id__in=required_sheet_ids,
             isSubmitted=False
         ).exists()
 
-        # Store the result for this judge
         results[judge_id] = all_submitted
 
     return Response(results, status=status.HTTP_200_OK)
