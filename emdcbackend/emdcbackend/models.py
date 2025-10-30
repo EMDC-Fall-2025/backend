@@ -94,7 +94,7 @@ class Teams(models.Model):
     judge_disqualified = models.BooleanField(default=False)
     organizer_disqualified = models.BooleanField(default=False)
 
-    # NEW: multi-round flags/results
+    # multi-round flags/results
     advanced_to_championship = models.BooleanField(default=False)
     championship_rank = models.IntegerField(null=True, blank=True)
     
@@ -114,10 +114,6 @@ class Teams(models.Model):
     championship_score = models.FloatField(default=0.0)
     
     # Redesign results storage
-    redesign_presentation_score = models.FloatField(default=0.0)
-    redesign_machinedesign_score = models.FloatField(default=0.0)
-    redesign_journal_score = models.FloatField(default=0.0)
-    redesign_penalties_score = models.FloatField(default=0.0)
     redesign_score = models.FloatField(default=0.0)
 
     def __str__(self):

@@ -411,7 +411,6 @@ def create_base_score_sheet_Championship():
     else:
         raise ValidationError(serializer.errors)
 
-# note: changed order of parameters to match judge serializer
 def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journal, mdo, runpenalties, otherpenalties, redesign, championship):
     try:
         
@@ -638,7 +637,6 @@ def get_scoresheet_id(judge_id, team_id, scoresheet_type):
     except Scoresheet.DoesNotExist:
         raise ValidationError({"error": "No scoresheet found"})
 
-# changed order of parameters to match judge serializer
 def delete_sheets_for_teams_in_cluster(judge_id, cluster_id,  presentation, journal, mdo,runpenalties, otherpenalties, redesign, championship):
     try:
         # Fetch all mappings for the teams in the cluster
