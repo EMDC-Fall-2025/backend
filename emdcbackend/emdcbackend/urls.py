@@ -75,7 +75,7 @@ from .views.tabulation import (
 
 urlpatterns = [
     # -----------------------
-    # Authentication (existing)
+    # Authentication 
     # -----------------------
     path('api/login/', auth_views.login, name='login'),
     path('api/signup/', auth_views.signup, name='signup'),
@@ -93,7 +93,7 @@ urlpatterns = [
     path('api/auth/password/complete/', complete_password_set, name='complete_password_set'),
 
     # -----------------------
-    # Admins (existing)
+    # Admins 
     # -----------------------
     path('api/admin/get/<int:admin_id>/', admin_by_id, name='admin_by_id'),
     path('api/admin/getAll/', admins_get_all, name='admins_get_all'),
