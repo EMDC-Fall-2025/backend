@@ -20,7 +20,7 @@ from ..models import Judge, Scoresheet, MapScoresheetToTeamJudge, MapJudgeToClus
 from ..serializers import JudgeSerializer
 from ..auth.serializers import UserSerializer
 
-# ✅ ADDED imports
+# ✅ (kept) imports; may be unused depending on your linter
 from django.contrib.auth import get_user_model
 from ..auth.password_utils import send_set_password_email
 
@@ -60,9 +60,9 @@ def create_judge(request):
                     request.data["clusterid"],
                     request.data["presentation"],
                     request.data["journal"],
-                    request.data["mdo"],
-                    request.data["runpenalties"],
-                    request.data["otherpenalties"],
+                    request_data["mdo"],
+                    request_data["runpenalties"],
+                    request_data["otherpenalties"],
                 )
             ]
 
@@ -84,7 +84,6 @@ def create_judge(request):
         return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 
 @api_view(["POST"])
@@ -155,49 +154,47 @@ def edit_judge(request):
             else:
                 # if adding or removing scoresheets (no cluster change)
                 if new_presentation != judge.presentation and new_presentation == False:
-                        delete_sheets_for_teams_in_cluster(judge.id, clusterid, True, False, False, False, False)
-                        judge.presentation = False
+                    delete_sheets_for_teams_in_cluster(judge.id, clusterid, True, False, False, False, False)
+                    judge.presentation = False
                 elif new_presentation != judge.presentation and new_presentation == True:
-                        create_sheets_for_teams_in_cluster(judge.id, clusterid, True, False, False, False, False)
-                        judge.presentation = True
+                    create_sheets_for_teams_in_cluster(judge.id, clusterid, True, False, False, False, False)
+                    judge.presentation = True
 
                 if new_journal != judge.journal and new_journal == False:
-                        delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, True, False, False, False)
-                        judge.journal = False
+                    delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, True, False, False, False)
+                    judge.journal = False
                 elif new_journal != judge.journal and new_journal == True:
-                        create_sheets_for_teams_in_cluster(judge.id, clusterid, False, True, False, False, False)
-                        judge.journal = True
+                    create_sheets_for_teams_in_cluster(judge.id, clusterid, False, True, False, False, False)
+                    judge.journal = True
 
                 if new_mdo != judge.mdo and new_mdo == False:
-                        delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, True, False, False)
-                        judge.mdo = False
+                    delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, True, False, False)
+                    judge.mdo = False
                 elif new_mdo != judge.mdo and new_mdo == True:
-                        create_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, True, False, False)
-                        judge.mdo = True
+                    create_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, True, False, False)
+                    judge.mdo = True
 
                 if new_runpenalties != judge.runpenalties and new_runpenalties == False:
-                        delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, True, False)
-                        judge.runpenalties = False
+                    delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, True, False)
+                    judge.runpenalties = False
                 elif new_runpenalties != judge.runpenalties and new_runpenalties == True:
-                        create_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, True, False)
-                        judge.runpenalties = True
+                    create_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, True, False)
+                    judge.runpenalties = True
 
                 if new_otherpenalties != judge.otherpenalties and new_otherpenalties == False:
-                        delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, False, True)
-                        judge.otherpenalties = False
+                    delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, False, True)
+                    judge.otherpenalties = False
                 elif new_otherpenalties != judge.otherpenalties and new_otherpenalties == True:
-                        create_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, False, True)
-                        judge.otherpenalties = True
-
-
+                    create_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, False, True)
+                    judge.otherpenalties = True
 
             judge.save()
 
         serializer = JudgeSerializer(instance=judge)
-    
+
     except Exception as e:
         raise ValidationError({"detail": str(e)})
-    
+
     return Response({"judge": serializer.data, "clusterid": clusterid, "user": user_serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["DELETE"])
@@ -214,9 +211,8 @@ def delete_judge(request, judge_id):
         cluster_mapping = MapJudgeToCluster.objects.get(judgeid=judge_id)
         teams_mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
         contest_mapping = MapContestToJudge.objects.filter(judgeid=judge_id)
-        # scoresheet_team_judge = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
 
-        # delete associataed user
+        # delete associated user
         user.delete()
         user_mapping.delete()
 
@@ -238,7 +234,7 @@ def delete_judge(request, judge_id):
         judge.delete()
 
         return Response({"detail": "Judge deleted successfully."}, status=status.HTTP_200_OK)
-    
+
     except ValidationError as e:  # Catching ValidationErrors specifically
         return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
@@ -251,17 +247,14 @@ def create_judge_instance(judge_data):
         return serializer.data
     raise ValidationError(serializer.errors)
 
-
 def create_user_and_judge(data):
+    # IMPORTANT: Judges use ONLY the shared judge password (role=3)
     user_data = {"username": data["username"], "password": data["password"]}
-    user_response = create_user(user_data)
+    user_response = create_user(user_data, send_email=False, enforce_unusable_password=True)
     if not user_response.get('user'):
         raise ValidationError('User creation failed.')
 
-    # ✅ ADDED: send set-password email to the newly created user
-    UserModel = get_user_model()
-    created_user = UserModel.objects.get(id=user_response["user"]["id"])
-    send_set_password_email(created_user)
+    # (Email intentionally NOT sent for judges)
 
     judge_data = {
         "first_name": data["first_name"],
@@ -314,8 +307,6 @@ def are_all_score_sheets_submitted(request):
             id__in=[m.scoresheetid for m in mappings],
             isSubmitted=False
         ).exists()
-
-        # Store the result for this judge
         results[judge_id] = all_submitted
 
     return Response(results, status=status.HTTP_200_OK)
@@ -324,7 +315,7 @@ def are_all_score_sheets_submitted(request):
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def judge_disqualify_team(request):
-     team = get_object_or_404(Teams, id=request.data["teamid"])
-     team.judge_disqualified = request.data["judge_disqualified"]
-     team.save()
-     return Response(status=status.HTTP_200_OK)
+    team = get_object_or_404(Teams, id=request.data["teamid"])
+    team.judge_disqualified = request.data["judge_disqualified"]
+    team.save()
+    return Response(status=status.HTTP_200_OK)

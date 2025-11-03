@@ -46,8 +46,11 @@ from .views.Maps.MapContestToOrganizer import (
     get_organizers_by_contest_id
 )
 from .views.Maps.MapContestToTeam import (
-    create_contest_team_mapping, get_teams_by_contest_id,
-    get_contest_id_by_team_id, delete_contest_team_mapping_by_id, get_contests_by_team_ids
+    create_contest_team_mapping,
+    get_teams_by_contest_id,              
+    get_contest_id_by_team_id,
+    delete_contest_team_mapping_by_id,
+    get_contests_by_team_ids
 )
 from .views.scoresheets import (
     create_score_sheet, edit_score_sheet, scores_by_id, delete_score_sheet,
@@ -73,10 +76,11 @@ from .views.tabulation import (
     list_advancers,
 )
 
+# NEW: shared password endpoint
+from .views.shared_passwords import set_shared_password
+
 urlpatterns = [
-    # -----------------------
     # Authentication 
-    # -----------------------
     path('api/login/', auth_views.login, name='login'),
     path('api/signup/', auth_views.signup, name='signup'),
     path('api/testToken/', auth_views.test_token, name='test_token'),
@@ -84,24 +88,23 @@ urlpatterns = [
     path('api/user/edit/', auth_views.edit_user, name='edit_user'),
     path('api/user/delete/<int:user_id>/', auth_views.delete_user_by_id, name='delete_user_by_id'),
 
-    # -----------------------
-    # NEW: Password set/reset endpoints
-    # -----------------------
-    path('api/auth/send-set-password/', request_set_password, name='request_set_password'),         # Auth-required re-send
-    path('api/auth/forgot-password/', request_password_reset, name='request_password_reset'),       # Public
+    # Password set/reset
+    path('api/auth/send-set-password/', request_set_password, name='request_set_password'),
+    path('api/auth/forgot-password/', request_password_reset, name='request_password_reset'),
     path('api/auth/password-token/validate/', validate_password_token, name='validate_password_token'),
     path('api/auth/password/complete/', complete_password_set, name='complete_password_set'),
 
-    # -----------------------
+    # NEW: global shared password set API
+    path('api/auth/set-shared-password/', set_shared_password, name='set_shared_password'),
+
     # Admins 
-    # -----------------------
     path('api/admin/get/<int:admin_id>/', admin_by_id, name='admin_by_id'),
     path('api/admin/getAll/', admins_get_all, name='admins_get_all'),
     path('api/admin/create/', create_admin, name='create_admin'),
     path('api/admin/edit/', edit_admin, name='edit_admin'),
     path('api/admin/delete/<int:admin_id>/', delete_admin, name='delete_admin'),
 
-    # Judges (existing)
+    # Judges
     path('api/judge/get/<int:judge_id>/', judge_by_id, name='judge_by_id'),
     path('api/judge/create/', create_judge, name='create_judge'),
     path('api/judge/edit/', edit_judge, name='edit_judge'),
@@ -109,7 +112,7 @@ urlpatterns = [
     path('api/judge/allScoreSheetsSubmitted/', are_all_score_sheets_submitted, name='are_all_score_sheets_submitted'),
     path('api/judge/disqualifyTeam/', judge_disqualify_team, name='judge_disqualify_team'),
 
-    # Organizers (existing)
+    # Organizers
     path('api/organizer/get/<int:organizer_id>/', organizer_by_id, name='organizer_by_id'),
     path('api/organizer/create/', create_organizer, name='create_organizer'),
     path('api/organizer/edit/', edit_organizer, name='edit_organizer'),
@@ -117,14 +120,14 @@ urlpatterns = [
     path('api/organizer/disqualifyTeam/', organizer_disqualify_team, name='organizer_disqualify_team'),
     path('api/organizer/getAll/', get_all_organizers, name='get_all_organizers'),
 
-    # Coaches (existing)
+    # Coaches
     path('api/coach/get/<int:coach_id>/', coach_by_id, name='coach_by_id'),
     path('api/coach/getAll/', coach_get_all, name='coach_get_all'),
     path('api/coach/create/', create_coach, name='create_coach'),
     path('api/coach/edit/', edit_coach, name='edit_coach'),
     path('api/coach/delete/<int:coach_id>/', delete_coach, name='delete_coach'),
 
-    # Teams (existing)
+    # Teams
     path('api/team/get/<int:team_id>/', team_by_id, name='team_by_id'),
     path('api/team/create/', create_team, name='create_team'),
     path('api/team/createAfterJudge/', create_team_after_judge, name='create_team_after_judge'),
@@ -134,7 +137,7 @@ urlpatterns = [
     path('api/team/isDisqualified/<int:team_id>/', is_team_disqualified, name='is_team_disqualified'),
     path('api/team/getAllTeams/', get_all_teams, name='get_all_teams'),
 
-    # Maps (existing)
+    # Maps
     path('api/mapping/coachToTeam/create/', create_coach_team_mapping, name='create_coach_team_mapping'),
     path('api/mapping/coachToTeam/getCoachByTeam/<int:team_id>/', coach_by_team_id, name='coach_by_team_id'),
     path('api/mapping/coachToTeam/delete/<int:map_id>/', delete_coach_team_mapping_by_id, name='delete_coach_team_mapping'),

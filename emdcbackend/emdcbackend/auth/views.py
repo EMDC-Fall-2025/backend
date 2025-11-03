@@ -21,6 +21,10 @@ from .utils import send_set_password_email
 # If you use role lookups elsewhere, keep your import the same:
 from ..views.Maps.MapUserToRole import get_role
 
+# === ADDED imports for shared-password fallback ===
+from django.contrib.auth.hashers import check_password
+from ..models import RoleSharedPassword, MapUserToRole
+
 
 # -----------------------
 # User queries / auth
@@ -35,19 +39,49 @@ def user_by_id(request, user_id):
 
 @api_view(["POST"])
 def login(request):
-    user = get_object_or_404(User, username=request.data["username"])
-    if not user.check_password(request.data["password"]):
-        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-    token, _ = Token.objects.get_or_create(user=user)
-    userSerializer = UserSerializer(instance=user)
-    return Response({"token": token.key, "user": userSerializer.data, "role": get_role(user.id)})
+    """
+    Login rules:
+      - Normal per-user password works for Coaches and public signups.
+      - For Organizers (role=2) and Judges (role=3), we also accept the GLOBAL shared password.
+        (Their per-user passwords are set to unusable at creation, so shared password is the intended path.)
+    """
+    username = request.data.get("username")
+    password = request.data.get("password")
+
+    if not username or not password:
+        return Response({"detail": "username and password are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = get_object_or_404(User, username=username)
+
+    # 1) Try the user's own password first (works for coaches/public users)
+    if user.check_password(password):
+        token, _ = Token.objects.get_or_create(user=user)
+        userSerializer = UserSerializer(instance=user)
+        return Response(
+            {"token": token.key, "user": userSerializer.data, "role": get_role(user.id)},
+            status=status.HTTP_200_OK
+        )
+
+    # 2) Fallback: if user is Organizer or Judge, allow the GLOBAL shared password
+    role_map = MapUserToRole.objects.filter(uuid=user.id).first()
+    if role_map and role_map.role in [2, 3]:
+        shared = RoleSharedPassword.objects.filter(role=role_map.role).first()
+        if shared and check_password(password, shared.password_hash):
+            token, _ = Token.objects.get_or_create(user=user)
+            userSerializer = UserSerializer(instance=user)
+            return Response(
+                {"token": token.key, "user": userSerializer.data, "role": get_role(user.id)},
+                status=status.HTTP_200_OK
+            )
+
+    # If neither personal nor shared password matched:
+    return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
 
 @api_view(["POST"])
 def signup(request):
     """
     Public sign-up. Creates a user with the provided password.
-    (If you want to force email verification before login, that can be added later.)
     """
     try:
         user_data = request.data
@@ -110,14 +144,18 @@ def test_token(request):
 # Creation / deletion helpers
 # -----------------------
 
-def create_user(user_data):
+def create_user(user_data, send_email: bool = True, enforce_unusable_password: bool = False):
     """
     Shared helper used by admin/organizer/judge creation and public signup.
     We:
       - create the user
-      - set the password provided
+      - set the password provided (or unusable if enforce_unusable_password=True)
       - create a token
-      - send a set-password email so the user can redefine it (requested behavior)
+      - optionally send a set-password email
+
+    For Organizers/Judges:
+      - call with send_email=False, enforce_unusable_password=True
+      -> forces login via the shared role password only.
     """
     username = user_data.get("username")
     password = user_data.get("password")
@@ -131,22 +169,25 @@ def create_user(user_data):
     if serializer.is_valid():
         with transaction.atomic():
             user = serializer.save()
-            # enforce min length 8 here for safety (backend validation)
-            if not password or len(password) < 8:
-                # If a too-short or blank password was provided, set an unusable one
+
+            if enforce_unusable_password:
                 user.set_unusable_password()
             else:
-                user.set_password(password)
+                # enforce min length 8 here for safety (backend validation)
+                if not password or len(password) < 8:
+                    user.set_unusable_password()
+                else:
+                    user.set_password(password)
             user.save()
 
             token = Token.objects.create(user=user)
 
-            # Always send a "set your password" email on creation (per your request)
-            try:
-                send_set_password_email(user)
-            except Exception as e:
-                # Don't fail user creation if email send fails in dev
-                print(f"[WARN] Failed to send set-password email: {e}")
+            if send_email:
+                try:
+                    send_set_password_email(user)
+                except Exception as e:
+                    # Don't fail user creation if email send fails in dev
+                    print(f"[WARN] Failed to send set-password email: {e}")
 
             return {"token": token.key, "user": UserSerializer(instance=user).data}
 

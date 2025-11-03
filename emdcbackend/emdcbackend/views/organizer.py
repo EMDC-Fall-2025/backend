@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import status
 from rest_framework.decorators import (
     api_view,
@@ -9,7 +10,6 @@ from rest_framework.authentication import SessionAuthentication, TokenAuthentica
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
-from django.db import transaction
 from ..models import Organizer, Teams, Scoresheet, MapScoresheetToTeamJudge, MapContestToOrganizer
 from ..serializers import OrganizerSerializer, TeamSerializer
 from ..auth.views import create_user, delete_user
@@ -18,7 +18,7 @@ from .Maps.MapContestToOrganizer import map_contest_to_organizer
 from ..models import MapUserToRole
 from ..auth.views import User, delete_user_by_id
 
-# ✅ ADDED imports
+# ✅ (kept) imports; may be unused depending on your linter
 from django.contrib.auth import get_user_model
 from ..auth.password_utils import send_set_password_email
 
@@ -47,7 +47,7 @@ def create_organizer(request):
             for response in responses:
                 if isinstance(response, Response):
                     return response
-                
+
             return Response({
                 "user": user_response,
                 "organizer": organizer_response,
@@ -56,26 +56,24 @@ def create_organizer(request):
 
     except ValidationError as e:  # Catching ValidationErrors specifically
         return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
-  
+
     except Exception as e:
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 def create_user_and_organizer(data):
+    # IMPORTANT: Organizers use ONLY the shared organizer password (role=2)
     user_data = {"username": data["username"], "password": data["password"]}
-    user_response = create_user(user_data)
+    user_response = create_user(user_data, send_email=False, enforce_unusable_password=True)
     if not user_response.get('user'):
         raise ValidationError('User creation failed.')
 
-    # ✅ ADDED: send set-password email to the newly created user
-    UserModel = get_user_model()
-    created_user = UserModel.objects.get(id=user_response["user"]["id"])
-    send_set_password_email(created_user)
-    
+    # (Email intentionally NOT sent for organizers)
+
     organizer_data = {"first_name": data["first_name"], "last_name": data["last_name"]}
     organizer_response = make_organizer(organizer_data)
     if not organizer_response.get('id'):
         raise ValidationError('Organizer creation failed.')
-    
+
     return user_response, organizer_response
 
 def make_organizer(organizer_data):
