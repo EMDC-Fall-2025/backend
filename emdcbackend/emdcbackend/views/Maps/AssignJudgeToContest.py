@@ -167,14 +167,16 @@ def assign_judge_to_contest(request):
             championship,
         )
         
-        # Update judge's scoresheet flags in the database to match the auto-set values
-        if is_championship_cluster and not judge.championship:
-            judge.championship = True
+        # Update judge's scoresheet flags in the database to match what was assigned
         
-        # Save the judge if any flags were updated
-        if (is_championship_cluster and not request.data.get("championship", False)) or \
-           (is_redesign_cluster and not request.data.get("redesign", False)):
-            judge.save()
+        judge.presentation = presentation
+        judge.journal = journal
+        judge.mdo = mdo
+        judge.runpenalties = runpenalties
+        judge.otherpenalties = otherpenalties
+        judge.redesign = redesign
+        judge.championship = championship
+        judge.save()
         
         return Response({
             "message": f"Judge {judge.first_name} {judge.last_name} successfully assigned to contest {contest.name}",

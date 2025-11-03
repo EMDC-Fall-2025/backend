@@ -87,10 +87,10 @@ def create_coach_instance(coach_data):
 def create_coach_only(data):
     coach_data = {
         "first_name": data["first_name"],
-        "last_name": data["last_name"]
+        "last_name": data.get("last_name", "") or ""  
     }
     coach_response = create_coach_instance(coach_data)
-    if not coach_response.get('id'):  # If judge creation fails, raise an exception
+    if not coach_response.get('id'):
         raise ValidationError('Coach creation failed.')
     return coach_response
 
@@ -101,7 +101,7 @@ def create_user_and_coach(data):
         raise ValidationError('User creation failed.')
     coach_data = {
         "first_name": data["first_name"],
-        "last_name": data["last_name"],
+        "last_name": data.get("last_name", "") or "",  
     }
     coach_response = create_coach_instance(coach_data)
     if not coach_response.get('id'): 

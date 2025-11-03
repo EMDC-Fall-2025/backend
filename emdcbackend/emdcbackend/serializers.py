@@ -21,6 +21,8 @@ class OrganizerSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class CoachSerializer(serializers.ModelSerializer):
+    last_name = serializers.CharField(required=False, allow_blank=True, default="")
+    
     class Meta:
         model = Coach
         fields = '__all__'

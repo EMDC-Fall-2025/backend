@@ -81,17 +81,38 @@ def make_organizer(organizer_data):
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def edit_organizer(request):
-    organizer = get_object_or_404(Organizer, id=request.data["id"])
-    organizer_mapping = MapUserToRole.objects.get(role=MapUserToRole.RoleEnum.ORGANIZER, relatedid=organizer.id)
-    user_id = organizer_mapping.uuid
-    user = get_object_or_404(User, id=user_id)
-    user.username = request.data["username"]
-    user.save()
-    organizer.first_name = request.data["first_name"]
-    organizer.last_name = request.data["last_name"]
-    organizer.save()
-    serializer = OrganizerSerializer(instance=organizer)
-    return Response({"organizer": serializer.data}, status=status.HTTP_200_OK)
+    try:
+        organizer = get_object_or_404(Organizer, id=request.data["id"])
+        
+        # Use filter().first() instead of get() to handle missing mappings gracefully
+        organizer_mapping = MapUserToRole.objects.filter(
+            role=MapUserToRole.RoleEnum.ORGANIZER, 
+            relatedid=organizer.id
+        ).first()
+        
+        # Update username if mapping exists
+        if organizer_mapping:
+            user_id = organizer_mapping.uuid
+            try:
+                user = User.objects.get(id=user_id)
+                user.username = request.data["username"]
+                user.save()
+            except User.DoesNotExist:
+                # User doesn't exist, skip username update
+                pass
+        
+        # Update organizer details
+        organizer.first_name = request.data["first_name"]
+        organizer.last_name = request.data["last_name"]
+        organizer.save()
+        
+        serializer = OrganizerSerializer(instance=organizer)
+        return Response({"organizer": serializer.data}, status=status.HTTP_200_OK)
+    
+    except Organizer.DoesNotExist:
+        return Response({"error": "Organizer not found."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(["DELETE"])
@@ -107,13 +128,21 @@ def delete_organizer(request, organizer_id):
             MapContestToOrganizer.objects.filter(organizerid=organizer_id).delete()
 
             # Fetch and delete the organizer-user mapping
-            organizer_mapping = MapUserToRole.objects.get(role=MapUserToRole.RoleEnum.ORGANIZER, relatedid=organizer_id)
-            user_id = organizer_mapping.uuid
+            organizer_mapping = MapUserToRole.objects.filter(role=MapUserToRole.RoleEnum.ORGANIZER, relatedid=organizer_id).first()
+            if organizer_mapping:
+                user_id = organizer_mapping.uuid
+                organizer_mapping.delete()  # Delete the mapping
+                
+                # Delete the user associated with the organizer (if it exists)
+                try:
+                    from django.contrib.auth.models import User
+                    user = User.objects.get(id=user_id)
+                    user.delete()
+                except User.DoesNotExist:
+                    # User doesn't exist, continue with deletion
+                    pass
+            
             organizer.delete()  # Delete the organizer
-            organizer_mapping.delete()  # Delete the mapping
-
-            # Delete the user associated with the organizer (if needed)
-            delete_user(user_id)
 
             return Response({"Detail": "Organizer and all related mappings deleted successfully."},
                             status=status.HTTP_200_OK)
