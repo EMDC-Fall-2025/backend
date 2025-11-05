@@ -262,13 +262,16 @@ def remove_judge_from_contest(request, judge_id, contest_id):
             scoresheet_ids = scoresheet_mappings.values_list('scoresheetid', flat=True)
             
             # Delete the scoresheets
-            Scoresheet.objects.filter(id__in=scoresheet_ids).delete()
+            deleted_scoresheets = Scoresheet.objects.filter(id__in=scoresheet_ids).delete()
             
             # Delete the scoresheet mappings
-            scoresheet_mappings.delete()
+            deleted_mappings = scoresheet_mappings.delete()
             
             # Delete the cluster-judge mapping
             cluster_mapping.delete()
+        else:
+            deleted_scoresheets = (0, {})
+            deleted_mappings = (0, {})
         
         # Delete the contest-judge mapping
         mapping.delete()
@@ -276,8 +279,8 @@ def remove_judge_from_contest(request, judge_id, contest_id):
         return Response({
             "message": f"Judge {judge_id} removed from contest {contest_id}",
             "details": {
-                "scoresheets_deleted": deleted_scoresheets[0] if cluster_mapping else 0,
-                "mappings_deleted": deleted_mappings[0] if cluster_mapping else 0
+                "scoresheets_deleted": deleted_scoresheets[0],
+                "mappings_deleted": deleted_mappings[0]
             }
         }, status=status.HTTP_200_OK)
         
