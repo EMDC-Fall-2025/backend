@@ -382,19 +382,30 @@ def are_all_score_sheets_submitted(request):
 
     results = {}
 
+    # Get cluster_id from query params if provided
+    cluster_id = request.query_params.get('cluster_id')
+    
+    # If cluster_id provided, get teams in that cluster
+    team_ids = None
+    if cluster_id:
+        from ..models import MapClusterToTeam
+        team_ids = list(MapClusterToTeam.objects.filter(clusterid=cluster_id).values_list('teamid', flat=True))
+
     # Iterate over each judge object in the list
     for judge in judges:
         judge_id = judge.get('id')
-        mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
+        
+        # Filter by cluster if cluster_id provided
+        if team_ids is not None:
+            mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id, teamid__in=team_ids)
+        else:
+            mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
 
         if not mappings.exists():
             results[judge_id] = False
             continue
 
-        required_sheet_ids = [
-            m.scoresheetid for m in mappings
-            if m.sheetType not in (ScoresheetEnum.RUNPENALTIES, ScoresheetEnum.OTHERPENALTIES)
-        ]
+        required_sheet_ids = [m.scoresheetid for m in mappings]
 
         if not required_sheet_ids:
             results[judge_id] = True

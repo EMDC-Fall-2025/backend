@@ -75,6 +75,64 @@ def assign_judge_to_contest(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Get cluster information to determine if it's championship/redesign/preliminary
+        from ...models import JudgeClusters
+        try:
+            cluster = JudgeClusters.objects.get(id=cluster_id)
+            cluster_type = getattr(cluster, 'cluster_type', None)
+            # Fallback to checking cluster name if cluster_type is not set
+            if not cluster_type:
+                if 'championship' in cluster.cluster_name.lower():
+                    cluster_type = 'championship'
+                elif 'redesign' in cluster.cluster_name.lower():
+                    cluster_type = 'redesign'
+                else:
+                    cluster_type = 'preliminary'
+            
+            is_championship_cluster = cluster_type == 'championship'
+            is_redesign_cluster = cluster_type == 'redesign'
+            is_preliminary_cluster = cluster_type == 'preliminary'
+        except JudgeClusters.DoesNotExist:
+            return Response(
+                {"error": f"Cluster {cluster_id} does not exist"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if judge is already assigned to another preliminary cluster
+        if is_preliminary_cluster:
+            judge_cluster_ids = MapJudgeToCluster.objects.filter(
+                judgeid=judge_id
+            ).values_list('clusterid', flat=True)
+            
+            # Check if judge has any existing preliminary cluster assignments
+            existing_preliminary_clusters = []
+            for existing_cluster_id in judge_cluster_ids:
+                if existing_cluster_id == cluster_id:
+                    continue  # Skip the cluster we're trying to assign to
+                try:
+                    existing_cluster = JudgeClusters.objects.get(id=existing_cluster_id)
+                    existing_cluster_type = getattr(existing_cluster, 'cluster_type', None)
+                    # Fallback to checking cluster name
+                    if not existing_cluster_type:
+                        if 'championship' in existing_cluster.cluster_name.lower():
+                            existing_cluster_type = 'championship'
+                        elif 'redesign' in existing_cluster.cluster_name.lower():
+                            existing_cluster_type = 'redesign'
+                        else:
+                            existing_cluster_type = 'preliminary'
+                    
+                    if existing_cluster_type == 'preliminary':
+                        existing_preliminary_clusters.append(existing_cluster.cluster_name)
+                except JudgeClusters.DoesNotExist:
+                    continue
+            
+            if existing_preliminary_clusters:
+                cluster_names = ', '.join(existing_preliminary_clusters)
+                return Response(
+                    {"error": f"Judge {judge.first_name} {judge.last_name} is already assigned to preliminary cluster(s): {cluster_names}. A judge cannot be assigned to multiple preliminary clusters."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
         # Create the contest-judge mapping (only if not already exists)
         if not existing_contest_mapping:
             mapping_data = {
@@ -101,18 +159,6 @@ def assign_judge_to_contest(request):
         
         # Create score sheets for the judge in this contest's cluster
         from ...views.scoresheets import create_sheets_for_teams_in_cluster
-        
-        # Get cluster information to determine if it's championship/redesign
-        from ...models import JudgeClusters
-        try:
-            cluster = JudgeClusters.objects.get(id=cluster_id)
-            cluster_type = getattr(cluster, 'cluster_type', None)
-            is_championship_cluster = cluster_type == 'championship' or 'championship' in cluster.cluster_name.lower()
-            is_redesign_cluster = cluster_type == 'redesign' or 'redesign' in cluster.cluster_name.lower()
-            
-        except JudgeClusters.DoesNotExist:
-            is_championship_cluster = False
-            is_redesign_cluster = False
         
         # Get scoresheet flags from request
         presentation = request.data.get("presentation", False)
