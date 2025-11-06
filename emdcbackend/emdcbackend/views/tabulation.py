@@ -193,6 +193,7 @@ def _compute_totals_for_team(team: Teams):
         journal_score = team.preliminary_journal_score or 0
         championship_score = team.championship_machinedesign_score + team.championship_presentation_score
         team.total_score = journal_score + championship_score - team.championship_penalties_score
+        team.championship_score = team.total_score  # Set championship_score to match total_score for championship rounds
         
     elif is_redesign_round:
         # Use summed redesign total only (no per-section fields, no averaging)
