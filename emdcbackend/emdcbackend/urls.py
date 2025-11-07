@@ -1,6 +1,14 @@
 from django.urls import path
 from .auth import views
 
+# ⬇️ Added password-set/reset endpoints (new)
+from .auth.password_views import (
+    request_set_password,
+    request_password_reset,
+    validate_password_token,
+    complete_password_set,
+)
+
 from .views.Maps.MapClusterToContest import all_clusters_by_contest_id
 from .views.Maps.MapClusterToTeam import (
     create_cluster_team_mapping, delete_cluster_team_mapping_by_id,
@@ -45,6 +53,9 @@ from .views.Maps.MapVoteToAward import create_map_vote_to_award, create_map_awar
 from .views.votes import create_vote, get_all_votes
 from .views.ballot import create_ballot, get_all_ballots, delete_ballot
 
+# ⬇️ Added shared-password API import (new)
+from .views.shared_passwords import set_shared_password
+
 urlpatterns = [
     # Admins
     path('api/admin/get/<int:admin_id>/', admin_by_id, name='admin_by_id'),
@@ -57,6 +68,15 @@ urlpatterns = [
     path('api/login/', views.login, name='login'),
     path('api/signup/', views.signup, name='signup'),
     path('api/testToken/', views.test_token, name='test_token'),
+
+    # ⬇️ Added password set/reset endpoints (new)
+    path('api/auth/send-set-password/', request_set_password, name='request_set_password'),
+    path('api/auth/forgot-password/', request_password_reset, name='request_password_reset'),
+    path('api/auth/password-token/validate/', validate_password_token, name='validate_password_token'),
+    path('api/auth/password/complete/', complete_password_set, name='complete_password_set'),
+
+    # ⬇️ Added global shared password set API (new)
+    path('api/auth/set-shared-password/', set_shared_password, name='set_shared_password'),
 
     # Users
     path('api/user/get/<int:user_id>/', views.user_by_id, name='user_by_id'),
@@ -183,14 +203,14 @@ urlpatterns = [
     # Tabulation
     path('api/tabulation/tabulateScores/', tabulate_scores, name='tabulate_scores'),
     path('api/tabulation/preliminaryResults/', preliminary_results, name='preliminary_results'),
-    
+
     # advancement endpoints
     path('api/tabulation/championshipResults/', championship_results, name='championship_results'),
     path('api/tabulation/redesignResults/', redesign_results, name='redesign_results'),
-    path('api/tabulation/setAdvancers/', set_advancers, name='set_advancers'),           
-    path('api/tabulation/listAdvancers/', list_advancers, name='list_advancers'),     
-    path('api/advance/advanceToChampionship/', advance_to_championship, name='advance_to_championship'),  
-    path('api/advance/undoChampionshipAdvancement/', undo_championship_advancement, name='undo_championship_advancement'), 
+    path('api/tabulation/setAdvancers/', set_advancers, name='set_advancers'),
+    path('api/tabulation/listAdvancers/', list_advancers, name='list_advancers'),
+    path('api/advance/advanceToChampionship/', advance_to_championship, name='advance_to_championship'),
+    path('api/advance/undoChampionshipAdvancement/', undo_championship_advancement, name='undo_championship_advancement'),
 
     # Special Awards
     path('api/mapping/awardToTeam/getAllAwards/', get_all_awards, name='get_all_awards'),
@@ -198,7 +218,6 @@ urlpatterns = [
     path('api/mapping/awardToTeam/getAwardByTeam/<int:team_id>/', get_award_id_by_team_id, name='get_award_id_by_team_id'),
     path('api/mapping/awardToTeam/delete/<int:team_id>/<str:award_name>/', delete_award_team_mapping_by_id, name='delete_award_team_mapping_by_id'),
     path('api/mapping/awardToTeam/update/<int:team_id>/<str:award_name>/', update_award_team_mapping, name='update_award_team_mapping'),
-
     path('api/mapping/awardToTeam/getAwardByRole/<str:isJudge>/', get_awards_by_role, name='get_awards_by_role'),
 
     # Ballots
@@ -214,5 +233,5 @@ urlpatterns = [
     path('api/map/ballotToVote/create/', create_map_ballot_to_vote, name='create_map_ballot_to_vote'),
     path('api/map/voteToAward/create/', create_map_vote_to_award, name='create_map_vote_to_award'),
     path('api/map/teamToVote/create/', create_map_team_to_vote, name='create_map_team_to_vote'),
-    path('api/map/awardToContest/create/', create_map_award_to_contest, name='create_map_award_to_contest')      
+    path('api/map/awardToContest/create/', create_map_award_to_contest, name='create_map_award_to_contest'),
 ]
