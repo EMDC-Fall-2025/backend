@@ -165,3 +165,21 @@ def map_cluster_to_judge(map_data):
     else:
         raise ValidationError(serializer.errors)
     
+# Wrapper to match existing import in views/judge.py
+def delete_cluster_judge_mapping(cluster_id: int, judge_id: int):
+    """
+    Deletes the judge<->cluster mapping (by cluster_id + judge_id) and
+    cascades delete of related judge->team scoresheets for that cluster.
+    Returns a dict you can send in a Response.
+    """
+    mapping = MapJudgeToCluster.objects.filter(
+        clusterid=cluster_id,
+        judgeid=judge_id
+    ).first()
+
+    if not mapping:
+        # Reuse DRF ValidationError already imported at top
+        raise ValidationError("Mapping not found for the given cluster_id and judge_id.")
+
+    _delete_cluster_judge_mapping_and_scores(mapping.id)
+    return {"detail": "Cluster To Judge Mapping deleted successfully.", "deleted": 1}
