@@ -31,11 +31,20 @@ def create_cluster_team_mapping(request):
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def teams_by_cluster_id(request, cluster_id):
-    mappings = MapClusterToTeam.objects.filter(clusterid=cluster_id)
-    team_ids = mappings.values_list('teamid', flat=True)
-    teams = Teams.objects.filter(id__in=team_ids)
-    serializer = TeamSerializer(teams, many=True)
-    return Response({"Teams": serializer.data}, status=status.HTTP_200_OK)
+    try:
+        mappings = MapClusterToTeam.objects.filter(clusterid=cluster_id)
+        team_ids = mappings.values_list("teamid", flat=True)
+        teams = Teams.objects.filter(id__in=team_ids)
+        serialized_teams = TeamSerializer(teams, many=True).data
+
+        # attach map_id to each team (needed for "Remove from Cluster")
+        for team in serialized_teams:
+            mapping = mappings.filter(teamid=team["id"]).first()
+            team["map_id"] = mapping.id if mapping else None
+
+        return Response({"Teams": serialized_teams}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(["GET"])
