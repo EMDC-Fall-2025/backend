@@ -18,6 +18,10 @@ from .Maps.MapContestToOrganizer import map_contest_to_organizer
 from ..models import MapUserToRole
 from ..auth.views import User, delete_user_by_id
 
+
+from django.contrib.auth import get_user_model
+from ..auth.password_utils import send_set_password_email
+
 # get organizer by id
 @api_view(["GET"])
 def organizer_by_id(request, organizer_id):
@@ -57,11 +61,14 @@ def create_organizer(request):
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 def create_user_and_organizer(data):
+    # IMPORTANT: Organizers use ONLY the shared organizer password (role=2)
+    # (mirror behavior from your other file: no email; enforce unusable password flow)
     user_data = {"username": data["username"], "password": data["password"]}
-    user_response = create_user(user_data)
+    user_response = create_user(user_data, send_email=False, enforce_unusable_password=True)
     if not user_response.get('user'):
         raise ValidationError('User creation failed.')
     
+    # (Email intentionally NOT sent for organizers)
     organizer_data = {"first_name": data["first_name"], "last_name": data["last_name"]}
     organizer_response = make_organizer(organizer_data)
     if not organizer_response.get('id'):
