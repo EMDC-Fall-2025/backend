@@ -296,4 +296,24 @@ class MapAwardToContest(models.Model):
     contestid = models.IntegerField()
     awardid = models.IntegerField()
 
-    
+
+# === ADDED: Global shared password storage for Organizer & Judge ===
+class RoleSharedPassword(models.Model):
+    """
+    Stores a single, shared hashed password for a role.
+    GLOBAL scope (not per contest).
+    Applies to roles:
+      2 = ORGANIZER
+      3 = JUDGE
+    """
+    ROLE_CHOICES = (
+        (2, "ORGANIZER"),
+        (3, "JUDGE"),
+    )
+
+    role = models.PositiveSmallIntegerField(choices=ROLE_CHOICES, unique=True)
+    password_hash = models.CharField(max_length=200)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Shared Password for {self.get_role_display()}"
