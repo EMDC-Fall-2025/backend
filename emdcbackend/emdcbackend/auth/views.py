@@ -1,3 +1,4 @@
+# backend/emdcbackend/emdcbackend/auth/views.py
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -14,6 +15,10 @@ from rest_framework.exceptions import ValidationError
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth.tokens import default_token_generator
+
+# --- STRICT email validation ---
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 # NOTE: this import path matches THIS folder's serializer
 from .serializers import UserSerializer
@@ -86,7 +91,7 @@ def signup(request):
     Public sign-up. Preserves your original semantics:
       - If username exists: return existing user's data with token=None.
       - Otherwise create user, set password, create token.
-    Additionally enables optional set-password emails (send_email=True by default).
+    Additionally enforces STRICT email format and emails a set-password link.
     """
     try:
         user_data = request.data
@@ -112,14 +117,18 @@ def delete_user_by_id(request, user_id):
 def edit_user(request):
     """
     Allows changing username (email) and/or password for the current user.
-    Keeps your behavior (email uniqueness check; set_password on provided value),
-    but avoids comparing raw text to hashed password.
+    Adds STRICT email validation on username change.
     """
     user = get_object_or_404(User, id=request.data["id"])
 
-    # Update username (email)
+    # Update username (email) with strict validation
     new_username = request.data.get("username")
     if new_username and new_username != user.username:
+        try:
+            validate_email(new_username)  # STRICT format check
+        except DjangoValidationError:
+            return Response({"detail": "Enter a valid email address."}, status=status.HTTP_400_BAD_REQUEST)
+
         if User.objects.filter(username=new_username).exists():
             return Response({"detail": "Email already taken."}, status=status.HTTP_400_BAD_REQUEST)
         user.username = new_username
@@ -152,12 +161,18 @@ def create_user(user_data, send_email: bool = True, enforce_unusable_password: b
     Preserves your original behavior:
       - If a user with username exists, return existing user data with token=None.
 
-    Adds optional features:
-      - send_email: send set-password email after creation.
-      - enforce_unusable_password: set an unusable password (e.g., for shared-role logins).
+    Adds STRICT email validation + optional set-password email.
     """
     username = user_data.get("username")
     password = user_data.get("password")
+
+    # Strict email format
+    if not username:
+        raise ValidationError("Username (email) is required.")
+    try:
+        validate_email(username)
+    except DjangoValidationError:
+        raise ValidationError("Enter a valid email address.")
 
     # Preserve original: if existing user, return data instead of error
     existing_user = User.objects.filter(username=username).first()
@@ -173,11 +188,9 @@ def create_user(user_data, send_email: bool = True, enforce_unusable_password: b
             if enforce_unusable_password:
                 user.set_unusable_password()
             else:
-                # Keep original behavior: set whatever password was provided (no new strictness)
                 if password:
                     user.set_password(password)
                 else:
-                    # If no password given, make it unusable (safe default)
                     user.set_unusable_password()
 
             user.save()
@@ -190,7 +203,6 @@ def create_user(user_data, send_email: bool = True, enforce_unusable_password: b
                     # Do not fail creation if email fails (useful in dev)
                     print(f"[WARN] Failed to send set-password email: {e}")
 
-            # Return serialized new user (match original return structure)
             return {"token": token.key, "user": UserSerializer(instance=user).data}
 
     raise ValidationError(serializer.errors)
@@ -210,18 +222,25 @@ def forgot_password(request):
     """
     Trigger a reset email to the user.
     Payload: { "email": "<user-email>" }
+    Always respond 200 to avoid user enumeration.
     """
     email = request.data.get("email")
     if not email:
         return Response({"detail": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Validate format strictly, but still avoid enumeration
+    try:
+        validate_email(email)
+    except DjangoValidationError:
+        return Response({"detail": "If this email exists, a reset link has been sent."},
+                        status=status.HTTP_200_OK)
+
     try:
         user = User.objects.get(username=email)
+        send_set_password_email(user)
     except User.DoesNotExist:
-        # Do not reveal whether a user exists
-        return Response({"detail": "If this email exists, a reset link has been sent."}, status=status.HTTP_200_OK)
+        pass
 
-    send_set_password_email(user)
     return Response({"detail": "If this email exists, a reset link has been sent."}, status=status.HTTP_200_OK)
 
 
@@ -230,11 +249,7 @@ def password_reset_confirm(request):
     """
     Finalizes setting a new password.
     Payload:
-      {
-        "uid": "<base64 user id>",
-        "token": "<token from email>",
-        "new_password": "<new password>"
-      }
+      { "uid": "<base64 user id>", "token": "<token from email>", "new_password": "<new password>" }
     """
     uidb64 = request.data.get("uid")
     token = request.data.get("token")
