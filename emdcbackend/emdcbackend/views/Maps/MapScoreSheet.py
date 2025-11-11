@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from ...models import MapScoresheetToTeamJudge, Scoresheet, MapContestToJudge, MapJudgeToCluster, MapClusterToTeam
+from ...models import MapScoresheetToTeamJudge, Scoresheet, MapContestToJudge, MapJudgeToCluster, MapClusterToTeam, MapContestToCluster
 from ...serializers import MapScoreSheetToTeamJudgeSerializer, ScoresheetSerializer
 
 
@@ -235,23 +235,63 @@ def all_sheets_submitted_for_contests(request):
     try:
         for contest in contests:
             contest_id = contest.get('id')
-            judges = MapContestToJudge.objects.filter(contestid=contest_id)
+            
+            # Get all clusters for this contest
+            contest_cluster_mappings = MapContestToCluster.objects.filter(contestid=contest_id)
+            cluster_ids = contest_cluster_mappings.values_list('clusterid', flat=True).distinct()
+            
+            if not cluster_ids:
+                # No clusters in contest, so no judges to check
+                results[contest_id] = True
+                continue
+            
+            # Get all judges assigned to clusters in this contest
+            judge_cluster_mappings = MapJudgeToCluster.objects.filter(clusterid__in=cluster_ids)
+            judge_ids = judge_cluster_mappings.values_list('judgeid', flat=True).distinct()
+            
+            if not judge_ids:
+                # No judges assigned to clusters in this contest
+                results[contest_id] = True
+                continue
+            
+            # Get all teams in clusters for this contest
+            team_cluster_mappings = MapClusterToTeam.objects.filter(clusterid__in=cluster_ids)
+            team_ids = team_cluster_mappings.values_list('teamid', flat=True).distinct()
+            
+            if not team_ids:
+                # No teams in clusters, so no score sheets to check
+                results[contest_id] = True
+                continue
+            
+            # Check if all score sheets for judges and teams in this contest are submitted
             all_submitted = True
-
-            for judge in judges:
-                score_sheet_mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge.id)
-
-                for mapping in score_sheet_mappings:
-                    score_sheet = Scoresheet.objects.get(id=mapping.scoresheetid)
-                    serializer = ScoresheetSerializer(score_sheet).data
-
-                    if not serializer.get("isSubmitted"):
-                        all_submitted = False
-                        break
-
-                if not all_submitted:
+            
+            for judge_id in judge_ids:
+                # Get all score sheet mappings for this judge and teams in contest clusters
+                score_sheet_mappings = MapScoresheetToTeamJudge.objects.filter(
+                    judgeid=judge_id,
+                    teamid__in=team_ids
+                )
+                
+                if not score_sheet_mappings.exists():
+                    # Judge has no score sheet mappings for teams in this contest
+                    # This could mean they haven't been assigned yet, so consider as not submitted
+                    all_submitted = False
                     break
-
+                
+                # Get all score sheet IDs for this judge's mappings in this contest
+                scoresheet_ids = score_sheet_mappings.values_list('scoresheetid', flat=True)
+                
+                # Check if any score sheet is not submitted
+                unsubmitted_count = Scoresheet.objects.filter(
+                    id__in=scoresheet_ids,
+                    isSubmitted=False
+                ).count()
+                
+                if unsubmitted_count > 0:
+                    all_submitted = False
+                    break
+            
             results[contest_id] = all_submitted
 
         return Response(results, status=status.HTTP_200_OK)
