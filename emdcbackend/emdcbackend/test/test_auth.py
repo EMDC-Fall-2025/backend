@@ -52,9 +52,8 @@ class UserAuthTests(APITestCase):
     def test_signup(self):
         url = reverse('signup')
         new_user_data = {
-            'username': 'newuser',
-            'password': 'newpassword',
-            'email': 'new@example.com'
+            'username': 'newuser@example.com',  # Must be a valid email
+            'password': 'newpassword'
         }
         response = self.client.post(url, new_user_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -72,11 +71,11 @@ class UserAuthTests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
         response = self.client.post(url, {
             'id': self.user.id,
-            'username': 'updateduser',
+            'username': 'updateduser@example.com',  # Must be a valid email
             'password': 'updatedpassword'
         })
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['user']['username'], 'updateduser')
+        self.assertEqual(response.data['user']['username'], 'updateduser@example.com')
 
     def test_delete_user(self):
         url = reverse('delete_user_by_id', kwargs={'user_id': self.user.id})

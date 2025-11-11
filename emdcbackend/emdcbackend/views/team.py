@@ -38,6 +38,14 @@ def team_by_id(request, team_id):
 def create_team(request):
     try:
         with transaction.atomic():
+            # Validate required fields
+            if "username" not in request.data:
+                raise ValidationError({"username": "Username is required."})
+            if "contestid" not in request.data:
+                raise ValidationError({"contestid": "Contest ID is required."})
+            if "clusterid" not in request.data:
+                raise ValidationError({"clusterid": "Cluster ID is required."})
+            
             # Step 1: Create team object
             team_response = make_team(request.data)
 
@@ -88,15 +96,20 @@ def create_team(request):
             responses.append(team_to_contest_response)
 
             # Step 4: Map team to the "All Teams" cluster (default cluster)
-            all_teams_cluster_id = get_all_teams_cluster(request.data["contestid"])  # Assume the "All Teams" cluster has ID = 1 (you can adjust this)
-            if all_teams_cluster_id:
+            all_teams_cluster_id = get_all_teams_cluster(request.data["contestid"])
+            # Handle case where get_all_teams_cluster returns error tuple
+            if isinstance(all_teams_cluster_id, tuple):
+                error_dict, _ = all_teams_cluster_id
+                # Log error but continue - team creation should still succeed
+                all_teams_cluster_id = None
+            if all_teams_cluster_id and isinstance(all_teams_cluster_id, int):
                 create_team_to_cluster_map({
                     "clusterid": all_teams_cluster_id,
                     "teamid": team_response.get("id")
                 })
 
             # Step 5: Check if the provided clusterid is not the "All Teams" cluster
-            if request.data["clusterid"] != all_teams_cluster_id:
+            if all_teams_cluster_id and isinstance(all_teams_cluster_id, int) and request.data["clusterid"] != all_teams_cluster_id:
                 # Map team to the other provided cluster
                 other_cluster_mapping_response = create_team_to_cluster_map({
                     "clusterid": request.data["clusterid"],
@@ -141,19 +154,26 @@ def edit_team(request):
             team = get_object_or_404(Teams, id=request.data["id"])
             coach_team_mapping = get_object_or_404(MapCoachToTeam, teamid=team.id)
             coach = get_object_or_404(Coach, id=coach_team_mapping.coachid)
-            mapping = MapUserToRole.objects.get(relatedid=coach.id, role=4)
-            uuid = mapping.uuid
-            user = get_object_or_404(User, id=uuid)
+            try:
+                mapping = MapUserToRole.objects.get(relatedid=coach.id, role=4)
+                uuid = mapping.uuid
+                user = get_object_or_404(User, id=uuid)
+            except MapUserToRole.DoesNotExist:
+                raise ValidationError({"detail": "Team does not have a valid coach mapping."})
 
-            # Update team name if necessary
-            if request.data["team_name"] != team.team_name:
-                team.team_name = request.data["team_name"]
+            # Update team name if provided and necessary
+            if "team_name" in request.data:
+                new_team_name = request.data["team_name"].strip()
+                if not new_team_name:
+                    raise ValidationError({"team_name": "Team name cannot be empty or whitespace only."})
+                if new_team_name != team.team_name:
+                    team.team_name = new_team_name
             # Update school name if provided
             if "school_name" in request.data and request.data["school_name"] != team.__dict__.get("school_name", "NA"):
                 team.school_name = request.data.get("school_name") or "MNSU"
 
             # Update coach and user mappings if username has changed
-            if request.data["username"] != user.username:
+            if "username" in request.data and request.data["username"] != user.username:
                 # Remove old mapping, create or fetch the user and coach, and map them to the team
                 MapCoachToTeam.objects.get(teamid=team.id, coachid=coach.id).delete()
                 try:
@@ -173,49 +193,56 @@ def edit_team(request):
                 create_coach_to_team_map({"teamid": team.id, "coachid": coach_response.get("id")})
 
             # Update coach details if changed
-            if request.data["first_name"] != coach.first_name:
+            if "first_name" in request.data and request.data["first_name"] != coach.first_name:
                 coach.first_name = request.data["first_name"]
                 coach.save()
-            if request.data["last_name"] != coach.last_name:
+            if "last_name" in request.data and request.data["last_name"] != coach.last_name:
                 coach.last_name = request.data["last_name"]
                 coach.save()
 
-            # Update cluster and score sheets
-            all_teams_cluster = get_all_teams_cluster(request.data["contestid"])
+            # Update cluster and score sheets only if contestid and clusterid are provided
+            if "contestid" in request.data and "clusterid" in request.data:
+                all_teams_cluster = get_all_teams_cluster(request.data["contestid"])
+                # Handle case where get_all_teams_cluster returns error tuple
+                if isinstance(all_teams_cluster, tuple):
+                    error_dict, _ = all_teams_cluster
+                    # If we can't get the "All Teams" cluster, skip cluster updates
+                    all_teams_cluster = None
+                
+                # Only proceed with cluster updates if we have a valid all_teams_cluster ID
+                if all_teams_cluster and isinstance(all_teams_cluster, int):
+                    new_cluster_is_all_teams = request.data["clusterid"] == all_teams_cluster
 
-            new_cluster_is_all_teams = request.data["clusterid"] == get_all_teams_cluster(request.data["contestid"])
+                    non_all_teams_cluster_mapping = MapClusterToTeam.objects.filter(
+                        teamid=team.id
+                    ).exclude(clusterid=all_teams_cluster)
 
-            non_all_teams_cluster_mapping = MapClusterToTeam.objects.filter(
-                teamid=team.id
-            ).exclude(clusterid=all_teams_cluster)
+                    judges_in_all_teams = MapJudgeToCluster.objects.filter(clusterid=all_teams_cluster)
+                    all_score_sheets_assigned_to_team = MapScoresheetToTeamJudge.objects.filter(teamid=team.id)
+                    non_all_teams_score_sheets = all_score_sheets_assigned_to_team.exclude(judgeid__in=judges_in_all_teams)
 
-            judges_in_all_teams = MapJudgeToCluster.objects.filter(clusterid=all_teams_cluster)
-            all_score_sheets_assigned_to_team = MapScoresheetToTeamJudge.objects.filter(teamid=team.id)
-            non_all_teams_score_sheets = all_score_sheets_assigned_to_team.exclude(judgeid__in=judges_in_all_teams)
-
-
-            if new_cluster_is_all_teams and non_all_teams_cluster_mapping:
-                # New Cluster is all teams and team was assigned to other clusters previously
-                non_all_teams_cluster_mapping.delete()
-                scoresheets_to_delete_ids = non_all_teams_score_sheets.values_list('scoresheetid', flat=True)
-                MapScoresheetToTeamJudge.objects.filter(scoresheetid__in=scoresheets_to_delete_ids).delete()
-                Scoresheet.objects.filter(id__in=scoresheets_to_delete_ids).delete()
-            elif not new_cluster_is_all_teams and not non_all_teams_cluster_mapping:
-                # New cluster is not all teams and team wasn't assigned to other clusters previously
-                create_team_to_cluster_map({"clusterid": request.data["clusterid"], "teamid": team.id})
-                judge_ids = MapJudgeToCluster.objects.filter(clusterid=request.data["clusterid"]).values_list('judgeid', flat=True)
-                judges = Judge.objects.filter(id__in=judge_ids)
-                create_score_sheets_for_team(team, judges)
-            elif not new_cluster_is_all_teams and non_all_teams_cluster_mapping:
-                # New cluster is not all teams and team was assigned to other clusters previously
-                non_all_teams_cluster_mapping.delete()
-                create_team_to_cluster_map({"clusterid": request.data["clusterid"], "teamid": team.id})
-                scoresheets_to_delete_ids = non_all_teams_score_sheets.values_list('scoresheetid', flat=True)
-                MapScoresheetToTeamJudge.objects.filter(scoresheetid__in=scoresheets_to_delete_ids).delete()
-                Scoresheet.objects.filter(id__in=scoresheets_to_delete_ids).delete()
-                judge_ids = MapJudgeToCluster.objects.filter(clusterid=request.data["clusterid"]).values_list('judgeid',flat=True)
-                judges = Judge.objects.filter(id__in=judge_ids)
-                create_score_sheets_for_team(team, judges)
+                    if new_cluster_is_all_teams and non_all_teams_cluster_mapping:
+                        # New Cluster is all teams and team was assigned to other clusters previously
+                        non_all_teams_cluster_mapping.delete()
+                        scoresheets_to_delete_ids = non_all_teams_score_sheets.values_list('scoresheetid', flat=True)
+                        MapScoresheetToTeamJudge.objects.filter(scoresheetid__in=scoresheets_to_delete_ids).delete()
+                        Scoresheet.objects.filter(id__in=scoresheets_to_delete_ids).delete()
+                    elif not new_cluster_is_all_teams and not non_all_teams_cluster_mapping:
+                        # New cluster is not all teams and team wasn't assigned to other clusters previously
+                        create_team_to_cluster_map({"clusterid": request.data["clusterid"], "teamid": team.id})
+                        judge_ids = MapJudgeToCluster.objects.filter(clusterid=request.data["clusterid"]).values_list('judgeid', flat=True)
+                        judges = Judge.objects.filter(id__in=judge_ids)
+                        create_score_sheets_for_team(team, judges)
+                    elif not new_cluster_is_all_teams and non_all_teams_cluster_mapping:
+                        # New cluster is not all teams and team was assigned to other clusters previously
+                        non_all_teams_cluster_mapping.delete()
+                        create_team_to_cluster_map({"clusterid": request.data["clusterid"], "teamid": team.id})
+                        scoresheets_to_delete_ids = non_all_teams_score_sheets.values_list('scoresheetid', flat=True)
+                        MapScoresheetToTeamJudge.objects.filter(scoresheetid__in=scoresheets_to_delete_ids).delete()
+                        Scoresheet.objects.filter(id__in=scoresheets_to_delete_ids).delete()
+                        judge_ids = MapJudgeToCluster.objects.filter(clusterid=request.data["clusterid"]).values_list('judgeid',flat=True)
+                        judges = Judge.objects.filter(id__in=judge_ids)
+                        create_score_sheets_for_team(team, judges)
 
             team.save()
             serializer = TeamSerializer(instance=team)
@@ -249,16 +276,21 @@ def make_team_instance(team_data):
     raise ValidationError(serializer.errors)
 
 def make_team(data):
+    # Validate team_name is not empty or whitespace-only
+    team_name = data.get("team_name", "").strip()
+    if not team_name:
+        raise ValidationError({"team_name": "Team name cannot be empty or whitespace only."})
+    
     team_data = {
-        "team_name":data["team_name"],
+        "team_name": team_name,
         "school_name": data.get("school_name", "MNSU"),
-        "journal_score":data["journal_score"],
-        "presentation_score":data["presentation_score"],
-        "machinedesign_score":data["machinedesign_score"],
-        "penalties_score":data["penalties_score"],
-        "redesign_score":data["redesign_score"],
-        "championship_score":data["championship_score"],
-        "total_score":data["total_score"]
+        "journal_score":data.get("journal_score", 0.0),
+        "presentation_score":data.get("presentation_score", 0.0),
+        "machinedesign_score":data.get("machinedesign_score", 0.0),
+        "penalties_score":data.get("penalties_score", 0.0),
+        "redesign_score":data.get("redesign_score", 0.0),
+        "championship_score":data.get("championship_score", 0.0),
+        "total_score":data.get("total_score", 0.0)
     }
     team_response = make_team_instance(team_data)
     if not team_response.get('id'):

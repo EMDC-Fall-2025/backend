@@ -469,7 +469,7 @@ def championship_results(request):
         return Response({"ok": False, "message": "contestid is required."}, status=status.HTTP_400_BAD_REQUEST)
     
     #get championship results
-    team_ids = MapContestToTeam.objects.filter(contest_id=contest_id).values_list("teamid", flat=True)
+    team_ids = MapContestToTeam.objects.filter(contestid=contest_id).values_list("teamid", flat=True)
     championship_teams = Teams.objects.filter(
         id__in=list(team_ids),
         advanced_to_championship=True
@@ -504,7 +504,7 @@ def redesign_results(request):
         return Response({"ok": False, "message": "contestid is required."}, status=status.HTTP_400_BAD_REQUEST)
     
     #get redesign results
-    team_ids = MapContestToTeam.objects.filter(contest_id=contest_id).values_list("teamid", flat=True)
+    team_ids = MapContestToTeam.objects.filter(contestid=contest_id).values_list("teamid", flat=True)
     redesign_teams = Teams.objects.filter(
         id__in=list(team_ids)
     ).order_by('-total_score', 'id')
