@@ -9,26 +9,31 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
+from multiprocessing import process
 import os
 from pathlib import Path
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load backend/emdcbackend/.env.local
-env_path = BASE_DIR / ".env.local"
+# Load backend/emdcbackend/.local.env
+env_path = BASE_DIR / ".local.env"
 if env_path.exists():
     for line in env_path.read_text().splitlines():
         line = line.strip()
         if line and not line.startswith("#") and "=" in line:
             k, _, v = line.partition("=")
-            os.environ.setdefault(k.strip(), v.strip())
+            v = v.strip()
+            # Remove surrounding quotes if present
+            if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+                v = v[1:-1]
+            os.environ.setdefault(k.strip(), v)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
+import os
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-xi*-m4zr5fvi=wak_&a%o(7ti@v_)q4a^zh+!hx^t8+jv_#eq0'
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -54,7 +59,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:7001",
+    "http://localhost:7004",
     "http://127.0.0.1:7001",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -62,16 +67,52 @@ CSRF_TRUSTED_ORIGINS = [
     "https://emdc-backend-mahe5.ondigitalocean.app",
 ]
 
-# Dev cookie settings
+# # Dev cookie settings
+# SESSION_COOKIE_SAMESITE = "Lax"
+# CSRF_COOKIE_SAMESITE = "Lax"
+# SESSION_COOKIE_SECURE = False
+# CSRF_COOKIE_SECURE = False
+# SESSION_COOKIE_DOMAIN = None
+# CSRF_COOKIE_DOMAIN = None
+# CORS_ALLOW_CREDENTIALS = True
+# CORS_ALLOW_ALL_ORIGINS = True 
+# CSRF_TRUSTED_ORIGINS = ['https://orca-app-nrupj.ondigitalocean.app']
+
+# Cookies
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_DOMAIN = None
-CSRF_COOKIE_DOMAIN = None
+SESSION_COOKIE_SECURE = False   # -> True in prod (HTTPS)
+CSRF_COOKIE_SECURE = False      # -> True in prod (HTTPS)
+CSRF_COOKIE_HTTPONLY = False    # False so JS can read csrftoken
+SESSION_COOKIE_HTTPONLY = True
+
+# CORS
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = True 
-CSRF_TRUSTED_ORIGINS = ['https://orca-app-nrupj.ondigitalocean.app']
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:7001",
+    "http://127.0.0.1:7001",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    # production: "https://app.example.com
+]
+
+# CSRF trusted origins - in production, set via environment variable (comma-separated)
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS = [
+        "http://localhost:7004",
+        "http://127.0.0.1:7001",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+else:
+    csrf_origins_str = os.getenv('CSRF_TRUSTED_ORIGINS', '')
+    if csrf_origins_str:
+        CSRF_TRUSTED_ORIGINS = [o.strip() for o in csrf_origins_str.split(',') if o.strip()]
+    else:
+        # Fallback to CORS_ALLOWED_ORIGINS if not set
+        CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+
 
 # Application definition
 
@@ -123,32 +164,7 @@ WSGI_APPLICATION = 'emdcbackend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         # 'ENGINE': 'django.db.backends.sqlite3',
-#         # 'NAME': BASE_DIR / 'sqlite3.db'
-#         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-#         'NAME': 'test',
-#         'USER': 'postgres',
-#         'PASSWORD': 'zxcvbnm',
-#         'HOST':'localhost',
-#         'PORT':'5432',
-#     }
-# }
 
-
-
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.postgresql",
-#         "NAME": os.getenv("POSTGRES_DB", "test"),
-#         "USER": os.getenv("POSTGRES_USER", "postgres"),
-#         "PASSWORD": os.getenv("POSTGRES_PASSWORD", "zxcvbnm"),
-#         # default to localhost so local-only runs “just work”
-#         "HOST": os.getenv("POSTGRES_HOST", "localhost"),
-#         "PORT": int(os.getenv("POSTGRES_PORT", "5432")),
-#     }
-# }
 
 DATABASES = {
     "default": {
@@ -201,6 +217,9 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Return JSON on CSRF failures (for Postman/browser API calls)
+CSRF_FAILURE_VIEW = 'emdcbackend.views.errors.csrf_failure'
 import os
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

@@ -7,7 +7,7 @@ from rest_framework.decorators import (
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 
@@ -33,7 +33,7 @@ def contest_get_all(request):
 
 # Create contest and Map to empty cluster
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_contest(request):
   try:
@@ -70,7 +70,7 @@ def create_contest_instance(contest_data):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def edit_contest(request):
   contest = get_object_or_404(Contest, id=request.data["id"])
@@ -84,7 +84,7 @@ def edit_contest(request):
 
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_contest(request,contest_id):
   try:

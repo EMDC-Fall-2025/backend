@@ -6,7 +6,7 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 
@@ -18,7 +18,7 @@ from ..models import MapUserToRole
 from ..auth.views import User, delete_user_by_id
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def coach_by_id(request, coach_id):
   coach = get_object_or_404(Coach, id = coach_id)
@@ -26,7 +26,7 @@ def coach_by_id(request, coach_id):
   return Response({"Coach": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def coach_get_all(request):
   coaches = Coach.objects.all()
@@ -34,7 +34,7 @@ def coach_get_all(request):
   return Response({"Coaches":serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_coach(request):
     serializer = CoachSerializer(data=request.data)
@@ -46,7 +46,7 @@ def create_coach(request):
     )
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def edit_coach(request):
     coach = get_object_or_404(Coach, id=request.data["id"])
@@ -59,7 +59,7 @@ def edit_coach(request):
     return Response({"coach": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_coach(request, coach_id):
     try:

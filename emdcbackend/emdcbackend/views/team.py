@@ -17,7 +17,7 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
@@ -33,7 +33,7 @@ def team_by_id(request, team_id):
 
 # Create a new team with coach and assign to contest/cluster
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_team(request):
     try:
@@ -56,11 +56,19 @@ def create_team(request):
                 role_mapping_response = get_role_mapping(user.id)
                 if role_mapping_response.get("id"):
                     if role_mapping_response.get("role") == 4:
-                        coach_response = get_coach(role_mapping_response.get("relatedid"))
+                        # Coach already exists - update coach name
+                        coach = Coach.objects.get(id=role_mapping_response.get("relatedid"))
+                        coach.first_name = request.data["first_name"]
+                        coach.last_name = request.data.get("last_name", "") or ""
+                        coach.save()
+                        coach_response = get_coach(coach.id)
+    
+                        coach_response['username'] = user.username
                     else:
                         raise ValidationError({"detail": "This user is already mapped to a role."})
                 else:
                     coach_response = create_coach(request.data)
+                    coach_response['username'] = user.username
                     role_mapping_response = create_user_role_map({
                         "uuid": user.id,
                         "role": 4,
@@ -68,6 +76,7 @@ def create_team(request):
                     })
             except:
                 user_response, coach_response = create_user_and_coach(request.data)
+                coach_response['username'] = user_response.get("user").get("username")
                 role_mapping_response = create_user_role_map({
                     "uuid": user_response.get("user").get("id"),
                     "role": 4,
@@ -145,7 +154,7 @@ def create_team(request):
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def edit_team(request):
     try:
@@ -172,6 +181,9 @@ def edit_team(request):
             if "school_name" in request.data and request.data["school_name"] != team.__dict__.get("school_name", "NA"):
                 team.school_name = request.data.get("school_name") or "MNSU"
 
+            # Track if coach_response was set 
+            coach_response = None
+            
             # Update coach and user mappings if username has changed
             if "username" in request.data and request.data["username"] != user.username:
                 # Remove old mapping, create or fetch the user and coach, and map them to the team
@@ -180,17 +192,37 @@ def edit_team(request):
                     user = User.objects.get(username=request.data["username"])
                     role_mapping_response = get_role_mapping(user.id)
                     if role_mapping_response.get("id") and role_mapping_response.get("role") == 4:
-                        coach_response = get_coach(role_mapping_response.get("relatedid"))
+                        # Existing coach found - update coach name everywhere
+                        existing_coach = Coach.objects.get(id=role_mapping_response.get("relatedid"))
+                        existing_coach.first_name = request.data["first_name"]
+                        existing_coach.last_name = request.data.get("last_name", "") or ""
+                        existing_coach.save()
+                        coach = existing_coach  # Update local coach variable
+                        coach_response = get_coach(existing_coach.id)
+                        coach_response['username'] = user.username
                     else:
                         raise ValidationError({"detail": "This user is already mapped to a role."})
                 except User.DoesNotExist:
                     user_response, coach_response = create_user_and_coach(request.data)
+                    coach_response['username'] = user_response.get("user").get("username")
                     create_user_role_map({
                         "uuid": user_response.get("user").get("id"),
                         "role": 4,
                         "relatedid": coach_response.get("id")
                     })
                 create_coach_to_team_map({"teamid": team.id, "coachid": coach_response.get("id")})
+            else:
+                # Username hasn't changed - update coach details if changed
+        
+                coach_updated = False
+                if request.data["first_name"] != coach.first_name:
+                    coach.first_name = request.data["first_name"]
+                    coach_updated = True
+                if request.data["last_name"] != coach.last_name:
+                    coach.last_name = request.data["last_name"]
+                    coach_updated = True
+                if coach_updated:
+                    coach.save()
 
             # Update coach details if changed
             if "first_name" in request.data and request.data["first_name"] != coach.first_name:
@@ -246,7 +278,16 @@ def edit_team(request):
 
             team.save()
             serializer = TeamSerializer(instance=team)
-            coach_serializer = CoachSerializer(instance=coach)
+            
+            # Prepare coach data for response
+            # If username changed, coach_response was already set with username
+            # Otherwise, serialize the current coach and add username
+            if coach_response:
+                coach_data = coach_response
+            else:
+                coach_serializer = CoachSerializer(instance=coach)
+                coach_data = coach_serializer.data
+                coach_data['username'] = user.username
 
             score_sheet_ids = MapScoresheetToTeamJudge.objects.filter(teamid=team.id).values_list('scoresheetid', flat=True)
             score_sheets = Scoresheet.objects.filter(id__in=score_sheet_ids)
@@ -257,11 +298,11 @@ def edit_team(request):
     except Exception as e:
         return Response({"error": "An error occurred: " + str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    return Response({"Team": serializer.data, "ScoreSheets": score_sheets_data, "Coach": coach_serializer.data}, status=status.HTTP_200_OK)
+    return Response({"Team": serializer.data, "ScoreSheets": score_sheets_data, "Coach": coach_data}, status=status.HTTP_200_OK)
 
 # delete team
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_team_by_id(request, team_id):
     team_to_delete = get_object_or_404(Teams, id=team_id)
@@ -298,7 +339,7 @@ def make_team(data):
     return team_response
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication]) 
+@authentication_classes([SessionAuthentication]) 
 @permission_classes([IsAuthenticated])
 def get_teams_by_team_rank(request):
     mappings = MapContestToTeam.objects.filter(contestid=request.data["contestid"])
@@ -308,7 +349,7 @@ def get_teams_by_team_rank(request):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_team_after_judge(request):
   try:
@@ -381,7 +422,7 @@ def create_team_after_judge(request):
     return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def is_team_disqualified(request):
     team = get_object_or_404(Teams, id=request.data["teamid"])
@@ -389,7 +430,7 @@ def is_team_disqualified(request):
 
 # GET request that returns all teams
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_all_teams(request):
     try:

@@ -7,14 +7,14 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from ...models import MapCoachToTeam, Coach, Teams, MapUserToRole, Contest, MapContestToTeam
 from ...serializers import CoachToTeamSerializer, CoachSerializer, TeamSerializer
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_coach_team_mapping(request):
     serializer = CoachToTeamSerializer(data=request.data)
@@ -26,7 +26,7 @@ def create_coach_team_mapping(request):
     )
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teams_by_coach_id(request, coach_id):
     mappings = MapCoachToTeam.objects.filter(coachid=coach_id)
@@ -65,7 +65,7 @@ def teams_by_coach_id(request, coach_id):
     return Response({"Teams": team_data}, status=status.HTTP_200_OK)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def coach_by_team_id(request, team_id):
     try:
@@ -79,7 +79,7 @@ def coach_by_team_id(request, team_id):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def coaches_by_teams(request):
     teams = request.data  # Expecting a list of team data objects
@@ -112,7 +112,7 @@ def coaches_by_teams(request):
     return Response(response_data, status=status.HTTP_200_OK)
     
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_coach_team_mapping_by_id(request, map_id):
     map_to_delete = get_object_or_404(MapCoachToTeam, id=map_id)

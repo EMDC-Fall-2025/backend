@@ -6,7 +6,7 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from ...models import JudgeClusters, Teams, MapClusterToTeam
@@ -15,7 +15,7 @@ from rest_framework.exceptions import ValidationError
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_cluster_team_mapping(request):
     serializer = ClusterToTeamSerializer(data=request.data)
@@ -28,7 +28,7 @@ def create_cluster_team_mapping(request):
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teams_by_cluster_id(request, cluster_id):
     mappings = MapClusterToTeam.objects.filter(clusterid=cluster_id)
@@ -39,7 +39,7 @@ def teams_by_cluster_id(request, cluster_id):
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def cluster_by_team_id(request, team_id):
     try:
@@ -68,7 +68,7 @@ def cluster_by_team_id(request, team_id):
 
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_cluster_team_mapping_by_id(request, map_id):
     map_to_delete = get_object_or_404(MapClusterToTeam, id=map_id)
@@ -76,7 +76,7 @@ def delete_cluster_team_mapping_by_id(request, map_id):
     return Response({"detail": "Cluster To Team Mapping deleted successfully."}, status=status.HTTP_200_OK)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_teams_by_cluster_rank(request):
     mappings = MapClusterToTeam.objects.filter(clusterid=request.data["clusterid"])

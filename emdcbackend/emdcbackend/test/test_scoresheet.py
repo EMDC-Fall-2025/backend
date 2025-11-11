@@ -1,7 +1,6 @@
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
 from ..models import Scoresheet, ScoresheetEnum, Teams, Judge, MapScoresheetToTeamJudge, Admin, MapUserToRole
 from ..serializers import ScoresheetSerializer
@@ -9,10 +8,9 @@ from ..serializers import ScoresheetSerializer
 
 class ScoresheetAPITests(APITestCase):
     def setUp(self):
-        # Create a user and generate token for authentication
+        # Create a user and login using session authentication
         self.user = User.objects.create_user(username="testuser@example.com", password="testpassword")
-        self.token = Token.objects.create(user=self.user)
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        self.client.login(username="testuser@example.com", password="testpassword")
 
         # Create an admin user for role mapping
         self.admin = Admin.objects.create(first_name="Admin", last_name="User")

@@ -6,7 +6,7 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from ...models import MapScoresheetToTeamJudge, Scoresheet, MapContestToJudge, MapJudgeToCluster, MapClusterToTeam
@@ -14,7 +14,7 @@ from ...serializers import MapScoreSheetToTeamJudgeSerializer, ScoresheetSeriali
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_score_sheet_mapping(request):
     try:
@@ -29,7 +29,7 @@ def create_score_sheet_mapping(request):
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def score_sheet_by_judge_team(request, judge_id, team_id, sheetType):
     try:
@@ -94,7 +94,7 @@ def score_sheet_by_judge_team(request, judge_id, team_id, sheetType):
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def score_sheets_by_judge(request, judge_id):
     try:
@@ -160,7 +160,7 @@ def score_sheets_by_judge(request, judge_id):
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def score_sheets_by_judge_and_cluster(request, judge_id, cluster_id):
     """
@@ -226,7 +226,7 @@ def score_sheets_by_judge_and_cluster(request, judge_id, cluster_id):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def all_sheets_submitted_for_contests(request):
     contests = request.data
@@ -261,7 +261,7 @@ def all_sheets_submitted_for_contests(request):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def submit_all_penalty_sheets_for_judge(request):
     try:
@@ -283,7 +283,7 @@ def submit_all_penalty_sheets_for_judge(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_score_sheet_mapping_by_id(request, map_id):
     map_to_delete = get_object_or_404(MapScoresheetToTeamJudge, id=map_id)
@@ -325,7 +325,7 @@ def map_score_sheets_for_team_in_cluster(team_id, cluster_id):
 
 # Per-team submission status: how many assigned score sheets have been submitted
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def all_submitted_for_team(request, team_id: int):
     try:

@@ -2,7 +2,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
 
@@ -331,7 +331,7 @@ def recompute_totals_and_ranks(contest_id: int):
 # ---------- Endpoints ----------
 
 @api_view(["PUT"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def tabulate_scores(request):
     """Recompute totals and ranks for all teams."""
@@ -346,7 +346,7 @@ def tabulate_scores(request):
         return Response({"error": str(e)}, status=500)
 
 @api_view(["PUT"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def preliminary_results(request):
     """
@@ -391,7 +391,7 @@ def preliminary_results(request):
 
 
 @api_view(["PUT"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def set_advancers(request):
     """
@@ -436,7 +436,7 @@ def set_advancers(request):
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def list_advancers(request):
     """
@@ -460,7 +460,7 @@ def list_advancers(request):
 
 
 @api_view(["PUT"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def championship_results(request):
     """ get championship results - ranked by total_score """
@@ -495,7 +495,7 @@ def championship_results(request):
     return Response({"ok": True, "data": results}, status=200)
 
 @api_view(["PUT"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def redesign_results(request):
     """ get redesign results - ranked by total_score """

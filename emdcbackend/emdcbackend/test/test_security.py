@@ -5,7 +5,6 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
 from datetime import date
 from ..models import (
@@ -19,8 +18,7 @@ class SecurityTests(APITestCase):
     
     def setUp(self):
         self.user = User.objects.create_user(username="testuser@example.com", password="testpassword")
-        self.token = Token.objects.create(user=self.user)
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        self.client.login(username="testuser@example.com", password="testpassword")
         
         self.organizer = Organizer.objects.create(first_name="Test", last_name="Organizer")
         MapUserToRole.objects.create(uuid=self.user.id, role=2, relatedid=self.organizer.id)
@@ -52,8 +50,8 @@ class SecurityTests(APITestCase):
                 'username': malicious_input,
                 'password': 'password'
             })
-            # Should return 404 (user not found) or 400, not 500 (server error)
-            self.assertIn(response.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND])
+            # Should return 401 (invalid credentials) or 400, not 500 (server error)
+            self.assertIn(response.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED])
     
     def test_login_with_xss_attempt(self):
         """Test login endpoint resists XSS attacks"""
@@ -71,7 +69,7 @@ class SecurityTests(APITestCase):
                 'password': 'password'
             })
             # Should handle gracefully without executing script
-            self.assertIn(response.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND])
+            self.assertIn(response.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED])
             # Response should not contain the script
             if hasattr(response, 'data') and response.data:
                 response_str = str(response.data)
@@ -89,47 +87,38 @@ class SecurityTests(APITestCase):
         response = self.client.post(url, {})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
     
-    def test_token_authentication_required(self):
+    def test_session_authentication_required(self):
         """Test that protected endpoints require authentication"""
         url = reverse('create_team')
-        self.client.credentials()  # Remove authentication
+        self.client.logout()  # Remove authentication
         response = self.client.post(url, {'team_name': 'Test Team'}, format='json')
         # May return 401 or 403 depending on implementation
         self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
     
-    def test_invalid_token_rejected(self):
-        """Test that invalid tokens are rejected"""
+    def test_invalid_session_rejected(self):
+        """Test that invalid sessions are rejected"""
         url = reverse('create_team')
-        self.client.credentials(HTTP_AUTHORIZATION='Token invalid_token_12345')
+        self.client.logout()  # Logout to invalidate session
         response = self.client.post(url, {'team_name': 'Test Team'}, format='json')
         # May return 401 or 403 depending on implementation
         self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
     
-    def test_expired_token_handling(self):
-        """Test handling of expired or malformed tokens"""
+    def test_expired_session_handling(self):
+        """Test handling of expired sessions"""
         url = reverse('create_team')
-        # Test various malformed token formats
-        malformed_tokens = [
-            'Bearer invalid',
-            'Token',
-            'Token ',
-            'Basic invalid',
-            ''
-        ]
-        
-        for token in malformed_tokens:
-            self.client.credentials(HTTP_AUTHORIZATION=token)
-            response = self.client.post(url, {'team_name': 'Test Team'}, format='json')
-            self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
+        # Logout to simulate expired session
+        self.client.logout()
+        response = self.client.post(url, {'team_name': 'Test Team'}, format='json')
+        self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
     
     # ========== Authorization Security Tests ==========
     
     def test_unauthorized_access_to_organizer_endpoint(self):
         """Test that non-organizers cannot access organizer-only endpoints"""
-        # Create a user without organizer role
+        # Create a user without organizer role and login
         other_user = User.objects.create_user(username="otheruser@example.com", password="testpassword")
-        other_token = Token.objects.create(user=other_user)
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + other_token.key)
+        self.client.logout()  # Logout current user
+        self.client.login(username="otheruser@example.com", password="testpassword")
         
         url = reverse('set_advancers')
         data = {"contestid": self.contest.id, "team_ids": []}
@@ -370,8 +359,8 @@ class SecurityTests(APITestCase):
             'username': regular_user.username,
             'password': 'shared_password'
         })
-        # Should fail (shared password only for roles 2 and 3)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        # Should fail (shared password only for roles 2 and 3) - login returns 401 for invalid credentials
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
     
     def test_shared_password_set_requires_admin(self):
         """Test that setting shared password requires admin role"""

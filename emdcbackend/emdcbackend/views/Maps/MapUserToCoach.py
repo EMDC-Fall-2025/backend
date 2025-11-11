@@ -5,7 +5,7 @@ from rest_framework.decorators import (
   permission_classes,
 )
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 
@@ -13,7 +13,7 @@ from ...models import MapUserToCoach, Coach, User
 from ...serializers import MapUserToCoachSerializer, CoachSerializer, UserSerializer
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_user_Coach_mapping(request):
   serializer = MapUserToCoachSerializer(data=request.data)
@@ -26,7 +26,7 @@ def create_user_Coach_mapping(request):
     )
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_Coach_by_user_id(request, uuid_id):
   Coach_ids = MapUserToCoach.objects.filter(request.data["id"])
@@ -35,7 +35,7 @@ def get_Coach_by_user_id(request, uuid_id):
   return Response({"Coachs":serializer.data()},status=status.HTTP_200_OK)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_user_by_Coach_id(request,Coach_id):
   mappings = MapUserToCoach.objects.filter(Coachid=Coach_id)
@@ -45,7 +45,7 @@ def get_user_by_Coach_id(request,Coach_id):
   return Response({"User":serializer.data},status=status.HTTP_200_OK)
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_User_Coach_mapping_by_id(request, map_id):
     map_to_delete = get_object_or_404(MapUserToCoach, id=map_id)

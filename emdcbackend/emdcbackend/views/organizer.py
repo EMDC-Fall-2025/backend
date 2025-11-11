@@ -5,7 +5,7 @@ from rest_framework.decorators import (
     permission_classes,
 )
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
@@ -31,7 +31,7 @@ def organizer_by_id(request, organizer_id):
 
 # create an organizer
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_organizer(request):
     try:
@@ -85,7 +85,7 @@ def make_organizer(organizer_data):
 
 # edit an organizer
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def edit_organizer(request):
     try:
@@ -123,7 +123,7 @@ def edit_organizer(request):
 
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_organizer(request, organizer_id):
     try:
@@ -164,7 +164,7 @@ def delete_organizer(request, organizer_id):
 
 # return all organizers
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_all_organizers(request):
     organizers = Organizer.objects.all()
@@ -172,7 +172,7 @@ def get_all_organizers(request):
     return Response({"organizers": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def organizer_disqualify_team(request):
     team = get_object_or_404(Teams, id=request.data["teamid"])

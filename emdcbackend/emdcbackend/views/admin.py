@@ -5,7 +5,7 @@ from rest_framework.decorators import (
     permission_classes,
 )
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
@@ -19,7 +19,7 @@ from ..auth.views import User, delete_user_by_id
 
 # get an admin by a certain id
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def admin_by_id(request, admin_id):
   admin = get_object_or_404(Admin, id = admin_id)
@@ -28,7 +28,7 @@ def admin_by_id(request, admin_id):
 
 # get all admins
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def admins_get_all(request):
   admins = Admin.objects.all()
@@ -37,9 +37,32 @@ def admins_get_all(request):
 
 # create an admin
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_admin(request):
+    username = request.data.get("username")
+    if not username:
+        return Response({"detail": "username is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Prevent duplicate admin creation for the same user
+    existing_user = User.objects.filter(username__iexact=username).first()
+    if existing_user:
+        existing_map = MapUserToRole.objects.filter(
+            uuid=existing_user.id, role=MapUserToRole.RoleEnum.ADMIN
+        ).first()
+        if existing_map:
+            existing_admin = Admin.objects.filter(id=existing_map.relatedid).first()
+            admin_data = AdminSerializer(existing_admin).data if existing_admin else None
+            return Response(
+                {
+                    "success": True,
+                    "message": "Admin already exists for this user",
+                    "user": {"id": existing_user.id, "username": existing_user.username},
+                    "admin": admin_data,
+                },
+                status=status.HTTP_200_OK,
+            )
+
     try:
         with transaction.atomic():
             user_response, admin_response = create_user_and_admin(request.data)
@@ -88,7 +111,7 @@ def make_admin(data):
 
 # edit an admin
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def edit_admin(request):
     admin = get_object_or_404(Admin, id=request.data["id"])
@@ -101,7 +124,7 @@ def edit_admin(request):
 
 # delete an admin by a certain id
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_admin(request, admin_id):
     try:

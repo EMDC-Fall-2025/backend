@@ -5,7 +5,6 @@ from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
 from django.db import transaction, IntegrityError
 from django.core.exceptions import ValidationError
@@ -21,8 +20,7 @@ class TransactionIntegrityTests(APITestCase):
     
     def setUp(self):
         self.user = User.objects.create_user(username="testuser@example.com", password="testpassword")
-        self.token = Token.objects.create(user=self.user)
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        self.client.login(username="testuser@example.com", password="testpassword")
         
         self.organizer = Organizer.objects.create(first_name="Test", last_name="Organizer")
         MapUserToRole.objects.create(uuid=self.user.id, role=2, relatedid=self.organizer.id)

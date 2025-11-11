@@ -1,7 +1,6 @@
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
 from datetime import date
 from ..models import (
@@ -12,10 +11,9 @@ from ..models import (
 
 class AdvanceAPITests(APITestCase):
     def setUp(self):
-        # Create a user and generate token for authentication
+        # Create a user and login using session authentication
         self.user = User.objects.create_user(username="testuser@example.com", password="testpassword")
-        self.token = Token.objects.create(user=self.user)
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        self.client.login(username="testuser@example.com", password="testpassword")
 
         # Create an organizer user for role mapping
         self.organizer = Organizer.objects.create(first_name="Test", last_name="Organizer")
@@ -110,10 +108,10 @@ class AdvanceAPITests(APITestCase):
 
     def test_advance_to_championship_permission_denied(self):
         """Test advance_to_championship when user is not an organizer"""
-        # Create a new user without organizer role
+        # Create a new user without organizer role and login
         other_user = User.objects.create_user(username="otheruser@example.com", password="testpassword")
-        other_token = Token.objects.create(user=other_user)
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + other_token.key)
+        self.client.logout()  # Logout current user
+        self.client.login(username="otheruser@example.com", password="testpassword")
         
         url = reverse('advance_to_championship')
         data = {"contestid": self.contest.id, "championship_team_ids": [self.team.id]}
@@ -145,10 +143,10 @@ class AdvanceAPITests(APITestCase):
 
     def test_undo_championship_advancement_permission_denied(self):
         """Test undo_championship_advancement when user is not an organizer"""
-        # Create a new user without organizer role
+        # Create a new user without organizer role and login
         other_user = User.objects.create_user(username="otheruser@example.com", password="testpassword")
-        other_token = Token.objects.create(user=other_user)
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + other_token.key)
+        self.client.logout()  # Logout current user
+        self.client.login(username="otheruser@example.com", password="testpassword")
         
         url = reverse('undo_championship_advancement')
         data = {"contestid": self.contest.id}

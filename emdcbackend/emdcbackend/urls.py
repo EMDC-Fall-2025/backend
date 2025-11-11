@@ -1,7 +1,7 @@
 from django.urls import path
 from .auth import views
 
-# ⬇️ Added password-set/reset endpoints (new)
+# Added password-set/reset endpoints 
 from .auth.password_views import (
     request_set_password,
     request_password_reset,
@@ -52,8 +52,11 @@ from .views.Maps.MapTeamToVote import create_map_team_to_vote
 from .views.Maps.MapVoteToAward import create_map_vote_to_award, create_map_award_to_contest
 from .views.votes import create_vote, get_all_votes
 from .views.ballot import create_ballot, get_all_ballots, delete_ballot
+from django.urls import path
+from .auth.views import login_view, logout_view, csrf_view
 
-# ⬇️ Added shared-password API import (new)
+
+# Added shared-password API import 
 from .views.shared_passwords import set_shared_password
 
 urlpatterns = [
@@ -65,17 +68,19 @@ urlpatterns = [
     path('api/admin/delete/<int:admin_id>/', delete_admin, name='delete_admin'),
 
     # Authentication
-    path('api/login/', views.login, name='login'),
+    path('api/login/', login_view, name='login'),
+    path('api/logout/', logout_view, name='logout'),
+    path('api/auth/csrf/', csrf_view, name='csrf'),
     path('api/signup/', views.signup, name='signup'),
     path('api/testToken/', views.test_token, name='test_token'),
 
-    # ⬇️ Added password set/reset endpoints (new)
+    # Added password set/reset endpoints 
     path('api/auth/send-set-password/', request_set_password, name='request_set_password'),
     path('api/auth/forgot-password/', request_password_reset, name='request_password_reset'),
     path('api/auth/password-token/validate/', validate_password_token, name='validate_password_token'),
     path('api/auth/password/complete/', complete_password_set, name='complete_password_set'),
 
-    # ⬇️ Added global shared password set API (new)
+    # Added global shared password set API 
     path('api/auth/set-shared-password/', set_shared_password, name='set_shared_password'),
 
     # Users

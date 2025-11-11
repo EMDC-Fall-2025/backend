@@ -9,7 +9,7 @@ from rest_framework.decorators import (
 from rest_framework.exceptions import ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 
 from ...auth.serializers import UserSerializer
@@ -20,11 +20,11 @@ from django.shortcuts import get_object_or_404
 #from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from django.shortcuts import get_object_or_404
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_user_role_mapping(request):
     try:
@@ -45,7 +45,7 @@ def login_return(request, userid):
     return Response(get_role(userid), status=status.HTTP_200_OK)
 
 @api_view(['GET'])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_user_by_role(request, relatedid, roleType):
     mapping = MapUserToRole.objects.get(relatedid=relatedid, role=roleType)
@@ -55,7 +55,7 @@ def get_user_by_role(request, relatedid, roleType):
     return Response({"User": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_admin_by_user(request, userid):
     mapping = MapUserToRole.objects.get(uuid=userid)
@@ -68,7 +68,7 @@ def get_admin_by_user(request, userid):
         return Response({"Admin": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["delete"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_user_role_mapping(request, mapping_id):
     mapping = get_object_or_404(MapUserToRole, id=mapping_id)

@@ -5,7 +5,7 @@ from rest_framework.decorators import (
     permission_classes,
 )
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
@@ -15,7 +15,7 @@ from ..serializers import JudgeClustersSerializer
 from .Maps.MapClusterToContest import  map_cluster_to_contest
 from ..models import Teams, MapClusterToTeam
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def cluster_by_id(request, cluster_id):
   cluster = get_object_or_404(JudgeClusters, id = cluster_id)
@@ -23,7 +23,7 @@ def cluster_by_id(request, cluster_id):
   return Response({"Cluster": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def clusters_get_all(request):
   clusters = JudgeClusters.objects.all()
@@ -31,7 +31,7 @@ def clusters_get_all(request):
   return Response({"Clusters":serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_cluster(request):
   try:
@@ -62,7 +62,7 @@ def create_cluster(request):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def edit_cluster(request):
     cluster = get_object_or_404(JudgeClusters, id=request.data["id"])
@@ -86,7 +86,7 @@ def edit_cluster(request):
     return Response({"cluster": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_cluster(request, cluster_id):
     cluster = get_object_or_404(JudgeClusters, id=cluster_id)
