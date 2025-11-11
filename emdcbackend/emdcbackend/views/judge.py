@@ -7,7 +7,7 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
@@ -37,7 +37,7 @@ def judge_by_id(request, judge_id):
 
 # Create Judge API View
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_judge(request):
     try:
@@ -95,7 +95,7 @@ def create_judge(request):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def edit_judge(request):
     try:
@@ -200,7 +200,7 @@ def edit_judge(request):
 
                 # switch mapping to new cluster
                 if current_cluster_mapping:
-                    delete_cluster_judge_mapping(current_cluster_mapping.id)
+                    delete_cluster_judge_mapping(current_cluster_mapping.clusterid, judge.id)
                 map_cluster_to_judge({"judgeid": judge.id, "clusterid": new_cluster})
                 clusterid = new_cluster
 
@@ -324,7 +324,7 @@ def edit_judge(request):
 
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_judge(request, judge_id):
     try:
@@ -406,7 +406,7 @@ def create_user_and_judge(data):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def are_all_score_sheets_submitted(request):
     """
@@ -455,7 +455,7 @@ def are_all_score_sheets_submitted(request):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def judge_disqualify_team(request):
     team = get_object_or_404(Teams, id=request.data["teamid"])

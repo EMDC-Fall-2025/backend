@@ -6,7 +6,7 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from ...models import JudgeClusters, Contest, MapContestToCluster
@@ -15,7 +15,7 @@ from ...serializers import JudgeClustersSerializer, ContestSerializer, ClusterTo
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def contests_by_cluster_id(request, cluster_id):
     mappings = MapContestToCluster.objects.filter(clusterid=cluster_id)
@@ -28,7 +28,7 @@ def contests_by_cluster_id(request, cluster_id):
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def cluster_by_contest_id(request, contest_id):
     try:
@@ -43,7 +43,7 @@ def cluster_by_contest_id(request, contest_id):
 
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_cluster_contest_mapping_by_id(request, map_id):
     map_to_delete = get_object_or_404(MapContestToCluster, id=map_id)
@@ -51,7 +51,7 @@ def delete_cluster_contest_mapping_by_id(request, map_id):
     return Response({"detail": "Cluster To Contest Mapping deleted successfully."}, status=status.HTTP_200_OK)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def all_clusters_by_contest_id(request, contest_id):
     try:

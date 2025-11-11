@@ -7,14 +7,14 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from ...models import MapContestToTeam, Contest, Teams, MapUserToRole
 from ...serializers import MapContestToTeamSerializer, ContestSerializer, TeamSerializer
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_contest_team_mapping(request):
   serializer = MapContestToTeamSerializer(data=request.data)
@@ -26,7 +26,7 @@ def create_contest_team_mapping(request):
   )
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_teams_by_contest_id(request,contest_id):
     try:
@@ -52,7 +52,7 @@ def get_teams_by_contest_id(request,contest_id):
       return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_contest_id_by_team_id(request,team_id):
   try:
@@ -68,7 +68,7 @@ def get_contest_id_by_team_id(request,team_id):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_contests_by_team_ids(request):
     try:
@@ -99,7 +99,7 @@ def get_contests_by_team_ids(request):
 
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_contest_team_mapping_by_id(request, map_id):
     map_to_delete = get_object_or_404(MapContestToTeam, id=map_id)

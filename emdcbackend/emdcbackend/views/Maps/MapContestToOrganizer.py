@@ -5,7 +5,7 @@ from rest_framework.decorators import (
   permission_classes,
 )
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
@@ -13,7 +13,7 @@ from ...models import MapContestToOrganizer, Organizer, Contest
 from ...serializers import MapContestToOrganizerSerializer, ContestSerializer, OrganizerSerializer
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_contest_organizer_mapping(request):
     try:
@@ -36,7 +36,7 @@ def map_contest_to_organizer(map_data):
         raise ValidationError(serializer.errors)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_organizers_by_contest_id(request, contest_id):
   organizer_ids = MapContestToOrganizer.objects.filter(contestid=contest_id)
@@ -45,7 +45,7 @@ def get_organizers_by_contest_id(request, contest_id):
   return Response({"Organizers": serializer.data},status=status.HTTP_200_OK)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_contests_by_organizer_id(request,organizer_id):
   mappings = MapContestToOrganizer.objects.filter(organizerid=organizer_id)
@@ -55,7 +55,7 @@ def get_contests_by_organizer_id(request,organizer_id):
   return Response({"Contests":serializer.data},status=status.HTTP_200_OK)
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_contest_organizer_mapping(request, organizer_id, contest_id):
     map_to_delete = get_object_or_404(MapContestToOrganizer, organizerid=organizer_id, contestid=contest_id)
@@ -66,7 +66,7 @@ def delete_contest_organizer_mapping(request, organizer_id, contest_id):
 from collections import defaultdict
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_all_contests_by_organizer(request):
     try:
@@ -103,7 +103,7 @@ def get_all_contests_by_organizer(request):
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_organizer_names_by_contests(request):
     try:

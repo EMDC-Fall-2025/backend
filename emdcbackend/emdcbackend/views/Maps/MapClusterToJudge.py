@@ -6,7 +6,7 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.db import models
 from django.shortcuts import get_object_or_404
@@ -16,7 +16,7 @@ from ...serializers import JudgeClustersSerializer, JudgeSerializer, ClusterToJu
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_cluster_judge_mapping(request):
     try:
@@ -31,7 +31,7 @@ def create_cluster_judge_mapping(request):
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def judges_by_cluster_id(request, cluster_id):
     mappings = MapJudgeToCluster.objects.filter(clusterid=cluster_id)
@@ -44,7 +44,7 @@ def judges_by_cluster_id(request, cluster_id):
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def cluster_by_judge_id(request, judge_id):
     try:
@@ -84,7 +84,7 @@ def cluster_by_judge_id(request, judge_id):
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def all_clusters_by_judge_id(request, judge_id):
     """Get all clusters for a judge across all contests"""
@@ -120,11 +120,17 @@ def all_clusters_by_judge_id(request, judge_id):
 
 
 def _delete_cluster_judge_mapping_and_scores(map_id: int):
-    """Delete a MapJudgeToCluster mapping and all related judge->team scoresheets for that cluster."""
+    """Delete a MapJudgeToCluster mapping and all related judge->team scoresheets for that cluster.
+    Also removes MapContestToJudge entry if judge is no longer in any clusters for that contest."""
     with transaction.atomic():
         mapping = get_object_or_404(MapJudgeToCluster, id=map_id)
         judge_id = mapping.judgeid
         cluster_id = mapping.clusterid
+
+        # Get the contest ID for this cluster (to check if judge should be removed from contest)
+        from ...models import MapContestToCluster, MapContestToJudge
+        contest_cluster_mapping = MapContestToCluster.objects.filter(clusterid=cluster_id).first()
+        contest_id = contest_cluster_mapping.contestid if contest_cluster_mapping else None
 
         team_ids = list(MapClusterToTeam.objects.filter(clusterid=cluster_id).values_list('teamid', flat=True))
         if team_ids:
@@ -135,12 +141,33 @@ def _delete_cluster_judge_mapping_and_scores(map_id: int):
             if scoresheet_ids:
                 Scoresheet.objects.filter(id__in=scoresheet_ids).delete()
 
-        # Finally delete the judge<->cluster mapping
+        # Delete the judge<->cluster mapping
         mapping.delete()
+        
+        # Check if judge is still in any other clusters for this contest
+        # If not, remove the contest-judge mapping
+        if contest_id:
+            # Get all clusters for this contest
+            contest_cluster_ids = MapContestToCluster.objects.filter(
+                contestid=contest_id
+            ).values_list('clusterid', flat=True)
+            
+            # Check if judge is still in any of those clusters
+            remaining_cluster_mappings = MapJudgeToCluster.objects.filter(
+                judgeid=judge_id,
+                clusterid__in=contest_cluster_ids
+            ).exists()
+            
+            # If judge is not in any clusters for this contest, remove contest-judge mapping
+            if not remaining_cluster_mappings:
+                MapContestToJudge.objects.filter(
+                    judgeid=judge_id,
+                    contestid=contest_id
+                ).delete()
 
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_cluster_judge_mapping_by_id(request, map_id):
     _delete_cluster_judge_mapping_and_scores(map_id)
@@ -165,7 +192,7 @@ def map_cluster_to_judge(map_data):
     else:
         raise ValidationError(serializer.errors)
     
-# Wrapper to match existing import in views/judge.py
+
 def delete_cluster_judge_mapping(cluster_id: int, judge_id: int):
     """
     Deletes the judge<->cluster mapping (by cluster_id + judge_id) and

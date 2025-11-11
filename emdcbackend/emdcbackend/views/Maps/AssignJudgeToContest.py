@@ -11,7 +11,7 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 
@@ -21,7 +21,7 @@ from .MapContestToJudge import create_contest_to_judge_map
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def assign_judge_to_contest(request):
     """
@@ -98,40 +98,57 @@ def assign_judge_to_contest(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check if judge is already assigned to another preliminary cluster
-        if is_preliminary_cluster:
-            judge_cluster_ids = MapJudgeToCluster.objects.filter(
-                judgeid=judge_id
-            ).values_list('clusterid', flat=True)
-            
-            # Check if judge has any existing preliminary cluster assignments
-            existing_preliminary_clusters = []
-            for existing_cluster_id in judge_cluster_ids:
-                if existing_cluster_id == cluster_id:
-                    continue  # Skip the cluster we're trying to assign to
-                try:
-                    existing_cluster = JudgeClusters.objects.get(id=existing_cluster_id)
-                    existing_cluster_type = getattr(existing_cluster, 'cluster_type', None)
-                    # Fallback to checking cluster name
-                    if not existing_cluster_type:
-                        if 'championship' in existing_cluster.cluster_name.lower():
-                            existing_cluster_type = 'championship'
-                        elif 'redesign' in existing_cluster.cluster_name.lower():
-                            existing_cluster_type = 'redesign'
-                        else:
-                            existing_cluster_type = 'preliminary'
-                    
-                    if existing_cluster_type == 'preliminary':
-                        existing_preliminary_clusters.append(existing_cluster.cluster_name)
-                except JudgeClusters.DoesNotExist:
-                    continue
-            
-            if existing_preliminary_clusters:
-                cluster_names = ', '.join(existing_preliminary_clusters)
-                return Response(
-                    {"error": f"Judge {judge.first_name} {judge.last_name} is already assigned to preliminary cluster(s): {cluster_names}. A judge cannot be assigned to multiple preliminary clusters."}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        # Check if judge is already assigned to another cluster of the same type WITHIN THIS CONTEST
+        # A judge can only be assigned to:
+        # - 1 preliminary cluster per contest
+        # - 1 championship cluster per contest
+        # - 1 redesign cluster per contest
+        
+        # Get all clusters that belong to this contest
+        from ...models import MapContestToCluster
+        contest_cluster_ids = MapContestToCluster.objects.filter(
+            contestid=contest_id
+        ).values_list('clusterid', flat=True)
+        
+        # Get all clusters the judge is assigned to
+        judge_cluster_ids = MapJudgeToCluster.objects.filter(
+            judgeid=judge_id
+        ).values_list('clusterid', flat=True)
+        
+        # Find clusters that belong to THIS contest AND the judge is assigned to
+        # (intersection of contest clusters and judge clusters)
+        judge_contest_cluster_ids = set(contest_cluster_ids) & set(judge_cluster_ids)
+        
+        # Check if judge already has a cluster of the same type in this contest
+        existing_clusters_of_same_type = []
+        for existing_cluster_id in judge_contest_cluster_ids:
+            if existing_cluster_id == cluster_id:
+                continue  # Skip the cluster we're trying to assign to
+            try:
+                existing_cluster = JudgeClusters.objects.get(id=existing_cluster_id)
+                existing_cluster_type = getattr(existing_cluster, 'cluster_type', None)
+                # Fallback to checking cluster name
+                if not existing_cluster_type:
+                    if 'championship' in existing_cluster.cluster_name.lower():
+                        existing_cluster_type = 'championship'
+                    elif 'redesign' in existing_cluster.cluster_name.lower():
+                        existing_cluster_type = 'redesign'
+                    else:
+                        existing_cluster_type = 'preliminary'
+                
+                # Check if this existing cluster has the same type as the one we're trying to assign
+                if existing_cluster_type == cluster_type:
+                    existing_clusters_of_same_type.append(existing_cluster.cluster_name)
+            except JudgeClusters.DoesNotExist:
+                continue
+        
+        if existing_clusters_of_same_type:
+            cluster_names = ', '.join(existing_clusters_of_same_type)
+            cluster_type_label = cluster_type.capitalize()
+            return Response(
+                {"error": f"Judge {judge.first_name} {judge.last_name} is already assigned to {cluster_type_label} cluster(s) in this contest: {cluster_names}. A judge can only be assigned to one {cluster_type_label} cluster per contest."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         # Create the contest-judge mapping (only if not already exists)
         if not existing_contest_mapping:
@@ -237,7 +254,7 @@ def assign_judge_to_contest(request):
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_judge_contests(request, judge_id):
     """
@@ -274,7 +291,7 @@ def get_judge_contests(request, judge_id):
 
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def remove_judge_from_contest(request, judge_id, contest_id):
     """
@@ -335,14 +352,16 @@ def remove_judge_from_contest(request, judge_id, contest_id):
 
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def remove_judge_from_cluster(request, judge_id, cluster_id):
     """
     Remove a judge from a specific cluster only.
-    This will clean up their score sheets for that cluster but keep them in the contest.
+    This will clean up their score sheets for that cluster.
+    If the judge is no longer in any clusters for the contest, also remove the contest-judge mapping.
     """
     try:
+        from ...models import MapContestToCluster
         
         # Find the cluster-judge mapping
         cluster_mapping = get_object_or_404(
@@ -350,6 +369,10 @@ def remove_judge_from_cluster(request, judge_id, cluster_id):
             judgeid=judge_id, 
             clusterid=cluster_id
         )
+        
+        # Get the contest ID for this cluster (to check if judge should be removed from contest)
+        contest_cluster_mapping = MapContestToCluster.objects.filter(clusterid=cluster_id).first()
+        contest_id = contest_cluster_mapping.contestid if contest_cluster_mapping else None
         
         # Get all teams in the specific cluster
         cluster_teams = MapClusterToTeam.objects.filter(clusterid=cluster_id)
@@ -372,11 +395,37 @@ def remove_judge_from_cluster(request, judge_id, cluster_id):
         # Delete the cluster-judge mapping
         cluster_mapping.delete()
         
+        # Check if judge is still in any other clusters for this contest
+        # If not, remove the contest-judge mapping
+        contest_judge_mapping_deleted = False
+        if contest_id:
+            # Get all clusters for this contest
+            contest_cluster_ids = MapContestToCluster.objects.filter(
+                contestid=contest_id
+            ).values_list('clusterid', flat=True)
+            
+            # Check if judge is still in any of those clusters
+            remaining_cluster_mappings = MapJudgeToCluster.objects.filter(
+                judgeid=judge_id,
+                clusterid__in=contest_cluster_ids
+            ).exists()
+            
+            # If judge is not in any clusters for this contest, remove contest-judge mapping
+            if not remaining_cluster_mappings:
+                contest_judge_mappings = MapContestToJudge.objects.filter(
+                    judgeid=judge_id,
+                    contestid=contest_id
+                )
+                if contest_judge_mappings.exists():
+                    contest_judge_mappings.delete()
+                    contest_judge_mapping_deleted = True
+        
         return Response({
             "message": f"Judge {judge_id} removed from cluster {cluster_id}",
             "details": {
                 "scoresheets_deleted": deleted_scoresheets[0],
-                "mappings_deleted": deleted_mappings[0]
+                "mappings_deleted": deleted_mappings[0],
+                "contest_judge_mapping_deleted": contest_judge_mapping_deleted
             }
         }, status=status.HTTP_200_OK)
         

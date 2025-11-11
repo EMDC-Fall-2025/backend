@@ -5,7 +5,7 @@ from rest_framework.decorators import (
     permission_classes,
 )
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
@@ -20,7 +20,7 @@ def scores_by_id(request, scores_id):
     return Response({"ScoreSheet": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_score_sheet(request):
     map_data = request.data
@@ -30,7 +30,7 @@ def create_score_sheet(request):
     return Response(result, status=status.HTTP_201_CREATED)
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def edit_score_sheet(request):
     try:
@@ -122,7 +122,7 @@ def edit_score_sheet(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def update_scores(request):
     try:
@@ -252,7 +252,7 @@ def update_scores(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def edit_score_sheet_field(request):
     sheet = get_object_or_404(Scoresheet, id=request.data["id"])
@@ -273,7 +273,7 @@ def edit_score_sheet_field(request):
 
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_score_sheet(request, scores_id):
     scores = get_object_or_404(Scoresheet, id=scores_id)
@@ -833,7 +833,7 @@ def make_sheets_for_team(teamid, clusterid):
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_scoresheet_details_by_team(request, team_id):
     scoresheet_mappings = MapScoresheetToTeamJudge.objects.filter(teamid=team_id)
@@ -1090,7 +1090,7 @@ def get_scoresheet_details_by_team(request, team_id):
     }, status=status.HTTP_200_OK)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_scoresheet_details_for_contest(request):
     contest = get_object_or_404(Contest, id=request.data["contestid"])

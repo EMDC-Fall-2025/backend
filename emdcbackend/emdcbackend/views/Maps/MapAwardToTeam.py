@@ -8,7 +8,7 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from ...models import SpecialAward
 from ...serializers import SpecialAwardSerializer
@@ -17,7 +17,7 @@ from ...serializers import SpecialAwardSerializer
 # POST request to create a new award team map
 # Accepts JSON data if data is valid create map if not return 400/500 error 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_award_team_mapping(request):
     try:
@@ -32,7 +32,7 @@ def create_award_team_mapping(request):
 # GET request to get award_id by team_id
 # Gets all award maps associated with a given team_id returns JSON or 500 if no awards found 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_award_id_by_team_id(request, team_id):
     try:
@@ -45,7 +45,7 @@ def get_award_id_by_team_id(request, team_id):
 # Delete award map by team_ID and award_name accepts these as URL params
 # If it deletes properly 204 if not 404/500 code 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_award_team_mapping_by_id(request, team_id, award_name):
     try:
@@ -61,7 +61,7 @@ def delete_award_team_mapping_by_id(request, team_id, award_name):
 # accepts team_id and award_name as url params
 # If valid 200 if not 400/404/500 code 
 @api_view(["PUT"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def update_award_team_mapping(request, team_id, award_name):
     try:
@@ -78,7 +78,7 @@ def update_award_team_mapping(request, team_id, award_name):
     
 # GET request that returns all awards
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_all_awards(request):
     try:
@@ -92,7 +92,7 @@ def get_all_awards(request):
 # Get request to get get all awards based on isJudge boolean
 # used in frontend pages for organizers and judge only show their respective awards
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_awards_by_role(request, isJudge):
     try:

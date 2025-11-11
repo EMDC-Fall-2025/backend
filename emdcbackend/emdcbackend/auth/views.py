@@ -5,9 +5,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import ValidationError
 
 # --- Added for password reset flow ---
@@ -15,7 +14,14 @@ from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth.tokens import default_token_generator
 
-# NOTE: this import path matches THIS folder's serializer
+# --- Session-based login/logout ---
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.contrib.auth import authenticate, login as dj_login, logout as dj_logout
+from django.contrib.auth.hashers import check_password
+from ..models import MapUserToRole, RoleSharedPassword
+
 from .serializers import UserSerializer
 
 # --- Added utility for sending set-password emails ---
@@ -24,9 +30,71 @@ from .utils import send_set_password_email
 # If you use role lookups elsewhere, keep your import the same:
 from ..views.Maps.MapUserToRole import get_role
 
-# === Added imports for shared-password fallback login ===
-from django.contrib.auth.hashers import check_password
-from ..models import RoleSharedPassword, MapUserToRole
+
+
+# -----------------------
+# Session-based login/logout (HttpOnly cookies)
+# -----------------------
+
+def parse_body(request):
+    if request.content_type == "application/json":
+        import json
+        return json.loads(request.body.decode("utf-8") or "{}")
+    return request.POST
+
+@ensure_csrf_cookie
+@require_POST
+def login_view(request):
+    body = parse_body(request)
+    username = body.get("username")
+    password = body.get("password")
+    
+    if not username or not password:
+        return JsonResponse({"detail": "username and password are required."}, status=400)
+    
+    user = None
+    shared_password_checked = False
+    
+    # For Organizer (2) and Judge (3), check shared password FIRST
+    # If shared password exists, ONLY use it (ignore individual passwords completely)
+    try:
+        fallback_user = User.objects.get(username=username)
+        role_map = MapUserToRole.objects.filter(uuid=fallback_user.id).first()
+        if role_map and role_map.role in [2, 3]:  # Organizer or Judge
+            role_value = int(role_map.role)
+            try:
+                shared = RoleSharedPassword.objects.get(role=role_value)
+                shared_password_checked = True
+                password_matches = check_password(password, shared.password_hash)
+                if password_matches:
+                    user = fallback_user
+            except RoleSharedPassword.DoesNotExist:
+                pass
+    except User.DoesNotExist:
+        pass
+    
+    # For non-Organizer/Judge roles, OR if Organizer/Judge but no shared password exists, use regular authentication
+    # If shared_password_checked is True, we've already checked the shared password and it failed,
+    # so we should NOT check individual passwords - login should fail.
+    if not user and not shared_password_checked:
+        user = authenticate(request, username=username, password=password)
+    
+    if not user:
+        return JsonResponse({"detail": "Invalid credentials"}, status=401)
+    
+    dj_login(request, user)  # sets the Django session HttpOnly cookie
+    role = get_role(user.id)
+    return JsonResponse({"user": {"id": user.id, "username": user.username}, "role": role})
+
+@ensure_csrf_cookie
+@require_POST
+def logout_view(request):
+    dj_logout(request)  # clears the session
+    return JsonResponse({"detail": "logged out"})
+
+@ensure_csrf_cookie
+def csrf_view(_request):
+    return JsonResponse({"detail": "ok"})
 
 
 # -----------------------
@@ -41,46 +109,6 @@ def user_by_id(request, user_id):
 
 
 @api_view(["POST"])
-def login(request):
-    """
-    Login rules (superset of original behavior):
-      - Try per-user password first (original behavior).
-      - If user has Organizer (2) or Judge (3) role, also accept the GLOBAL shared password.
-    """
-    username = request.data.get("username")
-    password = request.data.get("password")
-
-    if not username or not password:
-        return Response({"detail": "username and password are required."}, status=status.HTTP_400_BAD_REQUEST)
-
-    user = get_object_or_404(User, username=username)
-
-    # 1) Original behavior: check per-user password
-    if user.check_password(password):
-        token, _ = Token.objects.get_or_create(user=user)
-        userSerializer = UserSerializer(instance=user)
-        return Response(
-            {"token": token.key, "user": userSerializer.data, "role": get_role(user.id)},
-            status=status.HTTP_200_OK
-        )
-
-    # 2) New: shared-password fallback for roles 2 (Organizer) and 3 (Judge)
-    role_map = MapUserToRole.objects.filter(uuid=user.id).first()
-    if role_map and role_map.role in [2, 3]:
-        shared = RoleSharedPassword.objects.filter(role=role_map.role).first()
-        if shared and check_password(password, shared.password_hash):
-            token, _ = Token.objects.get_or_create(user=user)
-            userSerializer = UserSerializer(instance=user)
-            return Response(
-                {"token": token.key, "user": userSerializer.data, "role": get_role(user.id)},
-                status=status.HTTP_200_OK
-            )
-
-    # If neither matched keep your original 404 contract
-    return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-
-@api_view(["POST"])
 def signup(request):
     """
     Public sign-up. Preserves your original semantics:
@@ -90,6 +118,21 @@ def signup(request):
     """
     try:
         user_data = request.data
+        username = user_data.get("username")
+        if not username:
+            return Response({"detail": "username is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        #  if user exists (case-insensitive), return 200 with existing user
+        existing = User.objects.filter(username__iexact=username).first()
+        if existing:
+            return Response(
+                {
+                    "user": UserSerializer(instance=existing).data,
+                    "message": "User already exists",
+                },
+                status=status.HTTP_200_OK,
+            )
+
         result = create_user(user_data, send_email=True, enforce_unusable_password=False)
         return Response(result, status=status.HTTP_201_CREATED)
     except ValidationError as e:
@@ -99,7 +142,7 @@ def signup(request):
 
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_user_by_id(request, user_id):
     delete_user(user_id)
@@ -107,7 +150,7 @@ def delete_user_by_id(request, user_id):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def edit_user(request):
     """
@@ -135,7 +178,7 @@ def edit_user(request):
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def test_token(request):
     return Response({"passed for {}".format(request.user.username)})
@@ -163,7 +206,7 @@ def create_user(user_data, send_email: bool = True, enforce_unusable_password: b
     existing_user = User.objects.filter(username=username).first()
     if existing_user:
         serializer = UserSerializer(instance=existing_user)
-        return {"token": None, "user": serializer.data}
+        return {"user": serializer.data}
 
     serializer = UserSerializer(data={"username": username, "password": password})
     if serializer.is_valid():
@@ -181,8 +224,6 @@ def create_user(user_data, send_email: bool = True, enforce_unusable_password: b
                     user.set_unusable_password()
 
             user.save()
-            token = Token.objects.create(user=user)
-
             if send_email:
                 try:
                     send_set_password_email(user)
@@ -191,7 +232,7 @@ def create_user(user_data, send_email: bool = True, enforce_unusable_password: b
                     print(f"[WARN] Failed to send set-password email: {e}")
 
             # Return serialized new user (match original return structure)
-            return {"token": token.key, "user": UserSerializer(instance=user).data}
+            return {"user": UserSerializer(instance=user).data}
 
     raise ValidationError(serializer.errors)
 
