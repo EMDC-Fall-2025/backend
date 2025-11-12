@@ -71,12 +71,22 @@ def login_view(request):
                 password_matches = check_password(password, shared.password_hash)
                 if password_matches:
                     user = fallback_user
+                else:
+                    # Shared password exists but doesn't match
+                    return JsonResponse({
+                        "detail": "Invalid credentials. Please use the shared password for your role."
+                    }, status=401)
             except RoleSharedPassword.DoesNotExist:
-                pass
+                # Shared password not set yet - judges/organizers can't login until admin sets it
+                role_name = "Organizer" if role_value == 2 else "Judge"
+                return JsonResponse({
+                    "detail": f"Shared password for {role_name}s has not been set yet. Please contact an administrator."
+                }, status=401)
     except User.DoesNotExist:
         pass
     
-    # For non-Organizer/Judge roles, OR if Organizer/Judge but no shared password exists, use regular authentication
+    # For non-Organizer/Judge roles (Admin, Coach), use regular authentication
+    # For Organizer/Judge: if shared password doesn't exist, login fails (they can't use individual passwords)
     # If shared_password_checked is True, we've already checked the shared password and it failed,
     # so we should NOT check individual passwords - login should fail.
     if not user and not shared_password_checked:
@@ -258,13 +268,16 @@ def delete_user(uuid):
 # -----------------------
 # Password reset endpoints
 # -----------------------
+# NOTE: The main forgot password endpoint is in password_views.py (request_password_reset)
+# This function is kept for backwards compatibility but is not used in URL routing.
+# Use request_password_reset from password_views.py instead.
 
 @api_view(["POST"])
 def forgot_password(request):
     """
-    Trigger a reset email to the user.
-    Payload: { "email": "<user-email>" }
-    Always respond 200 to avoid user enumeration.
+    DEPRECATED: Use request_password_reset from password_views.py instead.
+    This endpoint is not registered in URLs and kept only for backwards compatibility.
+    Only admins can reset their password. Other users must contact an administrator.
     """
     email = request.data.get("email")
     if not email:
@@ -279,6 +292,21 @@ def forgot_password(request):
 
     try:
         user = User.objects.get(username=email)
+        # Check if user is an admin (role = 1)
+        try:
+            user_role_mapping = MapUserToRole.objects.get(uuid=user.id)
+            if user_role_mapping.role != 1:  # 1 = ADMIN
+                return Response({
+                    "detail": "Password reset is only available for administrators. Please contact an administrator for assistance.",
+                    "error": "Only admins can reset passwords."
+                }, status=status.HTTP_403_FORBIDDEN)
+        except MapUserToRole.DoesNotExist:
+            return Response({
+                "detail": "Password reset is only available for administrators. Please contact an administrator for assistance.",
+                "error": "User role not found."
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # User is an admin - send reset email
         send_set_password_email(user)
     except User.DoesNotExist:
         pass
