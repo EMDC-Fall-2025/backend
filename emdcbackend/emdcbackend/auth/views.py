@@ -242,6 +242,20 @@ def create_user(user_data, send_email: bool = True, enforce_unusable_password: b
                 user.set_unusable_password()
             else:
                 if password:
+                    # Validate password using Django's password validators
+                    from django.contrib.auth.password_validation import validate_password
+                    try:
+                        validate_password(password, user=user)  # Uses AUTH_PASSWORD_VALIDATORS from settings
+                    except Exception as e:
+                        # Extract error messages from validation
+                        error_messages = []
+                        if hasattr(e, 'messages'):
+                            error_messages = e.messages
+                        elif hasattr(e, 'error_list'):
+                            error_messages = [str(err) for err in e.error_list]
+                        else:
+                            error_messages = [str(e)]
+                        raise ValidationError({"password": error_messages})
                     user.set_password(password)
                 else:
                     user.set_unusable_password()

@@ -40,6 +40,25 @@ def set_shared_password(request):
     if not password:
         return Response({"error": "password is required."}, status=400)
 
+    # Validate password using Django's password validators
+    try:
+        from django.contrib.auth.password_validation import validate_password
+        validate_password(password)  # Uses AUTH_PASSWORD_VALIDATORS from settings
+    except Exception as e:
+        # Extract error messages from validation
+        error_messages = []
+        if hasattr(e, 'messages'):
+            error_messages = e.messages
+        elif hasattr(e, 'error_list'):
+            error_messages = [str(err) for err in e.error_list]
+        else:
+            error_messages = [str(e)]
+        
+        return Response({
+            "error": "Password does not meet requirements.",
+            "detail": error_messages[0] if error_messages else "Password validation failed."
+        }, status=400)
+
     # Use database transaction to ensure atomic replacement
     with transaction.atomic():
         # Get existing entry if it exists

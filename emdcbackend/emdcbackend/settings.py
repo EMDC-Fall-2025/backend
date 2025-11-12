@@ -193,6 +193,15 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
+    {
+        'NAME': 'emdcbackend.auth.password_validators.UppercasePasswordValidator',
+    },
+    {
+        'NAME': 'emdcbackend.auth.password_validators.LowercasePasswordValidator',
+    },
+    {
+        'NAME': 'emdcbackend.auth.password_validators.SpecialCharacterPasswordValidator',
+    },
 ]
 
 
