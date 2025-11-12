@@ -39,7 +39,7 @@ from .views.Maps.MapContestToTeam import create_contest_team_mapping, get_teams_
 
 from .views.scoresheets import (
     create_score_sheet, edit_score_sheet, scores_by_id, delete_score_sheet,
-    edit_score_sheet_field, update_scores, get_scoresheet_details_by_team, get_scoresheet_details_for_contest
+    edit_score_sheet_field, update_scores, get_scoresheet_details_by_team, get_scoresheet_details_for_contest,  multi_team_general_penalties, multi_team_run_penalties
 )
 from .views.admin import create_admin, admins_get_all, admin_by_id, delete_admin, edit_admin
 from .views.Maps.MapUserToRole import create_user_role_mapping, delete_user_role_mapping, get_user_by_role
@@ -204,6 +204,8 @@ urlpatterns = [
     path('api/scoreSheet/edit/updateScores/', update_scores, name='update_scores'),
     path('api/scoreSheet/getDetails/<int:team_id>/', get_scoresheet_details_by_team, name='get_score_sheets_by_team_id'),
     path('api/scoreSheet/getMasterDetails/', get_scoresheet_details_for_contest, name='get_scoresheet_details_for_contest'),
+    path('api/scoreSheet/multiTeamGeneralPenalties/<int:judge_id>/<int:contest_id>/', multi_team_general_penalties, name='multi_team_general_penalties'),
+    path('api/scoreSheet/multiTeamRunPenalties/<int:judge_id>/<int:contest_id>/', multi_team_run_penalties, name='multi_team_run_penalties'),
 
     # Tabulation
     path('api/tabulation/tabulateScores/', tabulate_scores, name='tabulate_scores'),

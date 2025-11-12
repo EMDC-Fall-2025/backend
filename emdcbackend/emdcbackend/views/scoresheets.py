@@ -10,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
 from .Maps.MapScoreSheet import delete_score_sheet_mapping
-from ..models import Scoresheet, Teams, Judge, MapClusterToTeam, MapScoresheetToTeamJudge, MapJudgeToCluster, ScoresheetEnum, Contest, MapContestToTeam
+from ..models import Scoresheet, Teams, Judge, MapClusterToTeam, MapScoresheetToTeamJudge, MapJudgeToCluster, ScoresheetEnum, Contest, MapContestToTeam, MapContestToCluster
 from ..serializers import ScoresheetSerializer, MapScoreSheetToTeamJudgeSerializer
 
 @api_view(["GET"])
@@ -1403,3 +1403,146 @@ def create_scoresheets_for_judges_in_cluster(cluster_id):
         
     except Exception as e:
         raise ValidationError({"detail": str(e)})
+    
+@api_view(['GET'])
+def multi_team_general_penalties(request, judge_id, contest_id):
+    """Get all teams assigned to a judge in a contest with their general penalty scoresheets"""
+    try:
+        print(f"DEBUG: judge_id={judge_id}, contest_id={contest_id}")
+        
+        # Get clusters assigned to this judge
+        judge_clusters = MapJudgeToCluster.objects.filter(
+            judgeid=judge_id
+        ).values_list('clusterid', flat=True)
+        print(f"DEBUG: judge_clusters={list(judge_clusters)}")
+
+        # Get clusters in this contest
+        contest_clusters = MapContestToCluster.objects.filter(
+            contestid=contest_id
+        ).values_list('clusterid', flat=True)
+        print(f"DEBUG: contest_clusters={list(contest_clusters)}")
+
+        # Get clusters that are both assigned to this judge AND in this contest
+        common_clusters = set(judge_clusters) & set(contest_clusters)
+        cluster_ids = list(common_clusters)
+        print(f"DEBUG: common_clusters={cluster_ids}")
+        
+        team_mappings = MapClusterToTeam.objects.filter(clusterid__in=cluster_ids)
+        
+        result = []
+        for team_mapping in team_mappings:
+            # Get the actual Team object using the teamid integer
+            try:
+                team = Teams.objects.get(id=team_mapping.teamid)
+            except Teams.DoesNotExist:
+                continue
+
+            # Get general penalties scoresheet (type 5)
+            scoresheet_mapping = MapScoresheetToTeamJudge.objects.filter(
+                teamid=team.id,
+                judgeid=judge_id,
+                sheetType=5
+            ).first()
+
+            if scoresheet_mapping:
+                scoresheet = Scoresheet.objects.get(id=scoresheet_mapping.scoresheetid)
+                result.append({
+                    'team_id': team.id,
+                    'team_name': team.team_name,
+                    'scoresheet': {
+                        'id': scoresheet.id,
+                        'sheetType': scoresheet.sheetType,
+                        'isSubmitted': scoresheet.isSubmitted,
+                        'field1': scoresheet.field1 or 0,
+                        'field2': scoresheet.field2 or 0,
+                        'field3': scoresheet.field3 or 0,
+                        'field4': scoresheet.field4 or 0,
+                        'field5': scoresheet.field5 or 0,
+                        'field6': scoresheet.field6 or 0,
+                        'field7': scoresheet.field7 or 0,
+                        'field8': scoresheet.field8 or 0,
+                        'field9': scoresheet.field9 or "",
+                    }
+                })
+        
+        return Response({'teams': result}, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        print(f"DEBUG ERROR: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def multi_team_run_penalties(request, judge_id, contest_id):
+    """Get all teams assigned to a judge in a contest with their run penalty scoresheets"""
+    try:
+        print(f"DEBUG: judge_id={judge_id}, contest_id={contest_id}")
+        
+        # Get clusters assigned to this judge
+        judge_clusters = MapJudgeToCluster.objects.filter(
+            judgeid=judge_id
+        ).values_list('clusterid', flat=True)
+        print(f"DEBUG: judge_clusters={list(judge_clusters)}")
+
+        # Get clusters in this contest
+        contest_clusters = MapContestToCluster.objects.filter(
+            contestid=contest_id
+        ).values_list('clusterid', flat=True)
+        print(f"DEBUG: contest_clusters={list(contest_clusters)}")
+
+        # Get clusters that are both assigned to this judge AND in this contest
+        common_clusters = set(judge_clusters) & set(contest_clusters)
+        cluster_ids = list(common_clusters)
+        print(f"DEBUG: common_clusters={cluster_ids}")
+        
+        team_mappings = MapClusterToTeam.objects.filter(clusterid__in=cluster_ids)
+        
+        result = []
+        for team_mapping in team_mappings:
+            # Get the actual Team object using the teamid integer
+            try:
+                team = Teams.objects.get(id=team_mapping.teamid)
+            except Teams.DoesNotExist:
+                continue
+
+            # Get run penalties scoresheet (type 4)
+            scoresheet_mapping = MapScoresheetToTeamJudge.objects.filter(
+                teamid=team.id,
+                judgeid=judge_id,
+                sheetType=4
+            ).first()
+
+            if scoresheet_mapping:
+                scoresheet = Scoresheet.objects.get(id=scoresheet_mapping.scoresheetid)
+                result.append({
+                    'team_id': team.id,
+                    'team_name': team.team_name,
+                    'scoresheet': {
+                        'id': scoresheet.id,
+                        'sheetType': scoresheet.sheetType,
+                        'isSubmitted': scoresheet.isSubmitted,
+                        'field1': scoresheet.field1 or 0,
+                        'field2': scoresheet.field2 or 0,
+                        'field3': scoresheet.field3 or 0,
+                        'field4': scoresheet.field4 or 0,
+                        'field5': scoresheet.field5 or 0,
+                        'field6': scoresheet.field6 or 0,
+                        'field7': scoresheet.field7 or 0,
+                        'field8': scoresheet.field8 or 0,
+                        'field9': scoresheet.field9 or "",
+                        'field10': scoresheet.field10 or 0,
+                        'field11': scoresheet.field11 or 0,
+                        'field12': scoresheet.field12 or 0,
+                        'field13': scoresheet.field13 or 0,
+                        'field14': scoresheet.field14 or 0,
+                        'field15': scoresheet.field15 or 0,
+                        'field16': scoresheet.field16 or 0,
+                        'field17': scoresheet.field17 or 0,
+                    }
+                })
+        
+        return Response({'teams': result}, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        print(f"DEBUG ERROR: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
