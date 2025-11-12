@@ -251,7 +251,8 @@ def all_sheets_submitted_for_contests(request):
             
             if not judge_ids:
                 # No judges assigned to clusters in this contest
-                results[contest_id] = True
+                # Cannot say all sheets are submitted if there are no judges
+                results[contest_id] = False
                 continue
             
             # Get all teams in clusters for this contest
@@ -260,7 +261,8 @@ def all_sheets_submitted_for_contests(request):
             
             if not team_ids:
                 # No teams in clusters, so no score sheets to check
-                results[contest_id] = True
+                # Cannot say all sheets are submitted if there are no teams
+                results[contest_id] = False
                 continue
             
             # Check if all score sheets for judges and teams in this contest are submitted
@@ -280,13 +282,18 @@ def all_sheets_submitted_for_contests(request):
                     break
                 
                 # Get all score sheet IDs for this judge's mappings in this contest
-                scoresheet_ids = score_sheet_mappings.values_list('scoresheetid', flat=True)
+                scoresheet_ids = list(score_sheet_mappings.values_list('scoresheetid', flat=True))
+                
+                # Check if all scoresheets referenced by mappings actually exist
+                # If mappings exist but scoresheets don't, consider as not submitted
+                existing_scoresheets = Scoresheet.objects.filter(id__in=scoresheet_ids)
+                if existing_scoresheets.count() < len(scoresheet_ids):
+                    # Some scoresheets referenced by mappings don't exist (orphaned mappings)
+                    all_submitted = False
+                    break
                 
                 # Check if any score sheet is not submitted
-                unsubmitted_count = Scoresheet.objects.filter(
-                    id__in=scoresheet_ids,
-                    isSubmitted=False
-                ).count()
+                unsubmitted_count = existing_scoresheets.filter(isSubmitted=False).count()
                 
                 if unsubmitted_count > 0:
                     all_submitted = False
