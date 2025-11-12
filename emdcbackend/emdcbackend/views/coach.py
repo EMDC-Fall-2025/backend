@@ -16,6 +16,7 @@ from ..serializers import CoachSerializer
 from rest_framework.exceptions import ValidationError
 from ..models import MapUserToRole
 from ..auth.views import User, delete_user_by_id
+from ..auth.utils import send_set_password_email
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication])
@@ -96,9 +97,11 @@ def create_coach_only(data):
 
 def create_user_and_coach(data):
     user_data = {"username": data["username"], "password": data["password"]}
-    user_response = create_user(user_data)
+    # Create user with unusable password - coach will set it via email link
+    user_response = create_user(user_data, send_email=False, enforce_unusable_password=True)
     if not user_response.get('user'):
         raise ValidationError('User creation failed.')
+    
     coach_data = {
         "first_name": data["first_name"],
         "last_name": data.get("last_name", "") or "",  
@@ -106,6 +109,17 @@ def create_user_and_coach(data):
     coach_response = create_coach_instance(coach_data)
     if not coach_response.get('id'): 
         raise ValidationError('Coach creation failed.')
+    
+    # Send set-password email to the coach
+    user_id = user_response.get("user", {}).get("id")
+    if user_id:
+        try:
+            user = User.objects.get(id=user_id)
+            send_set_password_email(user, subject="Set your EMDC Coach account password")
+        except Exception as e:
+            # Log error but don't fail coach creation if email fails
+            print(f"[WARN] Failed to send set-password email to coach {user.username}: {e}")
+    
     return user_response, coach_response
 
 def get_coach(coach_id):

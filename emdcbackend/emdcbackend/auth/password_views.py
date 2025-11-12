@@ -60,13 +60,14 @@ def request_set_password(request):
     return Response({"detail": "Set-password email sent."}, status=status.HTTP_200_OK)
 
 
-# 2) Public "Forgot Password" - Admin only
+# 2) Public "Forgot Password" - Admin and Coach only
+# Note: In production, add rate limiting to prevent abuse
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def request_password_reset(request):
     """
     Body: { "username": "<email>" }
-    Only admins can reset their password. Other users must contact an administrator.
+    Only admins (role 1) and coaches (role 4) can reset their password. Other users must contact an administrator.
     """
     username = request.data.get("username")
     if not username:
@@ -77,28 +78,28 @@ def request_password_reset(request):
     except User.DoesNotExist:
         # Return generic message to avoid user enumeration
         return Response({
-            "detail": "If this email belongs to an admin, a reset link has been sent.",
+            "detail": "If this email belongs to an admin or coach, a reset link has been sent.",
             "error": "User not found or not authorized for password reset."
         }, status=status.HTTP_200_OK)
     
-    # Check if user is an admin (role = 1)
+    # Check if user is an admin (role = 1) or coach (role = 4)
     from ..models import MapUserToRole
     try:
         user_role_mapping = MapUserToRole.objects.get(uuid=user.id)
-        if user_role_mapping.role != 1:  # 1 = ADMIN
-            # User is not an admin - tell them to contact admin
+        if user_role_mapping.role not in [1, 4]:  # 1 = ADMIN, 4 = COACH
+            # User is not an admin or coach - tell them to contact admin
             return Response({
-                "detail": "Password reset is only available for administrators. Please contact an administrator for assistance.",
-                "error": "Only admins can reset passwords."
+                "detail": "Password reset is only available for administrators and coaches. Please contact an administrator for assistance.",
+                "error": "Only admins and coaches can reset passwords."
             }, status=status.HTTP_403_FORBIDDEN)
     except MapUserToRole.DoesNotExist:
         # User has no role mapping - not authorized
         return Response({
-            "detail": "Password reset is only available for administrators. Please contact an administrator for assistance.",
+            "detail": "Password reset is only available for administrators and coaches. Please contact an administrator for assistance.",
             "error": "User role not found."
         }, status=status.HTTP_403_FORBIDDEN)
     
-    # User is an admin - send reset email
+    # User is an admin or coach - send reset email
     url = build_set_password_url(user)
     subject = "Reset your password"
     message = (
@@ -124,7 +125,7 @@ def request_password_reset(request):
             "error": "Email sending failed."
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-    return Response({"detail": "If this email belongs to an admin, a reset link has been sent."}, status=status.HTTP_200_OK)
+    return Response({"detail": "If this email belongs to an admin or coach, a reset link has been sent."}, status=status.HTTP_200_OK)
 
 
 # 3) Frontend can validate token before showing the set-password form
@@ -182,4 +183,9 @@ def complete_password_set(request):
 
     user.set_password(password)
     user.save()
+    
+    # Note: In production, consider invalidating the token after use to prevent reuse
+    # Django's default_token_generator tokens are single-use by design (they change when password changes)
+    # But if you want explicit invalidation, you could store used tokens in cache/db
+    
     return Response({"detail": "Password has been set."}, status=status.HTTP_200_OK)

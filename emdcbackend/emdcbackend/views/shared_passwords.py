@@ -42,29 +42,37 @@ def set_shared_password(request):
 
     # Use database transaction to ensure atomic replacement
     with transaction.atomic():
-        # Delete ALL existing entries for this role to ensure complete replacement
-        RoleSharedPassword.objects.filter(role=role).delete()
+        # Get existing entry if it exists
+        existing = RoleSharedPassword.objects.filter(role=role).first()
         
-        # Verify deletion actually happened
-        remaining_count = RoleSharedPassword.objects.filter(role=role).count()
-        if remaining_count > 0:
-            return Response({
-                "error": f"Failed to delete old entries. {remaining_count} entries still exist for role {role}",
-                "detail": "Please contact support."
-            }, status=500)
-        
-        # Create new entry with the new password hash
+        # Create new password hash
         hashed = make_password(password)
-        RoleSharedPassword.objects.create(
-            role=role,
-            password_hash=hashed
-        )
+        
+        if existing:
+            # Update existing entry - this ensures old password is immediately invalidated
+            existing.password_hash = hashed
+            existing.save()  # This updates updated_at timestamp automatically
+        else:
+            # Create new entry if none exists
+            RoleSharedPassword.objects.create(
+                role=role,
+                password_hash=hashed
+            )
         
         # Verify only one entry exists for this role
         count = RoleSharedPassword.objects.filter(role=role).count()
         if count != 1:
             return Response({
                 "error": f"Database inconsistency: found {count} entries for role {role}",
+                "detail": "Please contact support."
+            }, status=500)
+        
+        # Double-check: Verify the password hash was actually updated
+        updated_entry = RoleSharedPassword.objects.get(role=role)
+        from django.contrib.auth.hashers import check_password
+        if not check_password(password, updated_entry.password_hash):
+            return Response({
+                "error": "Password was not set correctly. Please try again.",
                 "detail": "Please contact support."
             }, status=500)
     
