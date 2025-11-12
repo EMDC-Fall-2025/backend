@@ -1,8 +1,8 @@
 from django.conf import settings
-from django.core.mail import send_mail
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.contrib.auth.tokens import default_token_generator
+from .utils import send_email_via_resend
 
 def build_set_password_url(user) -> str:
     """
@@ -18,7 +18,7 @@ def build_set_password_url(user) -> str:
 def send_set_password_email(user, *, subject=None):
     """
     Sends a set/reset password email to the user's email (username).
-    Uses console email backend in dev, so the link will print in the Django console.
+    Uses Resend SDK to send emails.
     """
     subject = subject or "Set your EMDC account password"
     link = build_set_password_url(user)
@@ -29,5 +29,11 @@ def send_set_password_email(user, *, subject=None):
         f"{link}\n\n"
         "If you did not expect this, you can ignore this email."
     )
-    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@emdc.local")
-    send_mail(subject, body, from_email, [user.username], fail_silently=False)
+    
+    html_body = body.replace("\n", "<br>")
+    send_email_via_resend(
+        to_email=user.username,
+        subject=subject,
+        html_content=f"<p>{html_body}</p>",
+        text_content=body
+    )

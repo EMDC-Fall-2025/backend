@@ -11,8 +11,10 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
+import os
 
 from .password_utils import build_set_password_url
+from .utils import send_email_via_resend
 
 
 # 1) Admin/Organizer re-sends a set-password email (auth required)
@@ -37,7 +39,23 @@ def request_set_password(request):
         f"Please click the link below to set your password:\n\n{url}\n\n"
         f"This link will expire in {getattr(settings, 'PASSWORD_RESET_TIMEOUT', 3600)//60} minutes.\n"
     )
-    send_mail(subject, message, getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@emdc.local"), [user.username])
+    
+    # Use Resend SDK to send email
+    try:
+        html_message = message.replace("\n", "<br>")
+        send_email_via_resend(
+            to_email=user.username,
+            subject=subject,
+            html_content=f"<p>{html_message}</p>",
+            text_content=message
+        )
+    except Exception as e:
+        # Log the error but don't expose internal details to user
+        print(f"[ERROR] Failed to send set-password email: {e}")
+        return Response({
+            "detail": "Failed to send set-password email. Please check your email configuration or contact support.",
+            "error": "Email sending failed."
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response({"detail": "Set-password email sent."}, status=status.HTTP_200_OK)
 
@@ -88,7 +106,23 @@ def request_password_reset(request):
         f"Please click the link below to reset your password:\n\n{url}\n\n"
         f"This link will expire in {getattr(settings, 'PASSWORD_RESET_TIMEOUT', 3600)//60} minutes.\n"
     )
-    send_mail(subject, message, getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@emdc.local"), [user.username])
+    
+    # Use Resend SDK to send email
+    try:
+        html_message = message.replace("\n", "<br>")
+        send_email_via_resend(
+            to_email=user.username,
+            subject=subject,
+            html_content=f"<p>{html_message}</p>",
+            text_content=message
+        )
+    except Exception as e:
+        # Log the error but don't expose internal details to user
+        print(f"[ERROR] Failed to send password reset email: {e}")
+        return Response({
+            "detail": "Failed to send password reset email. Please check your email configuration or contact support.",
+            "error": "Email sending failed."
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     return Response({"detail": "If this email belongs to an admin, a reset link has been sent."}, status=status.HTTP_200_OK)
 
