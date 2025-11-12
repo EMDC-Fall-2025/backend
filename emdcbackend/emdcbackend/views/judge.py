@@ -15,7 +15,7 @@ from .Maps.MapUserToRole import create_user_role_map
 from .Maps.MapContestToJudge import create_contest_to_judge_map
 from .Maps.MapClusterToJudge import map_cluster_to_judge, delete_cluster_judge_mapping
 from .scoresheets import create_sheets_for_teams_in_cluster, delete_sheets_for_teams_in_cluster
-from ..auth.views import create_user
+from ..auth.views import create_user, delete_user
 from ..models import (
     Judge, Scoresheet, MapScoresheetToTeamJudge, MapJudgeToCluster,
     Teams, MapContestToJudge, MapUserToRole
@@ -23,7 +23,7 @@ from ..models import (
 from ..serializers import JudgeSerializer
 from ..auth.serializers import UserSerializer
 
-# ✅ (kept) imports; may be unused depending on your linter
+
 from django.contrib.auth import get_user_model
 from ..auth.password_utils import send_set_password_email
 
@@ -338,8 +338,8 @@ def delete_judge(request, judge_id):
         teams_mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
         contest_mapping = MapContestToJudge.objects.filter(judgeid=judge_id)
 
-        # delete associated user
-        user.delete()
+        # delete associated user (this also clears all their sessions)
+        delete_user(user.id)
         user_mapping.delete()
 
         # delete associated scoresheets
@@ -376,7 +376,7 @@ def create_judge_instance(judge_data):
 
 
 def create_user_and_judge(data):
-    # IMPORTANT: Judges use ONLY the shared judge password (role=3)
+    # Judges use ONLY the shared judge password (role=3)
     user_data = {"username": data["username"], "password": data["password"]}
     user_response = create_user(user_data, send_email=False, enforce_unusable_password=True)
     if not user_response.get('user'):

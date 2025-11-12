@@ -30,6 +30,9 @@ if env_path.exists():
 import os
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured("DJANGO_SECRET_KEY environment variable is required. Set it in .local.env file.")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -45,23 +48,7 @@ ALLOWED_HOSTS = ["0.0.0.0", 'localhost', "*", "emdc-django-api"]
 # ]
 
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:7001",
-    "http://127.0.0.1:7001",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://orca-app-nrupj.ondigitalocean.app",
-    "https://emdc-backend-mahe5.ondigitalocean.app",
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:7004",
-    "http://127.0.0.1:7001",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://orca-app-nrupj.ondigitalocean.app",
-    "https://emdc-backend-mahe5.ondigitalocean.app",
-]
+# CORS and CSRF origins are defined below after cookie settings
 
 # # Dev cookie settings
 # SESSION_COOKIE_SAMESITE = "Lax"
@@ -90,6 +77,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:7001",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
     # production: "https://app.example.com
 ]
 
@@ -100,6 +89,8 @@ if DEBUG:
         "http://127.0.0.1:7001",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
     ]
 else:
     csrf_origins_str = os.getenv('CSRF_TRUSTED_ORIGINS', '')
