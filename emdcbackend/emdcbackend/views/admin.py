@@ -66,16 +66,15 @@ def create_admin(request):
     try:
         with transaction.atomic():
             user_response, admin_response = create_user_and_admin(request.data)
-            responses = [
-                create_user_role_map({
-                    "uuid": user_response.get("user").get("id"),
-                    "role": 1,
-                    "relatedid": admin_response.get("id")
-                })
-            ]
-            for response in responses:
-                if isinstance(response, Response):
-                    return response
+            role_mapping = create_user_role_map({
+                "uuid": user_response.get("user").get("id"),
+                "role": 1,
+                "relatedid": admin_response.get("id")
+            })
+            if not role_mapping:
+                raise ValidationError('Failed to create admin role mapping.')
+
+            responses = [role_mapping]
                 
             return Response({
                 "user": user_response,

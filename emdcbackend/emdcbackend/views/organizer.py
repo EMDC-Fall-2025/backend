@@ -21,6 +21,7 @@ from ..auth.views import User, delete_user_by_id
 
 from django.contrib.auth import get_user_model
 from ..auth.password_utils import send_set_password_email
+from django.contrib.sessions.models import Session
 
 # get organizer by id
 @api_view(["GET"])
@@ -122,6 +123,20 @@ def edit_organizer(request):
         return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+def _delete_user_sessions(user_id: int) -> None:
+    """
+    Proactively invalidate all active sessions for the given user id.
+    This ensures any existing session cookies become unusable immediately.
+    """
+    try:
+        for session in Session.objects.all():
+            data = session.get_decoded()
+            if str(data.get("_auth_user_id")) == str(user_id):
+                session.delete()
+    except Exception:
+        pass
+
+
 @api_view(["DELETE"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -139,6 +154,9 @@ def delete_organizer(request, organizer_id):
             if organizer_mapping:
                 user_id = organizer_mapping.uuid
                 organizer_mapping.delete()  # Delete the mapping
+                
+                # Invalidate all active sessions for this user before deleting user
+                _delete_user_sessions(user_id)
                 
                 # Delete the user associated with the organizer (if it exists)
                 try:

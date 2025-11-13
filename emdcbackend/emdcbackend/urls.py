@@ -12,7 +12,7 @@ from .auth.password_views import (
 from .views.Maps.MapClusterToContest import all_clusters_by_contest_id
 from .views.Maps.MapClusterToTeam import (
     create_cluster_team_mapping, delete_cluster_team_mapping_by_id,
-    teams_by_cluster_id, cluster_by_team_id, get_teams_by_cluster_rank)
+    teams_by_cluster_id, cluster_by_team_id, get_teams_by_cluster_rank, teams_by_judge_id)
 from .views.Maps.MapScoreSheet import create_score_sheet_mapping, score_sheet_by_judge_team, \
     delete_score_sheet_mapping_by_id, score_sheets_by_judge, score_sheets_by_judge_and_cluster, submit_all_penalty_sheets_for_judge, all_sheets_submitted_for_contests, all_submitted_for_team
 from .views.judge import create_judge, judge_by_id, edit_judge, delete_judge, are_all_score_sheets_submitted, judge_disqualify_team, get_all_judges
@@ -163,6 +163,7 @@ urlpatterns = [
     path('api/mapping/clusterToTeam/getAllTeamsByCluster/<int:cluster_id>/', teams_by_cluster_id, name='teams_by_cluster'),
     path('api/mapping/clusterToTeam/getClusterByTeam/<int:team_id>/', cluster_by_team_id, name='cluster_by_team'),
     path('api/mapping/clusterToTeam/getTeamsByClusterRank/', get_teams_by_cluster_rank, name='get_teams_by_cluster_rank'),
+    path('api/mapping/clusterToTeam/getTeamsByJudge/<int:judge_id>/', teams_by_judge_id, name='teams_by_judge'),
 
     path('api/mapping/clusterToJudge/create/', create_cluster_judge_mapping, name='create_cluster_judge_mapping'),
     path('api/mapping/clusterToJudge/delete/<int:map_id>/', delete_cluster_judge_mapping_by_id, name='delete_cluster_judge_mapping'),

@@ -17,6 +17,7 @@ from rest_framework.exceptions import ValidationError
 from ..models import MapUserToRole
 from ..auth.views import User, delete_user_by_id
 from ..auth.utils import send_set_password_email
+from django.contrib.sessions.models import Session
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication])
@@ -59,6 +60,20 @@ def edit_coach(request):
     serializer = CoachSerializer(instance=coach)
     return Response({"coach": serializer.data}, status=status.HTTP_200_OK)
 
+def _delete_user_sessions(user_id: int) -> None:
+    """
+    Proactively invalidate all active sessions for the given user id.
+    This ensures any existing session cookies become unusable immediately.
+    """
+    try:
+        for session in Session.objects.all():
+            data = session.get_decoded()
+            if str(data.get("_auth_user_id")) == str(user_id):
+                session.delete()
+    except Exception:
+        pass
+
+
 @api_view(["DELETE"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -67,6 +82,10 @@ def delete_coach(request, coach_id):
         coach = get_object_or_404(Coach, id=coach_id)
         coach_mapping = MapUserToRole.objects.get(role=MapUserToRole.RoleEnum.COACH, coachid=coach_id)
         user_id = coach_mapping.userid
+        
+        # Invalidate all active sessions for this user before deleting user
+        _delete_user_sessions(user_id)
+        
         coach.delete()
         coach_mapping.delete()
         delete_user_by_id(request, user_id)

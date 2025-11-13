@@ -89,9 +89,28 @@ def edit_cluster(request):
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_cluster(request, cluster_id):
-    cluster = get_object_or_404(JudgeClusters, id=cluster_id)
-    cluster.delete()
-    return Response({"detail": "Cluster deleted successfully."}, status=status.HTTP_200_OK)
+    try:
+        with transaction.atomic():
+            cluster = get_object_or_404(JudgeClusters, id=cluster_id)
+            
+            # Import mapping models
+            from ..models import (
+                MapClusterToTeam,
+                MapJudgeToCluster,
+                MapContestToCluster,
+            )
+            
+            # Delete all mappings that reference this cluster
+            MapClusterToTeam.objects.filter(clusterid=cluster_id).delete()
+            MapJudgeToCluster.objects.filter(clusterid=cluster_id).delete()
+            MapContestToCluster.objects.filter(clusterid=cluster_id).delete()
+            
+            # Now delete the cluster
+            cluster.delete()
+            
+            return Response({"detail": "Cluster and all associated mappings deleted successfully."}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"detail": f"Error deleting cluster: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def make_judge_cluster_instance(data):

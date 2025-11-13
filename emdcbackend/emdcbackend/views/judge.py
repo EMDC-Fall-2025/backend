@@ -23,9 +23,27 @@ from ..models import (
 from ..serializers import JudgeSerializer
 from ..auth.serializers import UserSerializer
 
-# ✅ (kept) imports; may be unused depending on your linter
+
 from django.contrib.auth import get_user_model
 from ..auth.password_utils import send_set_password_email
+
+from django.contrib.sessions.models import Session
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError as DjangoValidationError
+
+
+def _delete_user_sessions(user_id: int) -> None:
+    """
+    Proactively invalidate all active sessions for the given user id.
+    This ensures any existing session cookies become unusable immediately.
+    """
+    try:
+        for session in Session.objects.all():
+            data = session.get_decoded()
+            if str(data.get("_auth_user_id")) == str(user_id):
+                session.delete()
+    except Exception:
+        pass
 
 
 @api_view(["GET"])
@@ -45,12 +63,15 @@ def create_judge(request):
             user_response, judge_response = create_user_and_judge(request.data)
 
             # Map judge to user and contest, create sheets
-            responses = [
-                create_user_role_map({
-                    "uuid": user_response.get("user").get("id"),
-                    "role": 3,
-                    "relatedid": judge_response.get("id")
-                }),
+            role_mapping = create_user_role_map({
+                "uuid": user_response.get("user").get("id"),
+                "role": 3,
+                "relatedid": judge_response.get("id")
+            })
+            if not role_mapping:
+                raise ValidationError('Failed to create judge role mapping.')
+
+            responses = [role_mapping,
                 create_contest_to_judge_map({
                     "contestid": request.data["contestid"],
                     "judgeid": judge_response.get("id")
@@ -59,8 +80,7 @@ def create_judge(request):
                     "judgeid": judge_response.get("id"),
                     "clusterid": request.data["clusterid"]
                 }),
-                # NOTE: helper signature assumed:
-                # (judge_id, clusterid, presentation, journal, mdo, runpenalties, otherpenalties, redesign, championship)
+                
                 create_sheets_for_teams_in_cluster(
                     judge_response.get("id"),
                     request.data["clusterid"],
@@ -136,7 +156,19 @@ def edit_judge(request):
             # user tied to this judge via MapUserToRole
             user_mapping = MapUserToRole.objects.get(role=3, relatedid=judge.id)
             user = get_object_or_404(User, id=user_mapping.uuid)
-            if user.username != new_username:
+
+            # Track sensitive changes to invalidate sessions if needed
+            username_changed = (user.username != new_username)
+            role_changed = (new_role != judge.role)
+
+            if username_changed:
+                # Strictly validate email format and uniqueness for username
+                try:
+                    validate_email(new_username)
+                except DjangoValidationError:
+                    raise ValidationError({"detail": "Enter a valid email address."})
+                if User.objects.filter(username=new_username).exclude(id=user.id).exists():
+                    raise ValidationError({"detail": "Email already taken."})
                 user.username = new_username
                 user.save()
             user_serializer = UserSerializer(instance=user)
@@ -315,6 +347,10 @@ def edit_judge(request):
 
             judge.save()
 
+            # If sensitive identity/permission changed, invalidate existing sessions for this user
+            if username_changed or role_changed:
+                _delete_user_sessions(user.id)
+
         serializer = JudgeSerializer(instance=judge)
 
     except Exception as e:
@@ -332,15 +368,25 @@ def delete_judge(request, judge_id):
         scoresheet_mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
         scoresheet_ids = scoresheet_mappings.values_list('scoresheetid', flat=True)
         scoresheets = Scoresheet.objects.filter(id__in=scoresheet_ids)
-        user_mapping = MapUserToRole.objects.get(role=3, relatedid=judge_id)
-        user = get_object_or_404(User, id=user_mapping.uuid)
-        cluster_mapping = MapJudgeToCluster.objects.get(judgeid=judge_id)
+        user_mapping_qs = MapUserToRole.objects.filter(role=3, relatedid=judge_id)
+        user = None
+        if user_mapping_qs.exists():
+            # In rare cases there might be multiple stale rows; use the first safely
+            user = User.objects.filter(id=user_mapping_qs.first().uuid).first()
+        # There can be zero, one, or many cluster mappings; handle all robustly
+        cluster_mappings_qs = MapJudgeToCluster.objects.filter(judgeid=judge_id)
         teams_mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
         contest_mapping = MapContestToJudge.objects.filter(judgeid=judge_id)
 
+        # Invalidate all active sessions for this user before deleting user
+        if user:
+            _delete_user_sessions(user.id)
+
         # delete associated user
-        user.delete()
-        user_mapping.delete()
+        if user:
+            user.delete()
+        if user_mapping_qs.exists():
+            user_mapping_qs.delete()
 
         # delete associated scoresheets
         for scoresheet in scoresheets:
@@ -353,8 +399,9 @@ def delete_judge(request, judge_id):
         # delete associated judge-contest mapping
         contest_mapping.delete()
 
-        # delete associated judge-cluster mapping
-        cluster_mapping.delete()
+        # delete associated judge-cluster mapping(s)
+        if cluster_mappings_qs.exists():
+            cluster_mappings_qs.delete()
 
         # delete the judge
         judge.delete()

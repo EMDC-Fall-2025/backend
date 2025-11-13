@@ -305,9 +305,77 @@ def edit_team(request):
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_team_by_id(request, team_id):
-    team_to_delete = get_object_or_404(Teams, id=team_id)
-    team_to_delete.delete()
-    return Response({"detail": "Team deleted successfully."}, status=status.HTTP_200_OK)
+    """
+    deletion of a team and every related mapping/scoresheet record that might
+    prevent FK integrity on delete.
+    """
+    team = get_object_or_404(Teams, id=team_id)
+    try:
+        with transaction.atomic():
+            # Import here to avoid circulars at module import time
+            from ..models import (
+                MapContestToTeam,
+                MapClusterToTeam,
+                MapCoachToTeam,
+                MapScoresheetToTeamJudge,
+                Scoresheet,
+            )
+            
+            # Try to import MapAwardToTeam if it exists (optional model)
+            MapAwardToTeam = None
+            try:
+                from ..models import MapAwardToTeam
+            except ImportError:
+                # MapAwardToTeam doesn't exist in this deployment, skip it
+                pass
+
+            # 1) Delete score sheet mappings first and collect score sheet ids
+            scoresheet_ids = list(
+                MapScoresheetToTeamJudge.objects.filter(teamid=team_id)
+                .values_list("scoresheetid", flat=True)
+            )
+            MapScoresheetToTeamJudge.objects.filter(teamid=team_id).delete()
+
+            # 2) Delete explicit score sheets linked to this team
+            # Some schemas keep a direct team FK; others only via mapping ids
+            try:
+                if scoresheet_ids:
+                    Scoresheet.objects.filter(id__in=scoresheet_ids).delete()
+            except Exception:
+                # Ignore if schema differs
+                pass
+            try:
+                # In case Scoresheet has teamid FK
+                Scoresheet.objects.filter(teamid=team_id).delete()
+            except Exception:
+                pass
+
+            # 3) Delete all other mapping tables that reference this team
+            MapContestToTeam.objects.filter(teamid=team_id).delete()
+            MapClusterToTeam.objects.filter(teamid=team_id).delete()
+            MapCoachToTeam.objects.filter(teamid=team_id).delete()
+            
+            # Only try to delete MapAwardToTeam if the model exists
+            if MapAwardToTeam is not None:
+                try:
+                    MapAwardToTeam.objects.filter(teamid=team_id).delete()
+                except Exception:
+                    # Award mapping may not exist in some deployments
+                    pass
+
+            # 4) Finally delete the team
+            team.delete()
+
+        return Response(
+            {"detail": "Team and all related mappings deleted successfully."},
+            status=status.HTTP_200_OK,
+        )
+    except Exception as e:
+        # Return exact error to aid debugging of any remaining FK blockers
+        return Response(
+            {"detail": f"{type(e).__name__}: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 def make_team_instance(team_data):
     serializer = TeamSerializer(data=team_data)
