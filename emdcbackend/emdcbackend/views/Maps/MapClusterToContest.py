@@ -7,7 +7,7 @@ from rest_framework.decorators import (
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
 from ...models import JudgeClusters, Contest, MapContestToCluster
 from ...serializers import JudgeClustersSerializer, ContestSerializer, ClusterToContestSerializer
@@ -52,7 +52,7 @@ def delete_cluster_contest_mapping_by_id(request, map_id):
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def all_clusters_by_contest_id(request, contest_id):
     try:
         mappings = MapContestToCluster.objects.filter(contestid=contest_id)

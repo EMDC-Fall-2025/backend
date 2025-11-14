@@ -8,7 +8,7 @@ from rest_framework.decorators import (
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
 from ...models import MapCoachToTeam, Coach, Teams, MapUserToRole, Contest, MapContestToTeam
 from ...serializers import CoachToTeamSerializer, CoachSerializer, TeamSerializer
@@ -80,7 +80,7 @@ def coach_by_team_id(request, team_id):
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def coaches_by_teams(request):
     teams = request.data  # Expecting a list of team data objects
     response_data = {}

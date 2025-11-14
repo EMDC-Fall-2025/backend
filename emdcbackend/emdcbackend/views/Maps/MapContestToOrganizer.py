@@ -7,9 +7,9 @@ from rest_framework.decorators import (
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from django.shortcuts import get_object_or_404
-from ...models import MapContestToOrganizer, Organizer, Contest
+from ...models import MapContestToOrganizer, Organizer, Contest, MapUserToRole
 from ...serializers import MapContestToOrganizerSerializer, ContestSerializer, OrganizerSerializer
 
 @api_view(["POST"])
@@ -48,6 +48,33 @@ def get_organizers_by_contest_id(request, contest_id):
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_contests_by_organizer_id(request,organizer_id):
+  # Check if user is an admin (admins can access any organizer's contests)
+  is_admin = MapUserToRole.objects.filter(
+    uuid=request.user.id,
+    role=MapUserToRole.RoleEnum.ADMIN
+  ).exists()
+  
+  # If not admin, verify user is requesting their own organizer ID
+  if not is_admin:
+    # First check if user is an organizer at all
+    user_organizer_mapping = MapUserToRole.objects.filter(
+      uuid=request.user.id,
+      role=MapUserToRole.RoleEnum.ORGANIZER
+    ).first()
+    
+    if not user_organizer_mapping:
+      return Response(
+        {"detail": "You must be an organizer to access this resource."},
+        status=status.HTTP_403_FORBIDDEN
+      )
+    
+    # Then verify the organizer_id matches the user's organizer ID
+    if user_organizer_mapping.relatedid != organizer_id:
+      return Response(
+        {"detail": f"You do not have permission to access organizer {organizer_id}'s contests. Your organizer ID is {user_organizer_mapping.relatedid}."},
+        status=status.HTTP_403_FORBIDDEN
+      )
+  
   mappings = MapContestToOrganizer.objects.filter(organizerid=organizer_id)
   contest_ids = mappings.values_list('contestid',flat=True)
   contests = Contest.objects.filter(id__in=contest_ids)

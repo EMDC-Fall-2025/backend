@@ -354,7 +354,7 @@ def delete_team_by_id(request, team_id):
             MapContestToTeam.objects.filter(teamid=team_id).delete()
             MapClusterToTeam.objects.filter(teamid=team_id).delete()
             MapCoachToTeam.objects.filter(teamid=team_id).delete()
-            
+
             # Only try to delete MapAwardToTeam if the model exists
             if MapAwardToTeam is not None:
                 try:

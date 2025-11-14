@@ -79,6 +79,7 @@ CSRF_TRUSTED_ORIGINS = [
 # CSRF_TRUSTED_ORIGINS = ['https://orca-app-nrupj.ondigitalocean.app']
 
 # Cookies
+SESSION_COOKIE_AGE = 10800  # 3 hours in seconds
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = False   # -> True in prod (HTTPS)

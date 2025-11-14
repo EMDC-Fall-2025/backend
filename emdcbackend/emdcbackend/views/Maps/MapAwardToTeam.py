@@ -9,7 +9,7 @@ from rest_framework.decorators import (
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from ...models import SpecialAward
 from ...serializers import SpecialAwardSerializer
 # FILE OVERVIEW: This file contains all views associated with the special awards URLs
@@ -30,10 +30,11 @@ def create_award_team_mapping(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # GET request to get award_id by team_id
-# Gets all award maps associated with a given team_id returns JSON or 500 if no awards found 
+# Gets all award maps associated with a given team_id.
+# Results should be visible even if the viewer isn't logged in, so we allow any.
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def get_award_id_by_team_id(request, team_id):
     try:
         awards = SpecialAward.objects.filter(teamid=team_id)

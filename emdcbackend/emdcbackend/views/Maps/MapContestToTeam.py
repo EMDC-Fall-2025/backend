@@ -8,7 +8,7 @@ from rest_framework.decorators import (
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
 from ...models import MapContestToTeam, Contest, Teams, MapUserToRole
 from ...serializers import MapContestToTeamSerializer, ContestSerializer, TeamSerializer
@@ -27,29 +27,21 @@ def create_contest_team_mapping(request):
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication])
-@permission_classes([IsAuthenticated])
-def get_teams_by_contest_id(request,contest_id):
+@permission_classes([AllowAny])
+def get_teams_by_contest_id(request, contest_id):
     try:
-      # If the requester is a COACH, hide results until contest is tabulated (or contest closed)
-      try:
-        contest = Contest.objects.get(id=contest_id)
-        is_coach = MapUserToRole.objects.filter(uuid=request.user.id, role=MapUserToRole.RoleEnum.COACH).exists()
-        if is_coach and (getattr(contest, 'is_open', False) or not getattr(contest, 'is_tabulated', False)):
-          return Response({"detail": "Results available after the contest ends."}, status=status.HTTP_403_FORBIDDEN)
-      except Exception:
-        pass
+        # Ensure all team scores are up-to-date by running tabulation
+        from ...views.tabulation import recompute_totals_and_ranks
 
-      # Ensure all team scores are up-to-date by running tabulation
-      from ...views.tabulation import recompute_totals_and_ranks
-      recompute_totals_and_ranks(contest_id)
-      
-      mappings = MapContestToTeam.objects.filter(contestid=contest_id)
-      team_ids = mappings.values_list('teamid',flat=True)
-      teams = Teams.objects.filter(id__in=team_ids).order_by('team_rank')
-      serializer = TeamSerializer(teams, many=True)
-      return Response(serializer.data, status=status.HTTP_200_OK)
+        recompute_totals_and_ranks(contest_id)
+
+        mappings = MapContestToTeam.objects.filter(contestid=contest_id)
+        team_ids = mappings.values_list("teamid", flat=True)
+        teams = Teams.objects.filter(id__in=team_ids).order_by("team_rank")
+        serializer = TeamSerializer(teams, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     except Exception as e:
-      return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication])
