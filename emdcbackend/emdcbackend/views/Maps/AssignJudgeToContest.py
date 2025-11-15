@@ -18,6 +18,8 @@ from django.shortcuts import get_object_or_404
 from ...models import MapContestToJudge, Judge, Contest, MapJudgeToCluster, MapContestToTeam, MapScoresheetToTeamJudge, Scoresheet, MapClusterToTeam
 from ...serializers import JudgeSerializer
 from .MapContestToJudge import create_contest_to_judge_map
+from ...views.Maps.MapClusterToJudge import map_cluster_to_judge
+from ..judge import sync_judge_sheet_flags
 
 
 @api_view(["POST"])
@@ -160,24 +162,10 @@ def assign_judge_to_contest(request):
         else:
             mapping_result = {"message": "Judge already assigned to contest"}
         
-        # Create the judge-cluster mapping (needed for dashboard)
-        from ...views.Maps.MapClusterToJudge import map_cluster_to_judge
-        cluster_mapping_data = {
-            "judgeid": judge_id,
-            "clusterid": cluster_id
-        }
-        
-        try:
-            cluster_mapping_result = map_cluster_to_judge(cluster_mapping_data)
-        except Exception as e:
-            # If cluster mapping fails, we should still proceed
-            # The contest mapping was successful
-            pass
-        
         # Create score sheets for the judge in this contest's cluster
         from ...views.scoresheets import create_sheets_for_teams_in_cluster
-        
-        # Get scoresheet flags from request
+
+        # Determine scoresheet flags for this assignment
         presentation = request.data.get("presentation", False)
         journal = request.data.get("journal", False)
         mdo = request.data.get("mdo", False)
@@ -216,8 +204,26 @@ def assign_judge_to_contest(request):
         elif is_redesign_cluster:
             redesign = True
             presentation = journal = mdo = runpenalties = otherpenalties = championship = False
-        
-        
+
+        # Persist the cluster-level permissions
+        cluster_mapping_data = {
+            "judgeid": judge_id,
+            "clusterid": cluster_id,
+            "contestid": contest_id,
+            "presentation": presentation,
+            "journal": journal,
+            "mdo": mdo,
+            "runpenalties": runpenalties,
+            "otherpenalties": otherpenalties,
+            "redesign": redesign,
+            "championship": championship,
+        }
+
+        try:
+            cluster_mapping_result = map_cluster_to_judge(cluster_mapping_data)
+        except Exception:
+            cluster_mapping_result = {"message": "Cluster mapping failed"}
+
         sheets_result = create_sheets_for_teams_in_cluster(
             judge_id,
             cluster_id,
@@ -229,21 +235,14 @@ def assign_judge_to_contest(request):
             redesign,
             championship,
         )
-        
-        # Update judge's scoresheet flags in the database to match what was assigned
-        
-        judge.presentation = presentation
-        judge.journal = journal
-        judge.mdo = mdo
-        judge.runpenalties = runpenalties
-        judge.otherpenalties = otherpenalties
-        judge.redesign = redesign
-        judge.championship = championship
-        judge.save()
+
+        # Keep legacy judge flags in sync across all clusters
+        sync_judge_sheet_flags(judge_id)
         
         return Response({
             "message": f"Judge {judge.first_name} {judge.last_name} successfully assigned to contest {contest.name}",
             "mapping": mapping_result,
+            "cluster_mapping": cluster_mapping_result,
             "score_sheets": sheets_result
         }, status=status.HTTP_201_CREATED)
         

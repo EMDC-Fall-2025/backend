@@ -54,6 +54,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:7001",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
     "https://orca-app-nrupj.ondigitalocean.app",
     "https://emdc-backend-mahe5.ondigitalocean.app",
 ]
@@ -63,6 +65,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:7001",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
     "https://orca-app-nrupj.ondigitalocean.app",
     "https://emdc-backend-mahe5.ondigitalocean.app",
 ]
@@ -95,6 +99,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:7001",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
     # production: "https://app.example.com
 ]
 
@@ -102,9 +108,12 @@ CORS_ALLOWED_ORIGINS = [
 if DEBUG:
     CSRF_TRUSTED_ORIGINS = [
         "http://localhost:7004",
+        "http://localhost:7001",  # Frontend in Docker
         "http://127.0.0.1:7001",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
     ]
 else:
     csrf_origins_str = os.getenv('CSRF_TRUSTED_ORIGINS', '')

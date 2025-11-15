@@ -121,48 +121,38 @@ def edit_judge(request):
     try:
         judge = get_object_or_404(Judge, id=request.data["id"])
 
-        # current cluster (before any change)
-        current_cluster_mapping = MapJudgeToCluster.objects.filter(judgeid=judge.id).first()
-        current_cluster_id = current_cluster_mapping.clusterid if current_cluster_mapping else None
+        cluster_entries = request.data.get("clusters")
+        if cluster_entries and isinstance(cluster_entries, list):
+            cluster_payloads = cluster_entries
+        else:
+            cluster_payloads = [{
+                "clusterid": request.data.get("clusterid"),
+                "contestid": request.data.get("contestid"),
+                "presentation": request.data.get("presentation", False),
+                "journal": request.data.get("journal", False),
+                "mdo": request.data.get("mdo", False),
+                "runpenalties": request.data.get("runpenalties", False),
+                "otherpenalties": request.data.get("otherpenalties", False),
+                "redesign": request.data.get("redesign", False),
+                "championship": request.data.get("championship", False),
+            }]
 
-        # -------------------- ADDED: proactive cleanup of duplicate mappings --------------------
-        with transaction.atomic():  # ADDED
-            # wipe any stray/duplicate judge↔cluster rows for this judge       # ADDED
-            MapJudgeToCluster.objects.filter(judgeid=judge.id).exclude(        # ADDED
-                id=getattr(current_cluster_mapping, "id", None)               # ADDED
-            ).delete()                                                         # ADDED
-            # wipe any stray/duplicate user-role rows for this judge (role=3)  # ADDED
-            MapUserToRole.objects.filter(role=3, relatedid=judge.id).exclude(  # ADDED
-                uuid__in=MapUserToRole.objects.filter(relatedid=judge.id, role=3).values("uuid")  # ADDED
-            )                                                                   # ADDED
-        # ----------------------------------------------------------------------------------------
-
-        # incoming fields
         new_first_name = request.data["first_name"]
         new_last_name = request.data["last_name"]
         new_phone_number = request.data["phone_number"]
-        new_presentation = request.data["presentation"]
-        new_mdo = request.data["mdo"]
-        new_journal = request.data["journal"]
-        new_runpenalties = request.data["runpenalties"]
-        new_otherpenalties = request.data["otherpenalties"]
-        new_redesign = request.data.get("redesign", False)
-        new_championship = request.data.get("championship", False)
-        new_cluster = request.data["clusterid"]
         new_username = request.data["username"]
         new_role = request.data["role"]
 
+        updated_cluster_ids = []
+
         with transaction.atomic():
-            # user tied to this judge via MapUserToRole
             user_mapping = MapUserToRole.objects.get(role=3, relatedid=judge.id)
             user = get_object_or_404(User, id=user_mapping.uuid)
 
-            # Track sensitive changes to invalidate sessions if needed
             username_changed = (user.username != new_username)
             role_changed = (new_role != judge.role)
 
             if username_changed:
-                # Strictly validate email format and uniqueness for username
                 try:
                     validate_email(new_username)
                 except DjangoValidationError:
@@ -173,181 +163,72 @@ def edit_judge(request):
                 user.save()
             user_serializer = UserSerializer(instance=user)
 
-            # Update judge basic fields
-            if new_first_name != judge.first_name:
-                judge.first_name = new_first_name
-            if new_last_name != judge.last_name:
-                judge.last_name = new_last_name
-            if new_phone_number != judge.phone_number:
-                judge.phone_number = new_phone_number
-            if new_role != judge.role:
-                judge.role = new_role
-
-            # detect changes that require sheet recreation
-            cluster_changed = (current_cluster_id != new_cluster)
-            scoresheet_types_changed = (
-                judge.presentation != new_presentation or
-                judge.journal != new_journal or
-                judge.mdo != new_mdo or
-                judge.runpenalties != new_runpenalties or
-                judge.otherpenalties != new_otherpenalties or
-                getattr(judge, "redesign", False) != new_redesign or
-                getattr(judge, "championship", False) != new_championship
-            )
-
-            # -------------------- ADDED: ensure sheets exist in target cluster --------------------
-            # If there are teams in the target cluster but no mappings for this judge, we’ll (re)create sheets.
-            missing_scoresheets = False  # ADDED
-            try:  # ADDED
-                from ..models import MapClusterToTeam  # local import to avoid changing header  # ADDED
-                team_ids = list(                                                             # ADDED
-                    MapClusterToTeam.objects.filter(clusterid=new_cluster)                   # ADDED
-                    .values_list("teamid", flat=True)                                        # ADDED
-                )
-                if team_ids:  # teams exist in target cluster                                 # ADDED
-                    any_mapping = MapScoresheetToTeamJudge.objects.filter(                   # ADDED
-                        judgeid=judge.id, teamid__in=team_ids                                 # ADDED
-                    ).exists()                                                                # ADDED
-                    missing_scoresheets = not any_mapping                                     # ADDED
-            except Exception:  # keep silent if anything unusual                              # ADDED
-                missing_scoresheets = False                                                  # ADDED
-            # ------------------------------------------------------------------------------------
-
-            clusterid = current_cluster_id
-
-            if cluster_changed:
-                # delete old cluster’s sheets for this judge using CURRENT flags
-                if current_cluster_id is not None:
-                    delete_sheets_for_teams_in_cluster(
-                        judge.id,
-                        current_cluster_id,
-                        judge.presentation,
-                        judge.journal,
-                        judge.mdo,
-                        judge.runpenalties,
-                        judge.otherpenalties,
-                        getattr(judge, "redesign", False),
-                        getattr(judge, "championship", False),
-                    )
-
-                # switch mapping to new cluster
-                if current_cluster_mapping:
-                    delete_cluster_judge_mapping(current_cluster_mapping.clusterid, judge.id)
-                map_cluster_to_judge({"judgeid": judge.id, "clusterid": new_cluster})
-                clusterid = new_cluster
-
-                # create fresh sheets in new cluster using NEW flags
-                create_sheets_for_teams_in_cluster(
-                    judge.id,
-                    new_cluster,
-                    new_presentation,
-                    new_journal,
-                    new_mdo,
-                    new_runpenalties,
-                    new_otherpenalties,
-                    new_redesign,
-                    new_championship,
-                )
-
-                # update booleans to new values
-                judge.presentation = new_presentation
-                judge.mdo = new_mdo
-                judge.journal = new_journal
-                judge.runpenalties = new_runpenalties
-                judge.otherpenalties = new_otherpenalties
-                if hasattr(judge, "redesign"):
-                    judge.redesign = new_redesign
-                if hasattr(judge, "championship"):
-                    judge.championship = new_championship
-
-            else:
-                # Same cluster: selectively add/remove sheets per flag
-                clusterid = current_cluster_id or new_cluster
-
-                # presentation
-                if new_presentation != judge.presentation and new_presentation is False:
-                    delete_sheets_for_teams_in_cluster(judge.id, clusterid, True, False, False, False, False, False, False)
-                    judge.presentation = False
-                elif new_presentation != judge.presentation and new_presentation is True:
-                    create_sheets_for_teams_in_cluster(judge.id, clusterid, True, False, False, False, False, False, False)
-                    judge.presentation = True
-
-                # journal
-                if new_journal != judge.journal and new_journal is False:
-                    delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, True, False, False, False, False, False)
-                    judge.journal = False
-                elif new_journal != judge.journal and new_journal is True:
-                    create_sheets_for_teams_in_cluster(judge.id, clusterid, False, True, False, False, False, False, False)
-                    judge.journal = True
-
-                # mdo
-                if new_mdo != judge.mdo and new_mdo is False:
-                    delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, True, False, False, False, False)
-                    judge.mdo = False
-                elif new_mdo != judge.mdo and new_mdo is True:
-                    create_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, True, False, False, False, False)
-                    judge.mdo = True
-
-                # run penalties
-                if new_runpenalties != judge.runpenalties and new_runpenalties is False:
-                    delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, True, False, False, False)
-                    judge.runpenalties = False
-                elif new_runpenalties != judge.runpenalties and new_runpenalties is True:
-                    create_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, True, False, False, False)
-                    judge.runpenalties = True
-
-                # other penalties
-                if new_otherpenalties != judge.otherpenalties and new_otherpenalties is False:
-                    delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, False, True, False, False)
-                    judge.otherpenalties = False
-                elif new_otherpenalties != judge.otherpenalties and new_otherpenalties is True:
-                    create_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, False, True, False, False)
-                    judge.otherpenalties = True
-
-                # redesign
-                if hasattr(judge, "redesign"):
-                    if new_redesign != judge.redesign and new_redesign is False:
-                        delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, False, False, True, False)
-                        judge.redesign = False
-                    elif new_redesign != judge.redesign and new_redesign is True:
-                        create_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, False, False, True, False)
-                        judge.redesign = True
-
-                # championship
-                if hasattr(judge, "championship"):
-                    if new_championship != judge.championship and new_championship is False:
-                        delete_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, False, False, False, True)
-                        judge.championship = False
-                    elif new_championship != judge.championship and new_championship is True:
-                        create_sheets_for_teams_in_cluster(judge.id, clusterid, False, False, False, False, False, False, True)
-                        judge.championship = True
-
-                # keep mapping intact but ensure it exists
-                if not MapJudgeToCluster.objects.filter(judgeid=judge.id, clusterid=clusterid).exists():
-                    map_cluster_to_judge({"judgeid": judge.id, "clusterid": clusterid})
-
-                # -------------------- ADDED: if sheets are simply missing, create them --------------------
-                if missing_scoresheets:  # ADDED
-                    create_sheets_for_teams_in_cluster(                   # ADDED
-                        judge.id,                                        # ADDED
-                        clusterid,                                       # ADDED
-                        new_presentation, new_journal, new_mdo,          # ADDED
-                        new_runpenalties, new_otherpenalties,            # ADDED
-                        new_redesign, new_championship,                  # ADDED
-                    )                                                    # ADDED
-                # -----------------------------------------------------------------------------------------
-
-            # -------------------- ADDED: ensure contest↔judge mapping exists --------------------
-            try:  # ADDED
-                if not MapContestToJudge.objects.filter(judgeid=judge.id, contestid=judge.contestid).exists():  # ADDED
-                    create_contest_to_judge_map({ "contestid": judge.contestid, "judgeid": judge.id })          # ADDED
-            except Exception:
-                pass
-            # ------------------------------------------------------------------------------------
-
+            judge.first_name = new_first_name
+            judge.last_name = new_last_name
+            judge.phone_number = new_phone_number
+            judge.role = new_role
             judge.save()
 
-            # If sensitive identity/permission changed, invalidate existing sessions for this user
+            for payload in cluster_payloads:
+                cluster_id = payload.get("clusterid")
+                if not cluster_id:
+                    continue
+
+                contest_id = payload.get("contestid") or judge.contestid
+                presentation = payload.get("presentation", False)
+                journal = payload.get("journal", False)
+                mdo = payload.get("mdo", False)
+                runpenalties = payload.get("runpenalties", False)
+                otherpenalties = payload.get("otherpenalties", False)
+                redesign = payload.get("redesign", False)
+                championship = payload.get("championship", False)
+
+                existing_assignment = MapJudgeToCluster.objects.filter(judgeid=judge.id, clusterid=cluster_id).first()
+                if existing_assignment:
+                    delete_sheets_for_teams_in_cluster(
+                        judge.id,
+                        cluster_id,
+                        existing_assignment.presentation,
+                        existing_assignment.journal,
+                        existing_assignment.mdo,
+                        existing_assignment.runpenalties,
+                        existing_assignment.otherpenalties,
+                        existing_assignment.redesign,
+                        existing_assignment.championship,
+                    )
+
+                map_cluster_to_judge({
+                    "judgeid": judge.id,
+                    "clusterid": cluster_id,
+                    "contestid": contest_id,
+                    "presentation": presentation,
+                    "journal": journal,
+                    "mdo": mdo,
+                    "runpenalties": runpenalties,
+                    "otherpenalties": otherpenalties,
+                    "redesign": redesign,
+                    "championship": championship,
+                })
+
+                create_sheets_for_teams_in_cluster(
+                    judge.id,
+                    cluster_id,
+                    presentation,
+                    journal,
+                    mdo,
+                    runpenalties,
+                    otherpenalties,
+                    redesign,
+                    championship,
+                )
+
+                if contest_id and not MapContestToJudge.objects.filter(judgeid=judge.id, contestid=contest_id).exists():
+                    create_contest_to_judge_map({"contestid": contest_id, "judgeid": judge.id})
+
+                updated_cluster_ids.append(cluster_id)
+
+            sync_judge_sheet_flags(judge.id)
+
             if username_changed or role_changed:
                 _delete_user_sessions(user.id)
 
@@ -356,7 +237,7 @@ def edit_judge(request):
     except Exception as e:
         raise ValidationError({"detail": str(e)})
 
-    return Response({"judge": serializer.data, "clusterid": clusterid, "user": user_serializer.data}, status=status.HTTP_200_OK)
+    return Response({"judge": serializer.data, "clusterids": updated_cluster_ids, "user": user_serializer.data}, status=status.HTTP_200_OK)
 
 
 @api_view(["DELETE"])
@@ -509,6 +390,43 @@ def judge_disqualify_team(request):
     team.judge_disqualified = request.data["judge_disqualified"]
     team.save()
     return Response(status=status.HTTP_200_OK)
+
+
+def sync_judge_sheet_flags(judge_id):
+    """
+    Sync the judge's global sheet flags based on all their cluster assignments.
+    A sheet flag should be True if the judge has that sheet type enabled in ANY of their cluster assignments.
+    """
+    try:
+        judge = Judge.objects.get(id=judge_id)
+
+        # Get all cluster assignments for this judge
+        assignments = MapJudgeToCluster.objects.filter(judgeid=judge_id)
+
+        # Aggregate all sheet types across all assignments
+        has_presentation = assignments.filter(presentation=True).exists()
+        has_journal = assignments.filter(journal=True).exists()
+        has_mdo = assignments.filter(mdo=True).exists()
+        has_runpenalties = assignments.filter(runpenalties=True).exists()
+        has_otherpenalties = assignments.filter(otherpenalties=True).exists()
+        has_redesign = assignments.filter(redesign=True).exists()
+        has_championship = assignments.filter(championship=True).exists()
+
+        # Update judge flags
+        judge.presentation = has_presentation
+        judge.journal = has_journal
+        judge.mdo = has_mdo
+        judge.runpenalties = has_runpenalties
+        judge.otherpenalties = has_otherpenalties
+        judge.redesign = has_redesign
+        judge.championship = has_championship
+        judge.save()
+
+    except Judge.DoesNotExist:
+        pass  # Judge doesn't exist, nothing to sync
+    except Exception as e:
+        # Log error but don't fail the operation
+        print(f"Error syncing judge sheet flags for judge {judge_id}: {str(e)}")
 
 
 @api_view(["GET"])

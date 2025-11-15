@@ -59,6 +59,17 @@ class Judge(models.Model):
 class MapJudgeToCluster(models.Model):
     judgeid = models.IntegerField()
     clusterid = models.IntegerField()
+    contestid = models.IntegerField(null=True, blank=True)
+    presentation = models.BooleanField(default=False)
+    mdo = models.BooleanField(default=False)
+    journal = models.BooleanField(default=False)
+    runpenalties = models.BooleanField(default=False)
+    otherpenalties = models.BooleanField(default=False)
+    redesign = models.BooleanField(default=False)
+    championship = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ("judgeid", "clusterid")
 
 
 class JudgeClusters(models.Model):

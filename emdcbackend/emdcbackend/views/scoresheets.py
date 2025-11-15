@@ -431,6 +431,9 @@ def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journ
         created_score_sheets = []
 
         for team in teams_in_cluster:
+            # Check if team has advanced to championship
+            # If advanced, skip creating preliminary scoresheets (1-5) - only create championship/redesign
+            team_has_advanced = getattr(team, 'advanced_to_championship', False)
             
             # Check for existing scoresheets to prevent duplicates
             existing_mappings = MapScoresheetToTeamJudge.objects.filter(
@@ -438,7 +441,8 @@ def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journ
                 judgeid=judge_id
             )
             
-            if runpenalties:
+            # Skip preliminary scoresheets (1-5) if team has advanced
+            if runpenalties and not team_has_advanced:
                 # Check if runpenalties scoresheet already exists
                 existing_runpenalties = existing_mappings.filter(sheetType=4).exists()
                 if not existing_runpenalties:
@@ -457,7 +461,7 @@ def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journ
                         raise ValidationError(map_serializer.errors)
                 else:
                     pass
-            if otherpenalties:
+            if otherpenalties and not team_has_advanced:
                 # Check if otherpenalties scoresheet already exists
                 existing_otherpenalties = existing_mappings.filter(sheetType=5).exists()
                 if not existing_otherpenalties:
@@ -476,7 +480,7 @@ def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journ
                         raise ValidationError(map_serializer.errors)
                 else:
                     pass
-            if presentation:
+            if presentation and not team_has_advanced:
                 # Check if presentation scoresheet already exists
                 existing_presentation = existing_mappings.filter(sheetType=1).exists()
                 if not existing_presentation:
@@ -495,7 +499,7 @@ def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journ
                         raise ValidationError(map_serializer.errors)
                 else:
                     pass
-            if journal:
+            if journal and not team_has_advanced:
                 # Check if journal scoresheet already exists
                 existing_journal = existing_mappings.filter(sheetType=2).exists()
                 if not existing_journal:
@@ -533,7 +537,7 @@ def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journ
                         raise ValidationError(map_serializer.errors)
                 else:
                     pass
-            if mdo:
+            if mdo and not team_has_advanced:
                 # Check if MDO scoresheet already exists
                 existing_mdo = existing_mappings.filter(sheetType=3).exists()
                 if not existing_mdo:
@@ -584,33 +588,37 @@ def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journ
 
 def create_score_sheets_for_team(team, judges):
     created_score_sheets = []
+    # Check if team has advanced to championship
+    team_has_advanced = getattr(team, 'advanced_to_championship', False)
+    
     for judge in judges:
         # Create score sheets for each type (Presentation, Journal, Machine Design, Penalties) based on the judge's role
-        if judge.presentation:
+        # Skip preliminary scoresheets (1-5) if team has advanced - only create championship/redesign
+        if judge.presentation and not team_has_advanced:
             score_sheet = create_base_score_sheet(ScoresheetEnum.PRESENTATION)
             MapScoresheetToTeamJudge.objects.create(
                 teamid=team.id, judgeid=judge.id, scoresheetid=score_sheet.id, sheetType=ScoresheetEnum.PRESENTATION
             )
             created_score_sheets.append(score_sheet)
-        if judge.journal:
+        if judge.journal and not team_has_advanced:
             score_sheet = create_base_score_sheet(ScoresheetEnum.JOURNAL)
             MapScoresheetToTeamJudge.objects.create(
                 teamid=team.id, judgeid=judge.id, scoresheetid=score_sheet.id, sheetType=ScoresheetEnum.JOURNAL
             )
             created_score_sheets.append(score_sheet)
-        if judge.mdo:
+        if judge.mdo and not team_has_advanced:
             score_sheet = create_base_score_sheet(ScoresheetEnum.MACHINEDESIGN)
             MapScoresheetToTeamJudge.objects.create(
                 teamid=team.id, judgeid=judge.id, scoresheetid=score_sheet.id, sheetType=ScoresheetEnum.MACHINEDESIGN
             )
             created_score_sheets.append(score_sheet)
-        if judge.runpenalties:
+        if judge.runpenalties and not team_has_advanced:
             score_sheet = create_base_score_sheet_runpenalties()
             MapScoresheetToTeamJudge.objects.create(
                 teamid=team.id, judgeid=judge.id, scoresheetid=score_sheet.id, sheetType=ScoresheetEnum.RUNPENALTIES
             )
             created_score_sheets.append(score_sheet)
-        if judge.otherpenalties:
+        if judge.otherpenalties and not team_has_advanced:
             score_sheet = create_base_score_sheet_otherpenalties()
             MapScoresheetToTeamJudge.objects.create(
                 teamid=team.id, judgeid=judge.id, scoresheetid=score_sheet.id, sheetType=ScoresheetEnum.OTHERPENALTIES
@@ -726,12 +734,20 @@ def delete_sheets_for_teams_in_cluster(judge_id, cluster_id,  presentation, jour
 def make_sheets_for_team(teamid, clusterid):
     created_score_sheets = []
     try:
+        # Get the team to check if it has advanced
+        try:
+            team = Teams.objects.get(id=teamid)
+            team_has_advanced = getattr(team, 'advanced_to_championship', False)
+        except Teams.DoesNotExist:
+            team_has_advanced = False
+        
         judges = MapJudgeToCluster.objects.filter(clusterid=clusterid)  # get list of judge mappings
         for judge_map in judges:
             # Create score sheets for each type (Presentation, Journal, Machine Design, Run Penalties, Other Penalties) based on the judge's role
             judge = Judge.objects.get(id=judge_map.judgeid)  # get judge from judge mapping
             
-            if judge.presentation:
+            # Skip preliminary scoresheets (1-5) if team has advanced - only create championship/redesign
+            if judge.presentation and not team_has_advanced:
                 sheet = create_base_score_sheet(1)
                 map_data = {"teamid": teamid, "judgeid": judge.id, "scoresheetid": sheet.id, "sheetType": 1}
                 map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
@@ -745,7 +761,7 @@ def make_sheets_for_team(teamid, clusterid):
                     })
                 else:
                     raise ValidationError(map_serializer.errors)
-            if judge.journal:
+            if judge.journal and not team_has_advanced:
                 sheet = create_base_score_sheet(2)
                 map_data = {"teamid": teamid, "judgeid": judge.id, "scoresheetid": sheet.id, "sheetType": 2}
                 map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
@@ -759,7 +775,7 @@ def make_sheets_for_team(teamid, clusterid):
                     })
                 else:
                     raise ValidationError(map_serializer.errors)
-            if judge.mdo:
+            if judge.mdo and not team_has_advanced:
                 sheet = create_base_score_sheet(3)
                 map_data = {"teamid": teamid, "judgeid": judge.id, "scoresheetid": sheet.id, "sheetType": 3}
                 map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
@@ -773,24 +789,34 @@ def make_sheets_for_team(teamid, clusterid):
                     })
                 else:
                     raise ValidationError(map_serializer.errors)
-        if judge.runpenalties:
-            sheet = create_base_score_sheet_runpenalties()
-            map_data = {"teamid": teamid, "judgeid": judge.id, "scoresheetid": sheet.id, "sheetType": 4}
-            map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
-            if map_serializer.is_valid():
-                map_serializer.save()
-                created_score_sheets.append({
-                    "team_id": teamid,
-                    "judge_id": judge.id,
-                    "scoresheet_id": sheet.id,
-                    "sheetType": 4
-                })
-        if judge.otherpenalties:
-            sheet = create_base_score_sheet_otherpenalties()
-            map_data = {"teamid": teamid, "judgeid": judge.id, "scoresheetid": sheet.id, "sheetType": 5}
-            map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
-            if map_serializer.is_valid():
-                map_serializer.save()
+            if judge.runpenalties and not team_has_advanced:
+                sheet = create_base_score_sheet_runpenalties()
+                map_data = {"teamid": teamid, "judgeid": judge.id, "scoresheetid": sheet.id, "sheetType": 4}
+                map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
+                if map_serializer.is_valid():
+                    map_serializer.save()
+                    created_score_sheets.append({
+                        "team_id": teamid,
+                        "judge_id": judge.id,
+                        "scoresheet_id": sheet.id,
+                        "sheetType": 4
+                    })
+                else:
+                    raise ValidationError(map_serializer.errors)
+            if judge.otherpenalties and not team_has_advanced:
+                sheet = create_base_score_sheet_otherpenalties()
+                map_data = {"teamid": teamid, "judgeid": judge.id, "scoresheetid": sheet.id, "sheetType": 5}
+                map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
+                if map_serializer.is_valid():
+                    map_serializer.save()
+                    created_score_sheets.append({
+                        "team_id": teamid,
+                        "judge_id": judge.id,
+                        "scoresheet_id": sheet.id,
+                        "sheetType": 5
+                    })
+                else:
+                    raise ValidationError(map_serializer.errors)
                 created_score_sheets.append({
                     "team_id": teamid,
                     "judge_id": judge.id,
@@ -1357,8 +1383,20 @@ def create_scoresheets_for_judges_in_cluster(cluster_id):
     """
     Create scoresheets for all judges in a cluster when teams are added.
     This is called after teams are moved to championship/redesign clusters.
+    
+    IMPORTANT: Only creates scoresheets appropriate for the cluster type:
+    - Championship clusters: ONLY championship scoresheets (type 7)
+    - Redesign clusters: ONLY redesign scoresheets (type 6)
+    - Preliminary clusters: All scoresheets based on judge flags
     """
     try:
+        # Get the cluster to check its type
+        from ..models import JudgeClusters
+        try:
+            cluster = JudgeClusters.objects.get(id=cluster_id)
+            cluster_type = getattr(cluster, 'cluster_type', 'preliminary')
+        except JudgeClusters.DoesNotExist:
+            cluster_type = 'preliminary'
         
         # Get all judges in this cluster
         judge_mappings = MapJudgeToCluster.objects.filter(clusterid=cluster_id)
@@ -1378,19 +1416,48 @@ def create_scoresheets_for_judges_in_cluster(cluster_id):
             try:
                 judge = Judge.objects.get(id=judge_mapping.judgeid)
                 
-                # Create scoresheets for this judge and all teams in the cluster
-                
-                sheets = create_sheets_for_teams_in_cluster(
-                    judge.id,
-                    cluster_id,
-                    judge.presentation,
-                    judge.journal,
-                    judge.mdo,
-                    judge.runpenalties,
-                    judge.otherpenalties,
-                    judge.redesign,
-                    judge.championship
-                )
+                # Determine which scoresheets to create based on cluster type
+                if cluster_type == 'championship':
+                    # Championship clusters: ONLY create championship scoresheets (type 7)
+                    # Do NOT create any preliminary scoresheets (1-5) or redesign (6)
+                    sheets = create_sheets_for_teams_in_cluster(
+                        judge.id,
+                        cluster_id,
+                        False,  # presentation
+                        False,  # journal
+                        False,  # mdo
+                        False,  # runpenalties
+                        False,  # otherpenalties
+                        False,  # redesign
+                        True    # championship ONLY
+                    )
+                elif cluster_type == 'redesign':
+                    # Redesign clusters: ONLY create redesign scoresheets (type 6)
+                    # Do NOT create any preliminary scoresheets (1-5) or championship (7)
+                    sheets = create_sheets_for_teams_in_cluster(
+                        judge.id,
+                        cluster_id,
+                        False,  # presentation
+                        False,  # journal
+                        False,  # mdo
+                        False,  # runpenalties
+                        False,  # otherpenalties
+                        True,   # redesign ONLY
+                        False   # championship
+                    )
+                else:
+                    # Preliminary clusters: create all scoresheets based on judge flags
+                    sheets = create_sheets_for_teams_in_cluster(
+                        judge.id,
+                        cluster_id,
+                        judge.presentation,
+                        judge.journal,
+                        judge.mdo,
+                        judge.runpenalties,
+                        judge.otherpenalties,
+                        judge.redesign,
+                        judge.championship
+                    )
                 
                 created_scoresheets.extend(sheets)
                 

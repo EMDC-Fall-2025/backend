@@ -39,8 +39,24 @@ def judges_by_cluster_id(request, cluster_id):
     judges = Judge.objects.filter(id__in=judge_ids)
 
     serializer = JudgeSerializer(judges, many=True)
+    judge_data = serializer.data
 
-    return Response({"Judges": serializer.data}, status=status.HTTP_200_OK)
+    assignment_map = {assignment.judgeid: assignment for assignment in mappings}
+
+    for entry in judge_data:
+        assignment = assignment_map.get(entry["id"])
+        if assignment:
+            entry["cluster_sheet_flags"] = {
+                "presentation": assignment.presentation,
+                "journal": assignment.journal,
+                "mdo": assignment.mdo,
+                "runpenalties": assignment.runpenalties,
+                "otherpenalties": assignment.otherpenalties,
+                "redesign": assignment.redesign,
+                "championship": assignment.championship,
+            }
+
+    return Response({"Judges": judge_data}, status=status.HTTP_200_OK)
 
 
 @api_view(["GET"])
@@ -101,19 +117,32 @@ def all_clusters_by_judge_id(request, judge_id):
         
         serializer = JudgeClustersSerializer(clusters, many=True)
         cluster_data = serializer.data
-        
-        # Add contest information to each cluster
+
+        assignment_map = {
+            (assignment.clusterid): assignment
+            for assignment in MapJudgeToCluster.objects.filter(judgeid=judge_id, clusterid__in=cluster_ids)
+        }
+
+        # Add contest information and sheet flags to each cluster
         for cluster in cluster_data:
             try:
                 contest_mapping = MapContestToCluster.objects.filter(clusterid=cluster['id']).first()
-                if contest_mapping:
-                    cluster['contest_id'] = contest_mapping.contestid
-                else:
-                    cluster['contest_id'] = None
-            except Exception as e:
+                cluster['contest_id'] = contest_mapping.contestid if contest_mapping else None
+            except Exception:
                 cluster['contest_id'] = None
-        
-        
+
+            assignment = assignment_map.get(cluster["id"])
+            if assignment:
+                cluster["sheet_flags"] = {
+                    "presentation": assignment.presentation,
+                    "journal": assignment.journal,
+                    "mdo": assignment.mdo,
+                    "runpenalties": assignment.runpenalties,
+                    "otherpenalties": assignment.otherpenalties,
+                    "redesign": assignment.redesign,
+                    "championship": assignment.championship,
+                }
+
         return Response({"Clusters": cluster_data}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -175,22 +204,38 @@ def delete_cluster_judge_mapping_by_id(request, map_id):
 
 
 def map_cluster_to_judge(map_data):
-    # Check for existing mappings to prevent duplicates
-    existing = MapJudgeToCluster.objects.filter(
-        judgeid=map_data["judgeid"],
-        clusterid=map_data["clusterid"]
+    judgeid = map_data["judgeid"]
+    clusterid = map_data["clusterid"]
+    contestid = map_data.get("contestid")
+
+    if contestid is None:
+        contest_mapping = MapContestToCluster.objects.filter(clusterid=clusterid).first()
+        contestid = contest_mapping.contestid if contest_mapping else None
+
+    defaults = {
+        "contestid": contestid,
+        "presentation": map_data.get("presentation", False),
+        "journal": map_data.get("journal", False),
+        "mdo": map_data.get("mdo", False),
+        "runpenalties": map_data.get("runpenalties", False),
+        "otherpenalties": map_data.get("otherpenalties", False),
+        "redesign": map_data.get("redesign", False),
+        "championship": map_data.get("championship", False),
+    }
+
+    assignment, created = MapJudgeToCluster.objects.get_or_create(
+        judgeid=judgeid,
+        clusterid=clusterid,
+        defaults=defaults
     )
-    if existing.exists():
-        # Return existing mapping data instead of creating duplicate
-        serializer = ClusterToJudgeSerializer(existing.first())
-        return serializer.data
-    
-    serializer = ClusterToJudgeSerializer(data=map_data)
-    if serializer.is_valid():
-        serializer.save()
-        return serializer.data
-    else:
-        raise ValidationError(serializer.errors)
+
+    if not created:
+        for field, value in defaults.items():
+            setattr(assignment, field, value)
+        assignment.save()
+
+    serializer = ClusterToJudgeSerializer(instance=assignment)
+    return serializer.data
     
 
 def delete_cluster_judge_mapping(cluster_id: int, judge_id: int):

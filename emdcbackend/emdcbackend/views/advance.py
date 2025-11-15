@@ -134,14 +134,21 @@ def advance_to_championship(request):
         from ..models import MapJudgeToCluster, Judge
         
         # Update judges in championship cluster to have championship=True
+        # IMPORTANT: Update both Judge model AND MapJudgeToCluster mapping
+        # The frontend checks MapJudgeToCluster.championship via sheet_flags
         championship_judge_mappings = MapJudgeToCluster.objects.filter(clusterid=championship_cluster.id)
         
         for mapping in championship_judge_mappings:
             try:
                 judge = Judge.objects.get(id=mapping.judgeid)
+                # Update Judge model
                 if not judge.championship:
                     judge.championship = True
                     judge.save()
+                # Update MapJudgeToCluster mapping (this is what the frontend checks)
+                if not mapping.championship:
+                    mapping.championship = True
+                    mapping.save()
             except Judge.DoesNotExist:
                 continue
         
@@ -150,9 +157,14 @@ def advance_to_championship(request):
         for mapping in redesign_judge_mappings:
             try:
                 judge = Judge.objects.get(id=mapping.judgeid)
+                # Update Judge model
                 if not judge.redesign:
                     judge.redesign = True
                     judge.save()
+                # Update MapJudgeToCluster mapping (this is what the frontend checks)
+                if not mapping.redesign:
+                    mapping.redesign = True
+                    mapping.save()
             except Judge.DoesNotExist:
                 continue
         
@@ -263,28 +275,31 @@ def undo_championship_advancement(request):
         if redesign_cluster:
             MapClusterToTeam.objects.filter(clusterid=redesign_cluster.id).delete()
         
-        # 4.5. Delete championship/redesign scoresheets
+        # 4.5. Delete championship/redesign scoresheets ONLY for teams in this contest
+        # This ensures we don't delete scoresheets from other contests
         if championship_cluster:
             # Get all judges in championship cluster
             championship_judges = MapJudgeToCluster.objects.filter(clusterid=championship_cluster.id)
-            for judge_mapping in championship_judges:
-                # Delete championship scoresheets (type 7) for this judge
-                championship_scoresheets = MapScoresheetToTeamJudge.objects.filter(
-                    judgeid=judge_mapping.judgeid,
+            championship_judge_ids = [m.judgeid for m in championship_judges]
+            if championship_judge_ids:
+                # Only delete championship scoresheets (type 7) for teams in this contest
+                MapScoresheetToTeamJudge.objects.filter(
+                    judgeid__in=championship_judge_ids,
+                    teamid__in=contest_team_ids,
                     sheetType=7  # championship
-                )
-                championship_scoresheets.delete()
+                ).delete()
         
         if redesign_cluster:
             # Get all judges in redesign cluster
             redesign_judges = MapJudgeToCluster.objects.filter(clusterid=redesign_cluster.id)
-            for judge_mapping in redesign_judges:
-                # Delete redesign scoresheets (type 6) for this judge
-                redesign_scoresheets = MapScoresheetToTeamJudge.objects.filter(
-                    judgeid=judge_mapping.judgeid,
+            redesign_judge_ids = [m.judgeid for m in redesign_judges]
+            if redesign_judge_ids:
+                # Only delete redesign scoresheets (type 6) for teams in this contest
+                MapScoresheetToTeamJudge.objects.filter(
+                    judgeid__in=redesign_judge_ids,
+                    teamid__in=contest_team_ids,
                     sheetType=6  # redesign
-                )
-                redesign_scoresheets.delete()
+                ).delete()
         
         # 5. Restore preliminary scores and reset team flags
         for team_id in contest_team_ids:
@@ -322,9 +337,72 @@ def undo_championship_advancement(request):
             # Assign teams to the first preliminary cluster found
             main_cluster = preliminary_clusters[0]
             for team_id in contest_team_ids:
-                MapClusterToTeam.objects.create(clusterid=main_cluster.id, teamid=team_id)
+                # Check if mapping already exists to avoid duplicates
+                if not MapClusterToTeam.objects.filter(clusterid=main_cluster.id, teamid=team_id).exists():
+                    MapClusterToTeam.objects.create(clusterid=main_cluster.id, teamid=team_id)
+            
+            # Recreate preliminary scoresheets if they don't exist
+            # This ensures scoresheets are available even if they were deleted somehow
+            # The function checks for existing scoresheets before creating, so it's safe
+            from .scoresheets import create_scoresheets_for_judges_in_cluster
+            try:
+                created_sheets = create_scoresheets_for_judges_in_cluster(main_cluster.id)
+                # Log for debugging (can be removed in production)
+                print(f"[Undo Championship] Created {len(created_sheets)} scoresheets for cluster {main_cluster.id}")
+            except Exception as e:
+                # Log error but don't fail the entire operation
+                print(f"[Undo Championship] Error creating scoresheets: {str(e)}")
         
-        # 7. Recompute totals and ranks
+        # 7. Reset judge championship/redesign flags for this contest's clusters
+        # This ensures the frontend correctly detects that judges no longer have championship assignments
+        # and re-enables multi-scoring for this contest
+        from ..models import MapJudgeToCluster, Judge
+        
+        if championship_cluster:
+            # Reset championship flags for judges in this contest's championship cluster
+            championship_judge_mappings = MapJudgeToCluster.objects.filter(clusterid=championship_cluster.id)
+            for mapping in championship_judge_mappings:
+                mapping.championship = False
+                mapping.save()
+                
+                # Check if judge has any other championship assignments in other contests
+                # If not, reset the Judge model's championship flag
+                try:
+                    judge = Judge.objects.get(id=mapping.judgeid)
+                    other_championship_mappings = MapJudgeToCluster.objects.filter(
+                        judgeid=judge.id,
+                        championship=True
+                    ).exclude(clusterid=championship_cluster.id)
+                    
+                    if not other_championship_mappings.exists():
+                        judge.championship = False
+                        judge.save()
+                except Judge.DoesNotExist:
+                    continue
+        
+        if redesign_cluster:
+            # Reset redesign flags for judges in this contest's redesign cluster
+            redesign_judge_mappings = MapJudgeToCluster.objects.filter(clusterid=redesign_cluster.id)
+            for mapping in redesign_judge_mappings:
+                mapping.redesign = False
+                mapping.save()
+                
+                # Check if judge has any other redesign assignments in other contests
+                # If not, reset the Judge model's redesign flag
+                try:
+                    judge = Judge.objects.get(id=mapping.judgeid)
+                    other_redesign_mappings = MapJudgeToCluster.objects.filter(
+                        judgeid=judge.id,
+                        redesign=True
+                    ).exclude(clusterid=redesign_cluster.id)
+                    
+                    if not other_redesign_mappings.exists():
+                        judge.redesign = False
+                        judge.save()
+                except Judge.DoesNotExist:
+                    continue
+        
+        # 8. Recompute totals and ranks
         recompute_totals_and_ranks(contest_id)
         
         return Response({

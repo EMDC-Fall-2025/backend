@@ -86,31 +86,138 @@ def edit_contest(request):
 @api_view(["DELETE"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
-def delete_contest(request,contest_id):
-  try:
-    contest = get_object_or_404(Contest, id=contest_id)
+def delete_contest(request, contest_id):
+    """
+    Delete a contest and ALL data exclusively tied to that contest.
     
-    # Clean up all mappings before deleting the contest
-    from ..models import MapContestToJudge, MapContestToTeam, MapContestToOrganizer, MapContestToCluster
+    IMPORTANT: Only deletes data for this specific contest_id.
+    Does NOT delete data from other contests.
     
-    # Delete all mappings related to this contest
-    judge_mappings = MapContestToJudge.objects.filter(contestid=contest_id)
-    team_mappings = MapContestToTeam.objects.filter(contestid=contest_id)
-    organizer_mappings = MapContestToOrganizer.objects.filter(contestid=contest_id)
-    cluster_mappings = MapContestToCluster.objects.filter(contestid=contest_id)
-    
-    
-    # Delete all mappings
-    judge_mappings.delete()
-    team_mappings.delete()
-    organizer_mappings.delete()
-    cluster_mappings.delete()
-    
-    # Now delete the contest
-    contest.delete()
-    
-    return Response({"detail": "Contest and all associated mappings deleted successfully."}, status=status.HTTP_200_OK)
-    
-  except Exception as e:
-    return Response({"detail": f"Error deleting contest: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    Deletes:
+    1. All judge-contest mappings (MapContestToJudge)
+    2. All judge-cluster mappings for clusters in this contest (MapJudgeToCluster)
+    3. All team-contest mappings (MapContestToTeam)
+    4. All cluster-contest mappings (MapContestToCluster)
+    5. All cluster-team mappings for clusters in this contest (MapClusterToTeam)
+    6. All scoresheets for teams in this contest (MapScoresheetToTeamJudge + Scoresheet)
+    7. All organizer-contest mappings (MapContestToOrganizer)
+    8. Teams that ONLY exist in this contest (Teams)
+    9. Clusters that ONLY exist in this contest (JudgeClusters)
+    """
+    try:
+        with transaction.atomic():
+            contest = get_object_or_404(Contest, id=contest_id)
+            
+            # Import all necessary models
+            from ..models import (
+                MapContestToJudge, MapContestToTeam, MapContestToOrganizer, MapContestToCluster,
+                MapJudgeToCluster, MapClusterToTeam, MapScoresheetToTeamJudge, Scoresheet,
+                Teams, JudgeClusters
+            )
+            
+            # Step 1: Get all clusters in this contest (STRICTLY filtered by contest_id)
+            cluster_ids = list(
+                MapContestToCluster.objects.filter(contestid=contest_id)
+                .values_list('clusterid', flat=True)
+            )
+            
+            # Step 2: Get all teams in this contest (STRICTLY filtered by contest_id)
+            team_ids = list(
+                MapContestToTeam.objects.filter(contestid=contest_id)
+                .values_list('teamid', flat=True)
+            )
+            
+            # Step 3: Get all judges in this contest (STRICTLY filtered by contest_id)
+            judge_ids = list(
+                MapContestToJudge.objects.filter(contestid=contest_id)
+                .values_list('judgeid', flat=True)
+            )
+            
+            # Step 4: Delete scoresheets for teams in this contest ONLY
+            # Get scoresheet mappings for teams in this contest
+            scoresheet_ids = []
+            if team_ids:
+                scoresheet_mappings = MapScoresheetToTeamJudge.objects.filter(
+                    teamid__in=team_ids
+                )
+                # Get scoresheet IDs to delete
+                scoresheet_ids = list(scoresheet_mappings.values_list('scoresheetid', flat=True).distinct())
+                # Delete the mappings first
+                scoresheet_mappings.delete()
+                # Then delete the scoresheets themselves
+                if scoresheet_ids:
+                    Scoresheet.objects.filter(id__in=scoresheet_ids).delete()
+            
+            # Step 5: Delete judge-cluster mappings for clusters in this contest ONLY
+            # Only delete mappings where the cluster belongs to this contest
+            if cluster_ids:
+                MapJudgeToCluster.objects.filter(clusterid__in=cluster_ids).delete()
+            
+            # Step 6: Delete cluster-team mappings for clusters in this contest ONLY
+            # Only delete mappings where the cluster belongs to this contest
+            if cluster_ids:
+                MapClusterToTeam.objects.filter(clusterid__in=cluster_ids).delete()
+            
+            # Step 7: Delete teams that ONLY exist in this contest
+            # A team should only be deleted if it's not in any other contest
+            teams_deleted_count = 0
+            if team_ids:
+                for team_id in team_ids:
+                    # Check if team exists in any other contest
+                    other_contest_mappings = MapContestToTeam.objects.filter(
+                        teamid=team_id
+                    ).exclude(contestid=contest_id)
+                    
+                    # Only delete team if it's not in any other contest
+                    if not other_contest_mappings.exists():
+                        try:
+                            team = Teams.objects.get(id=team_id)
+                            team.delete()
+                            teams_deleted_count += 1
+                        except Teams.DoesNotExist:
+                            pass
+            
+            # Step 8: Delete clusters that ONLY exist in this contest
+            # A cluster should only be deleted if it's not in any other contest
+            clusters_deleted_count = 0
+            if cluster_ids:
+                for cluster_id in cluster_ids:
+                    # Check if cluster exists in any other contest
+                    other_contest_mappings = MapContestToCluster.objects.filter(
+                        clusterid=cluster_id
+                    ).exclude(contestid=contest_id)
+                    
+                    # Only delete cluster if it's not in any other contest
+                    if not other_contest_mappings.exists():
+                        try:
+                            cluster = JudgeClusters.objects.get(id=cluster_id)
+                            cluster.delete()
+                            clusters_deleted_count += 1
+                        except JudgeClusters.DoesNotExist:
+                            pass
+            
+            # Step 9: Delete all contest mappings (STRICTLY filtered by contest_id)
+            MapContestToJudge.objects.filter(contestid=contest_id).delete()
+            MapContestToTeam.objects.filter(contestid=contest_id).delete()
+            MapContestToOrganizer.objects.filter(contestid=contest_id).delete()
+            MapContestToCluster.objects.filter(contestid=contest_id).delete()
+            
+            # Step 10: Finally, delete the contest itself
+            contest.delete()
+            
+            return Response({
+                "detail": "Contest and all associated data deleted successfully.",
+                "deleted": {
+                    "contest_id": contest_id,
+                    "clusters_deleted": clusters_deleted_count,
+                    "teams_deleted": teams_deleted_count,
+                    "judges_removed": len(judge_ids),
+                    "scoresheets_deleted": len(scoresheet_ids)
+                }
+            }, status=status.HTTP_200_OK)
+            
+    except Exception as e:
+        return Response({
+            "detail": f"Error deleting contest: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
