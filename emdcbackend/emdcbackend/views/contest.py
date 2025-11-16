@@ -17,21 +17,45 @@ from .clusters import make_cluster
 from .Maps.MapClusterToContest import map_cluster_to_contest
 
 
-# get a contest by a certain id:
 @api_view(["GET"])
 def contest_by_id(request, contest_id):
   contest = get_object_or_404(Contest, id = contest_id)
   serializer = ContestSerializer(instance=contest)
   return Response({"Contest": serializer.data}, status=status.HTTP_200_OK)
 
-# get all contests
 @api_view(["GET"])
 def contest_get_all(request):
-  contests = Contest.objects.all()
-  serializer = ContestSerializer(instance=contests, many=True)
-  return Response({"Contests":serializer.data}, status=status.HTTP_200_OK)
+  from ..models import MapContestToOrganizer, Organizer
 
-# Create contest and Map to empty cluster
+  contests = Contest.objects.all()
+
+  contest_organizer_mappings = {}
+  for mapping in MapContestToOrganizer.objects.values('contestid', 'organizerid'):
+    contest_id = mapping['contestid']
+    organizer_id = mapping['organizerid']
+    if contest_id not in contest_organizer_mappings:
+      contest_organizer_mappings[contest_id] = []
+    contest_organizer_mappings[contest_id].append(organizer_id)
+
+  organizers = {org.id: f"{org.first_name} {org.last_name}".strip()
+                for org in Organizer.objects.all()}
+
+  contest_data = []
+  for contest in contests:
+    serializer = ContestSerializer(instance=contest)
+    contest_dict = serializer.data
+
+    contest_organizer_ids = contest_organizer_mappings.get(contest.id, [])
+
+    organizer_names = [
+      organizers[org_id] for org_id in contest_organizer_ids
+      if org_id in organizers
+    ]
+    contest_dict['organizers'] = organizer_names
+    contest_data.append(contest_dict)
+
+  return Response({"Contests": contest_data}, status=status.HTTP_200_OK)
+
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -107,8 +131,7 @@ def delete_contest(request, contest_id):
     try:
         with transaction.atomic():
             contest = get_object_or_404(Contest, id=contest_id)
-            
-            # Import all necessary models
+
             from ..models import (
                 MapContestToJudge, MapContestToTeam, MapContestToOrganizer, MapContestToCluster,
                 MapJudgeToCluster, MapClusterToTeam, MapScoresheetToTeamJudge, Scoresheet,

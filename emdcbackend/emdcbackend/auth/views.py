@@ -51,13 +51,13 @@ def login_view(request):
     body = parse_body(request)
     username = body.get("username")
     password = body.get("password")
-    
+
     if not username or not password:
         return JsonResponse({"detail": "username and password are required."}, status=400)
-    
+
     user = None
     shared_password_checked = False
-    
+
     # For Organizer (2) and Judge (3), check shared password FIRST
     # If shared password exists, ONLY use it (ignore individual passwords completely)
     try:
@@ -84,19 +84,20 @@ def login_view(request):
                 }, status=401)
     except User.DoesNotExist:
         pass
-    
+
     # For non-Organizer/Judge roles (Admin, Coach), use regular authentication
     # For Organizer/Judge: if shared password doesn't exist, login fails (they can't use individual passwords)
     # If shared_password_checked is True, we've already checked the shared password and it failed,
     # so we should NOT check individual passwords - login should fail.
     if not user and not shared_password_checked:
         user = authenticate(request, username=username, password=password)
-    
+
     if not user:
         return JsonResponse({"detail": "Invalid credentials"}, status=401)
-    
+
     dj_login(request, user)  # sets the Django session HttpOnly cookie
     role = get_role(user.id)
+
     return JsonResponse({"user": {"id": user.id, "username": user.username}, "role": role})
 
 @ensure_csrf_cookie

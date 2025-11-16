@@ -134,22 +134,22 @@ def get_all_contests_by_organizer(request):
 @permission_classes([IsAuthenticated])
 def get_organizer_names_by_contests(request):
     try:
-        # Create a dictionary with contest_id as key and a list of organizer names as value
+        # Optimized query: Get all contest-organizer mappings with organizer names in one query
+        mappings_with_names = MapContestToOrganizer.objects.select_related('organizerid').values(
+            'contestid',
+            'organizerid__first_name',
+            'organizerid__last_name'
+        )
+
+        # Group organizers by contest
         contests_with_organizers = defaultdict(list)
-
-        # Get all contest-organizer mappings
-        mappings = MapContestToOrganizer.objects.all()
-
-        # Iterate through mappings and group organizers by contest
-        for mapping in mappings:
-            contest_id = mapping.contestid
-            organizer_id = mapping.organizerid
-            try:
-                organizer = Organizer.objects.get(id=organizer_id)
-                contests_with_organizers[contest_id].append(organizer.first_name + " "+organizer.last_name)  # Assuming the organizer has a 'name' field
-            except Organizer.DoesNotExist:
-                # Skip if organizer doesn't exist
-                continue
+        for mapping in mappings_with_names:
+            contest_id = mapping['contestid']
+            first_name = mapping['organizerid__first_name']
+            last_name = mapping['organizerid__last_name']
+            if first_name and last_name:  # Ensure names exist
+                full_name = f"{first_name} {last_name}"
+                contests_with_organizers[contest_id].append(full_name)
 
         # Get all contests (including those without organizers)
         contests = Contest.objects.all()
@@ -159,7 +159,6 @@ def get_organizer_names_by_contests(request):
         for contest in contests:
             contest_id = contest.id
             contest_organizer_mapping[contest_id] = contests_with_organizers.get(contest_id, [])
-
 
         return Response(contest_organizer_mapping, status=status.HTTP_200_OK)
 
