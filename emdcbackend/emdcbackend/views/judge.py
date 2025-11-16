@@ -18,7 +18,7 @@ from .scoresheets import create_sheets_for_teams_in_cluster, delete_sheets_for_t
 from ..auth.views import create_user
 from ..models import (
     Judge, Scoresheet, MapScoresheetToTeamJudge, MapJudgeToCluster,
-    Teams, MapContestToJudge, MapUserToRole
+    Teams, MapContestToJudge, MapUserToRole, JudgeClusters
 )
 from ..serializers import JudgeSerializer
 from ..auth.serializers import UserSerializer
@@ -112,7 +112,26 @@ def create_judge(request):
         return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+def _get_delete_flags_for_cluster_type(cluster_id):
+    """Get deletion flags based on cluster type to preserve scoresheets from other cluster types."""
+    try:
+        cluster = JudgeClusters.objects.get(id=cluster_id)
+        cluster_type = getattr(cluster, 'cluster_type', 'preliminary')
+    except JudgeClusters.DoesNotExist:
+        cluster_type = 'preliminary'
+    
+    delete_presentation = delete_journal = delete_mdo = delete_runpenalties = delete_otherpenalties = False
+    delete_redesign = delete_championship = False
+    
+    if cluster_type == 'preliminary':
+        delete_presentation = delete_journal = delete_mdo = delete_runpenalties = delete_otherpenalties = True
+    elif cluster_type == 'championship':
+        delete_championship = True
+    elif cluster_type == 'redesign':
+        delete_redesign = True
+    
+    return (delete_presentation, delete_journal, delete_mdo, delete_runpenalties, 
+            delete_otherpenalties, delete_redesign, delete_championship)
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
@@ -169,6 +188,24 @@ def edit_judge(request):
             judge.role = new_role
             judge.save()
 
+            # Get cluster IDs from payload
+            payload_cluster_ids = set()
+            for payload in cluster_payloads:
+                cluster_id = payload.get("clusterid")
+                if cluster_id:
+                    payload_cluster_ids.add(cluster_id)
+
+            existing_assignments = MapJudgeToCluster.objects.filter(judgeid=judge.id)
+            for assignment in existing_assignments:
+                if assignment.clusterid not in payload_cluster_ids:
+                    delete_flags = _get_delete_flags_for_cluster_type(assignment.clusterid)
+                    delete_sheets_for_teams_in_cluster(
+                        judge.id,
+                        assignment.clusterid,
+                        *delete_flags
+                    )
+                    assignment.delete()
+
             for payload in cluster_payloads:
                 cluster_id = payload.get("clusterid")
                 if not cluster_id:
@@ -183,19 +220,13 @@ def edit_judge(request):
                 redesign = payload.get("redesign", False)
                 championship = payload.get("championship", False)
 
-                existing_assignment = MapJudgeToCluster.objects.filter(judgeid=judge.id, clusterid=cluster_id).first()
-                if existing_assignment:
-                    delete_sheets_for_teams_in_cluster(
-                        judge.id,
-                        cluster_id,
-                        existing_assignment.presentation,
-                        existing_assignment.journal,
-                        existing_assignment.mdo,
-                        existing_assignment.runpenalties,
-                        existing_assignment.otherpenalties,
-                        existing_assignment.redesign,
-                        existing_assignment.championship,
-                    )
+
+                delete_flags = _get_delete_flags_for_cluster_type(cluster_id)
+                delete_sheets_for_teams_in_cluster(
+                    judge.id,
+                    cluster_id,
+                    *delete_flags
+                )
 
                 map_cluster_to_judge({
                     "judgeid": judge.id,

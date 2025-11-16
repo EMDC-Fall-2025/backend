@@ -131,26 +131,26 @@ def delete_contest(request, contest_id):
     try:
         with transaction.atomic():
             contest = get_object_or_404(Contest, id=contest_id)
-
+            
             from ..models import (
                 MapContestToJudge, MapContestToTeam, MapContestToOrganizer, MapContestToCluster,
                 MapJudgeToCluster, MapClusterToTeam, MapScoresheetToTeamJudge, Scoresheet,
                 Teams, JudgeClusters
             )
             
-            # Step 1: Get all clusters in this contest (STRICTLY filtered by contest_id)
+            # Step 1: Get all clusters in this contest
             cluster_ids = list(
                 MapContestToCluster.objects.filter(contestid=contest_id)
                 .values_list('clusterid', flat=True)
             )
             
-            # Step 2: Get all teams in this contest (STRICTLY filtered by contest_id)
+            # Step 2: Get all teams in this contest
             team_ids = list(
                 MapContestToTeam.objects.filter(contestid=contest_id)
                 .values_list('teamid', flat=True)
             )
             
-            # Step 3: Get all judges in this contest (STRICTLY filtered by contest_id)
+            # Step 3: Get all judges in this contest 
             judge_ids = list(
                 MapContestToJudge.objects.filter(contestid=contest_id)
                 .values_list('judgeid', flat=True)
@@ -219,7 +219,7 @@ def delete_contest(request, contest_id):
                         except JudgeClusters.DoesNotExist:
                             pass
             
-            # Step 9: Delete all contest mappings (STRICTLY filtered by contest_id)
+            # Step 9: Delete all contest mappings 
             MapContestToJudge.objects.filter(contestid=contest_id).delete()
             MapContestToTeam.objects.filter(contestid=contest_id).delete()
             MapContestToOrganizer.objects.filter(contestid=contest_id).delete()

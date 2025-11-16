@@ -413,36 +413,50 @@ def create_base_score_sheet_Championship():
 
 def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journal, mdo, runpenalties, otherpenalties, redesign, championship):
     try:
-        
         # Fetch all mappings for the teams in the cluster
         mappings = MapClusterToTeam.objects.filter(clusterid=cluster_id)
-        # Check if mappings exist
-        if not mappings.exists():
-            # For championship/redesign clusters, it's okay to have no teams initially
-            # Teams will be added later when championship advancement occurs
-            return []  # Return empty list instead of raising error
 
-        # Extract all the team_ids from the mappings
-        team_ids = mappings.values_list('teamid', flat=True)
+        # Get team_ids either from direct mappings or contest relationship
+        if mappings.exists():
+            # Extract all the team_ids from the direct mappings
+            team_ids = mappings.values_list('teamid', flat=True)
+        else:
+            # Try to find teams through contest relationship
+            # If cluster belongs to a contest, create scoresheets for all teams in that contest
+            try:
+                contest_mapping = MapContestToCluster.objects.filter(clusterid=cluster_id).first()
+                if contest_mapping:
+                    contest_team_mappings = MapContestToTeam.objects.filter(contestid=contest_mapping.contestid)
+                    if contest_team_mappings.exists():
+                        team_ids = contest_team_mappings.values_list('teamid', flat=True)
+                    else:
+                        return []
+                else:
+                    return []
+            except Exception as e:
+                return []
 
         # Fetch all teams with the given team_ids
         teams_in_cluster = Teams.objects.filter(id__in=team_ids)
+
         # List to store responses
         created_score_sheets = []
 
         for team in teams_in_cluster:
             # Check if team has advanced to championship
-            # If advanced, skip creating preliminary scoresheets (1-5) - only create championship/redesign
             team_has_advanced = getattr(team, 'advanced_to_championship', False)
-            
+
             # Check for existing scoresheets to prevent duplicates
             existing_mappings = MapScoresheetToTeamJudge.objects.filter(
-                teamid=team.id, 
+                teamid=team.id,
                 judgeid=judge_id
             )
-            
-            # Skip preliminary scoresheets (1-5) if team has advanced
-            if runpenalties and not team_has_advanced:
+            if existing_mappings.exists():
+                existing_types = existing_mappings.values_list('sheetType', flat=True)
+
+            # Create scoresheets based on enabled flags - advancement status doesn't prevent scoresheet creation
+            # The advancement status only affects which round the team competes in, not which scoresheets can be created
+            if runpenalties:
                 # Check if runpenalties scoresheet already exists
                 existing_runpenalties = existing_mappings.filter(sheetType=4).exists()
                 if not existing_runpenalties:
@@ -461,7 +475,7 @@ def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journ
                         raise ValidationError(map_serializer.errors)
                 else:
                     pass
-            if otherpenalties and not team_has_advanced:
+            if otherpenalties:
                 # Check if otherpenalties scoresheet already exists
                 existing_otherpenalties = existing_mappings.filter(sheetType=5).exists()
                 if not existing_otherpenalties:
@@ -480,7 +494,7 @@ def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journ
                         raise ValidationError(map_serializer.errors)
                 else:
                     pass
-            if presentation and not team_has_advanced:
+            if presentation:
                 # Check if presentation scoresheet already exists
                 existing_presentation = existing_mappings.filter(sheetType=1).exists()
                 if not existing_presentation:
@@ -497,9 +511,7 @@ def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journ
                         })
                     else:
                         raise ValidationError(map_serializer.errors)
-                else:
-                    pass
-            if journal and not team_has_advanced:
+            if journal:
                 # Check if journal scoresheet already exists
                 existing_journal = existing_mappings.filter(sheetType=2).exists()
                 if not existing_journal:
@@ -516,8 +528,6 @@ def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journ
                         })
                     else:
                         raise ValidationError(map_serializer.errors)
-                else:
-                    pass
             if redesign:
                 # Check if redesign scoresheet already exists
                 existing_redesign = existing_mappings.filter(sheetType=6).exists()
@@ -537,7 +547,7 @@ def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journ
                         raise ValidationError(map_serializer.errors)
                 else:
                     pass
-            if mdo and not team_has_advanced:
+            if mdo:
                 # Check if MDO scoresheet already exists
                 existing_mdo = existing_mappings.filter(sheetType=3).exists()
                 if not existing_mdo:
@@ -584,6 +594,8 @@ def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journ
         return created_score_sheets
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise ValidationError({"detail": str(e)})
 
 def create_score_sheets_for_team(team, judges):
@@ -645,90 +657,71 @@ def get_scoresheet_id(judge_id, team_id, scoresheet_type):
     except Scoresheet.DoesNotExist:
         raise ValidationError({"error": "No scoresheet found"})
 
-def delete_sheets_for_teams_in_cluster(judge_id, cluster_id,  presentation, journal, mdo,runpenalties, otherpenalties, redesign, championship):
+def delete_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journal, mdo, runpenalties, otherpenalties, redesign, championship):
+    """
+    Delete scoresheets for a judge in a cluster based on the flags provided.
+    Only deletes scoresheet types that match the flags to preserve scoresheets from other cluster types.
+    """
     try:
-        # Fetch all mappings for the teams in the cluster
-        mappings = MapClusterToTeam.objects.filter(clusterid=cluster_id)
-
-        # Check if mappings exist
-        if not mappings.exists():
-            # For championship/redesign clusters, it's okay to have no teams initially
-            # Teams will be added later when championship advancement occurs
-            return []  # Return empty list instead of raising error
-
-        # Extract all the team_ids from the mappings
-        team_ids = mappings.values_list('teamid', flat=True)
-
-        # Fetch all teams with the given team_ids
-        teams_in_cluster = Teams.objects.filter(id__in=team_ids)
-
-        for team in teams_in_cluster:
-            if runpenalties:
-                try:
-                    scoresheet_id = get_scoresheet_id(judge_id, team.id, 4)
-                    scoresheet = Scoresheet.objects.get(id=scoresheet_id)
-                    mapping = MapScoresheetToTeamJudge.objects.get(judgeid=judge_id, teamid=team.id, sheetType=4)
-                    delete_score_sheet_mapping(mapping.id)  # Delete mapping
-                    scoresheet.delete()  # Delete scoresheet
-                except (ValidationError, Scoresheet.DoesNotExist, MapScoresheetToTeamJudge.DoesNotExist):
-                    # Scoresheet doesn't exist, skip deletion
-                    pass
-            if otherpenalties:
-                try:
-                    scoresheet_id = get_scoresheet_id(judge_id, team.id, 5)
-                    scoresheet = Scoresheet.objects.get(id=scoresheet_id)
-                    mapping = MapScoresheetToTeamJudge.objects.get(judgeid=judge_id, teamid=team.id, sheetType=5)
-                    delete_score_sheet_mapping(mapping.id)
-                    scoresheet.delete()
-                except (ValidationError, Scoresheet.DoesNotExist, MapScoresheetToTeamJudge.DoesNotExist):
-                    pass
-            if presentation:
-                try:
-                    scoresheet_id = get_scoresheet_id(judge_id, team.id, 1)
-                    scoresheet = Scoresheet.objects.get(id=scoresheet_id)
-                    mapping = MapScoresheetToTeamJudge.objects.get(judgeid=judge_id, teamid=team.id, sheetType=1)
-                    delete_score_sheet_mapping(mapping.id)
-                    scoresheet.delete()
-                except (ValidationError, Scoresheet.DoesNotExist, MapScoresheetToTeamJudge.DoesNotExist):
-                    pass
-            if journal:
-                try:
-                    scoresheet_id = get_scoresheet_id(judge_id, team.id, 2)
-                    scoresheet = Scoresheet.objects.get(id=scoresheet_id)
-                    mapping = MapScoresheetToTeamJudge.objects.get(judgeid=judge_id, teamid=team.id, sheetType=2)
-                    delete_score_sheet_mapping(mapping.id)
-                    scoresheet.delete()
-                except (ValidationError, Scoresheet.DoesNotExist, MapScoresheetToTeamJudge.DoesNotExist):
-                    pass
-            if redesign:
-                try:
-                    scoresheet_id = get_scoresheet_id(judge_id, team.id, 6)
-                    scoresheet = Scoresheet.objects.get(id=scoresheet_id)
-                    mapping = MapScoresheetToTeamJudge.objects.get(judgeid=judge_id, teamid=team.id, sheetType=6)
-                    delete_score_sheet_mapping(mapping.id)
-                    scoresheet.delete()
-                except (ValidationError, Scoresheet.DoesNotExist, MapScoresheetToTeamJudge.DoesNotExist):
-                    pass
-            if mdo:
-                try:
-                    scoresheet_id = get_scoresheet_id(judge_id, team.id, 3)
-                    scoresheet = Scoresheet.objects.get(id=scoresheet_id)
-                    mapping = MapScoresheetToTeamJudge.objects.get(judgeid=judge_id, teamid=team.id, sheetType=3)
-                    delete_score_sheet_mapping(mapping.id)
-                    scoresheet.delete()
-                except (ValidationError, Scoresheet.DoesNotExist, MapScoresheetToTeamJudge.DoesNotExist):
-                    pass
-            if championship:
-                try:
-                    scoresheet_id = get_scoresheet_id(judge_id, team.id, 7)
-                    scoresheet = Scoresheet.objects.get(id=scoresheet_id)
-                    mapping = MapScoresheetToTeamJudge.objects.get(judgeid=judge_id, teamid=team.id, sheetType=7)
-                    delete_score_sheet_mapping(mapping.id)
-                    scoresheet.delete()
-                except (ValidationError, Scoresheet.DoesNotExist, MapScoresheetToTeamJudge.DoesNotExist):
-                    pass
-
+        cluster_team_mappings = MapClusterToTeam.objects.filter(clusterid=cluster_id)
+        
+        if cluster_team_mappings.exists():
+            team_ids = list(cluster_team_mappings.values_list('teamid', flat=True))
+        else:
+            try:
+                contest_mapping = MapContestToCluster.objects.filter(clusterid=cluster_id).first()
+                if contest_mapping:
+                    contest_team_mappings = MapContestToTeam.objects.filter(contestid=contest_mapping.contestid)
+                    if contest_team_mappings.exists():
+                        team_ids = list(contest_team_mappings.values_list('teamid', flat=True))
+                    else:
+                        return
+                else:
+                    return
+            except Exception:
+                return
+        
+        if not team_ids:
+            return
+        
+        scoresheet_mappings = MapScoresheetToTeamJudge.objects.filter(
+            judgeid=judge_id,
+            teamid__in=team_ids
+        )
+        
+        sheet_types_to_delete = []
+        if presentation:
+            sheet_types_to_delete.append(1)
+        if journal:
+            sheet_types_to_delete.append(2)
+        if mdo:
+            sheet_types_to_delete.append(3)
+        if runpenalties:
+            sheet_types_to_delete.append(4)
+        if otherpenalties:
+            sheet_types_to_delete.append(5)
+        if redesign:
+            sheet_types_to_delete.append(6)
+        if championship:
+            sheet_types_to_delete.append(7)
+        
+        if not sheet_types_to_delete:
+            return
+        
+        scoresheet_mappings = scoresheet_mappings.filter(sheetType__in=sheet_types_to_delete)
+        
+        if not scoresheet_mappings.exists():
+            return
+        
+        scoresheet_ids = list(scoresheet_mappings.values_list('scoresheetid', flat=True).distinct())
+        scoresheet_mappings.delete()
+        
+        if scoresheet_ids:
+            Scoresheet.objects.filter(id__in=scoresheet_ids).delete()
+            
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise ValidationError({"detail": str(e)})
   
 def make_sheets_for_team(teamid, clusterid):
