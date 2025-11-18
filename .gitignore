@@ -1,5 +1,4 @@
 emdcbackend/.env
-sqlite3.db
 *.pyc 
 /notes
 venv/
@@ -9,3 +8,13 @@ venv/
 .env.local
 .env.development
 !.env.docker.example
+
+# env files 
+emdcbackend/.env
+emdcbackend/.env.local
+emdcbackend/.local.env
+# env files
+.env
+.env.local
+.local.env
+
