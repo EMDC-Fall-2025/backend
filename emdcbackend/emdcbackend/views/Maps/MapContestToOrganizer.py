@@ -134,27 +134,25 @@ def get_all_contests_by_organizer(request):
 @permission_classes([IsAuthenticated])
 def get_organizer_names_by_contests(request):
     try:
-        # Optimized query: Get all contest-organizer mappings with organizer names in one query
-        mappings_with_names = MapContestToOrganizer.objects.select_related('organizerid').values(
-            'contestid',
-            'organizerid__first_name',
-            'organizerid__last_name'
-        )
+        # MapContestToOrganizer uses IntegerFields
+        mappings = MapContestToOrganizer.objects.all().values('contestid', 'organizerid')
 
-        # Group organizers by contest
+        organizer_ids = {mapping['organizerid'] for mapping in mappings}
+        organizers = Organizer.objects.filter(id__in=organizer_ids).values('id', 'first_name', 'last_name')
+        organizer_lookup = {
+            organizer['id']: f"{organizer['first_name']} {organizer['last_name']}".strip()
+            for organizer in organizers
+            if organizer['first_name'] and organizer['last_name']
+        }
+
         contests_with_organizers = defaultdict(list)
-        for mapping in mappings_with_names:
-            contest_id = mapping['contestid']
-            first_name = mapping['organizerid__first_name']
-            last_name = mapping['organizerid__last_name']
-            if first_name and last_name:  # Ensure names exist
-                full_name = f"{first_name} {last_name}"
-                contests_with_organizers[contest_id].append(full_name)
+        for mapping in mappings:
+            full_name = organizer_lookup.get(mapping['organizerid'])
+            if full_name:
+                contests_with_organizers[mapping['contestid']].append(full_name)
 
-        # Get all contests (including those without organizers)
         contests = Contest.objects.all()
 
-        # Ensure every contest is in the final result (even those with no organizers)
         contest_organizer_mapping = {}
         for contest in contests:
             contest_id = contest.id
