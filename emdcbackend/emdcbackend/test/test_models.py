@@ -1,9 +1,11 @@
 from django.test import TestCase
+from datetime import date
 from ..models import (
     Contest,
     MapContestToJudge,
     MapContestToTeam,
     MapContestToOrganizer,
+    MapContestToCluster,
     Judge,
     MapJudgeToCluster,
     JudgeClusters,
@@ -14,20 +16,22 @@ from ..models import (
     Admin,
     MapCoachToTeam,
     Organizer,
-    MapJudgeToPresentationScores,
-    MapJudgeToJournalScores,
-    MapJudgeToMachineDesignScores,
     Scoresheet,
-    Penalties,
-    MapTeamToPresentationScores,
-    MapTeamToJournalScores,
-    MapTeamToMachineDesignScores,
-    MapTeamToPenalties,
+    ScoresheetEnum,
+    MapScoresheetToTeamJudge,
+    SpecialAward,
+    Ballot,
+    Votes,
+    MapBallotToVote,
+    MapVoteToAward,
+    MapTeamToVote,
+    MapAwardToContest,
+    RoleSharedPassword,
 )
 
 class ContestModelTest(TestCase):
     def test_contest_creation(self):
-        contest = Contest.objects.create(name="Math Contest", is_open=True, is_tabulated=False)
+        contest = Contest.objects.create(name="Math Contest", date=date.today(), is_open=True, is_tabulated=False)
         self.assertEqual(contest.name, "Math Contest")
         self.assertTrue(contest.is_open)
         self.assertFalse(contest.is_tabulated)
@@ -52,7 +56,15 @@ class MapContestToOrganizerModelTest(TestCase):
 
 class JudgeModelTest(TestCase):
     def test_judge_creation(self):
-        judge = Judge.objects.create(first_name="Alice", last_name="Brown", contestid=1, presentation=True, mdo=False, journal=True, penalties=False)
+        judge = Judge.objects.create(
+            first_name="Alice", 
+            last_name="Brown", 
+            phone_number="1234567890",
+            contestid=1, 
+            presentation=True, 
+            mdo=False, 
+            journal=True
+        )
         self.assertEqual(judge.first_name, "Alice")
         self.assertEqual(judge.last_name, "Brown")
         self.assertEqual(judge.contestid, 1)
@@ -60,8 +72,8 @@ class JudgeModelTest(TestCase):
 
 class MapJudgeToClusterModelTest(TestCase):
     def test_map_judge_to_cluster_creation(self):
-        mapping = MapJudgeToCluster.objects.create(judegeid=5, clusterid=1)
-        self.assertEqual(mapping.judegeid, 5)
+        mapping = MapJudgeToCluster.objects.create(judgeid=5, clusterid=1)
+        self.assertEqual(mapping.judgeid, 5)
         self.assertEqual(mapping.clusterid, 1)
 
 class JudgeClustersModelTest(TestCase):
@@ -82,8 +94,10 @@ class TeamsModelTest(TestCase):
             journal_score=95.0,
             presentation_score=90.0,
             machinedesign_score=85.0,
-            score_penalties=0.0,
-            judge_cluster=1
+            penalties_score=0.0,
+            redesign_score=0.0,
+            total_score=270.0,
+            championship_score=0.0
         )
         self.assertEqual(team.team_name, "Team Alpha")
         self.assertEqual(team.journal_score, 95.0)
@@ -96,7 +110,7 @@ class MapUserToRoleModelTest(TestCase):
 
 class CoachModelTest(TestCase):
     def test_coach_creation(self):
-        coach = Coach.objects.create(first_name="John", last_name="Doe", school_name="High School")
+        coach = Coach.objects.create(first_name="John", last_name="Doe")
         self.assertEqual(coach.first_name, "John")
 
 class AdminModelTest(TestCase):
@@ -111,28 +125,14 @@ class MapCoachToTeamModelTest(TestCase):
 
 class OrganizerModelTest(TestCase):
     def test_organizer_creation(self):
-        organizer = Organizer.objects.create(first_name="Alice", last_name="Johnson", region="South")
+        organizer = Organizer.objects.create(first_name="Alice", last_name="Johnson")
         self.assertEqual(organizer.first_name, "Alice")
-
-class MapJudgeToPresentationScoresModelTest(TestCase):
-    def test_map_judge_to_presentation_scores_creation(self):
-        mapping = MapJudgeToPresentationScores.objects.create(judgeid=1, scoresheetid=1)
-        self.assertEqual(mapping.judgeid, 1)
-
-class MapJudgeToJournalScoresModelTest(TestCase):
-    def test_map_judge_to_journal_scores_creation(self):
-        mapping = MapJudgeToJournalScores.objects.create(judgeid=1, scoresheetid=2)
-        self.assertEqual(mapping.judgeid, 1)
-
-class MapJudgeToMachineDesignScoresModelTest(TestCase):
-    def test_map_judge_to_machine_design_scores_creation(self):
-        mapping = MapJudgeToMachineDesignScores.objects.create(judgeid=1, scoresheetid=3)
-        self.assertEqual(mapping.judgeid, 1)
 
 class ScoresheetModelTest(TestCase):
     def test_scoresheet_creation(self):
         scoresheet = Scoresheet.objects.create(
-            sheetType=Scoresheet.ScoresheetEnum.PRESENTATION,
+            sheetType=ScoresheetEnum.PRESENTATION,
+            isSubmitted=False,
             field1=1,
             field2=2,
             field3=3,
@@ -142,29 +142,69 @@ class ScoresheetModelTest(TestCase):
             field7=7,
             field8=8,
         )
-        self.assertEqual(scoresheet.sheetType, Scoresheet.ScoresheetEnum.PRESENTATION)
+        self.assertEqual(scoresheet.sheetType, ScoresheetEnum.PRESENTATION)
 
-class PenaltiesModelTest(TestCase):
-    def test_penalties_creation(self):
-        penalties = Penalties.objects.create(PresentationPenalties=1, MachinePenalties=2)
-        self.assertEqual(penalties.PresentationPenalties, 1)
-
-class MapTeamToPresentationScoresModelTest(TestCase):
-    def test_map_team_to_presentation_scores_creation(self):
-        mapping = MapTeamToPresentationScores.objects.create(teamid=1, scoresheetid=1)
+class MapScoresheetToTeamJudgeModelTest(TestCase):
+    def test_map_scoresheet_to_team_judge_creation(self):
+        mapping = MapScoresheetToTeamJudge.objects.create(
+            teamid=1, 
+            judgeid=1, 
+            scoresheetid=1,
+            sheetType=ScoresheetEnum.PRESENTATION
+        )
         self.assertEqual(mapping.teamid, 1)
+        self.assertEqual(mapping.judgeid, 1)
 
-class MapTeamToJournalScoresModelTest(TestCase):
-    def test_map_team_to_journal_scores_creation(self):
-        mapping = MapTeamToJournalScores.objects.create(teamid=1, scoresheetid=2)
-        self.assertEqual(mapping.teamid, 1)
+class MapContestToClusterModelTest(TestCase):
+    def test_map_contest_to_cluster_creation(self):
+        mapping = MapContestToCluster.objects.create(contestid=1, clusterid=2)
+        self.assertEqual(mapping.contestid, 1)
+        self.assertEqual(mapping.clusterid, 2)
 
-class MapTeamToMachineDesignScoresModelTest(TestCase):
-    def test_map_team_to_machine_design_scores_creation(self):
-        mapping = MapTeamToMachineDesignScores.objects.create(teamid=1, scoresheetid=3)
-        self.assertEqual(mapping.teamid, 1)
+class SpecialAwardModelTest(TestCase):
+    def test_special_award_creation(self):
+        award = SpecialAward.objects.create(teamid=1, award_name="Best Design", isJudge=True)
+        self.assertEqual(award.teamid, 1)
+        self.assertEqual(award.award_name, "Best Design")
+        self.assertTrue(award.isJudge)
 
-class MapTeamToPenaltiesModelTest(TestCase):
-    def test_map_team_to_penalties_creation(self):
-        mapping = MapTeamToPenalties.objects.create(teamid=1, scoresheetid=4)
+class BallotModelTest(TestCase):
+    def test_ballot_creation(self):
+        ballot = Ballot.objects.create(contestid=1, isSubmitted=False)
+        self.assertEqual(ballot.contestid, 1)
+        self.assertFalse(ballot.isSubmitted)
+
+class VotesModelTest(TestCase):
+    def test_votes_creation(self):
+        vote = Votes.objects.create(votedteamid=1)
+        self.assertEqual(vote.votedteamid, 1)
+
+class MapBallotToVoteModelTest(TestCase):
+    def test_map_ballot_to_vote_creation(self):
+        mapping = MapBallotToVote.objects.create(ballotid=1, voteid=2)
+        self.assertEqual(mapping.ballotid, 1)
+        self.assertEqual(mapping.voteid, 2)
+
+class MapVoteToAwardModelTest(TestCase):
+    def test_map_vote_to_award_creation(self):
+        mapping = MapVoteToAward.objects.create(awardid=1, voteid=2)
+        self.assertEqual(mapping.awardid, 1)
+        self.assertEqual(mapping.voteid, 2)
+
+class MapTeamToVoteModelTest(TestCase):
+    def test_map_team_to_vote_creation(self):
+        mapping = MapTeamToVote.objects.create(teamid=1, voteid=2)
         self.assertEqual(mapping.teamid, 1)
+        self.assertEqual(mapping.voteid, 2)
+
+class MapAwardToContestModelTest(TestCase):
+    def test_map_award_to_contest_creation(self):
+        mapping = MapAwardToContest.objects.create(contestid=1, awardid=2)
+        self.assertEqual(mapping.contestid, 1)
+        self.assertEqual(mapping.awardid, 2)
+
+class RoleSharedPasswordModelTest(TestCase):
+    def test_role_shared_password_creation(self):
+        password = RoleSharedPassword.objects.create(role=2, password_hash="hashed_password")
+        self.assertEqual(password.role, 2)
+        self.assertEqual(password.password_hash, "hashed_password")

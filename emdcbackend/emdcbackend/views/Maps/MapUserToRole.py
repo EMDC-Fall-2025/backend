@@ -9,7 +9,7 @@ from rest_framework.decorators import (
 from rest_framework.exceptions import ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 
 from ...auth.serializers import UserSerializer
@@ -20,11 +20,11 @@ from django.shortcuts import get_object_or_404
 #from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from django.shortcuts import get_object_or_404
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_user_role_mapping(request):
     try:
@@ -45,7 +45,7 @@ def login_return(request, userid):
     return Response(get_role(userid), status=status.HTTP_200_OK)
 
 @api_view(['GET'])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_user_by_role(request, relatedid, roleType):
     mapping = MapUserToRole.objects.get(relatedid=relatedid, role=roleType)
@@ -55,7 +55,7 @@ def get_user_by_role(request, relatedid, roleType):
     return Response({"User": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_admin_by_user(request, userid):
     mapping = MapUserToRole.objects.get(uuid=userid)
@@ -68,7 +68,7 @@ def get_admin_by_user(request, userid):
         return Response({"Admin": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["delete"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_user_role_mapping(request, mapping_id):
     mapping = get_object_or_404(MapUserToRole, id=mapping_id)
@@ -76,7 +76,12 @@ def delete_user_role_mapping(request, mapping_id):
     return Response({"detail": "Mapping deleted successfully."}, status=status.HTTP_200_OK)
 
 def get_role(user_id):
-    mapping = MapUserToRole.objects.get(uuid=user_id)
+    try:
+        mapping = MapUserToRole.objects.get(uuid=user_id)
+    except MapUserToRole.DoesNotExist:
+        # If no role mapping exists, this user has no assigned role
+        # This could happen if role assignment failed during creation
+        raise ValidationError(f"No role mapping found for user {user_id}. User may need role reassignment.")
 
     if mapping.role == 1:
         admin = Admin.objects.get(id=mapping.relatedid)
@@ -99,9 +104,23 @@ def get_role(user_id):
         return {"user_type": mapping.role, "user": roleSerializer.data}
 
 def create_user_role_map(mapData):
-    existing_mapping = MapUserToRole.objects.filter(uuid=mapData.get("uuid")).first()
+    # Check for existing mapping with same user and role
+    existing_mapping = MapUserToRole.objects.filter(
+        uuid=mapData.get("uuid"),
+        role=mapData.get("role"),
+        relatedid=mapData.get("relatedid")
+    ).first()
+    
     if existing_mapping:
-        raise ValidationError({"detail": "This user is already mapped to a role."})
+        # Return existing mapping data instead of creating duplicate
+        serializer = MapUserToRoleSerializer(existing_mapping)
+        return serializer.data
+    
+    # Check if user has any other role mappings and clean them up
+    # Users can only have one role, so we delete other mappings
+    other_mappings = MapUserToRole.objects.filter(uuid=mapData.get("uuid"))
+    if other_mappings.exists():
+        other_mappings.delete()
 
     serializer = MapUserToRoleSerializer(data=mapData)
     if serializer.is_valid():
@@ -115,4 +134,33 @@ def get_role_mapping(uuid):
     serializer = MapUserToRoleSerializer(instance=existing_mapping)
     return serializer.data
 
-    raise ValidationError(serializer.errors)
+def ensure_role_mappings():
+    """
+    Utility function to ensure all role entities have corresponding MapUserToRole entries.
+    This can be called to fix data integrity issues.
+    """
+    issues_fixed = 0
+
+    # Check admins
+    for admin in Admin.objects.all():
+        if not MapUserToRole.objects.filter(role=1, relatedid=admin.id).exists():
+            print(f"❌ Admin {admin.id} ({admin.first_name} {admin.last_name}) missing role mapping")
+            # Note: We can't create the user here as we don't know the user ID
+            # This would need to be handled by recreating the admin properly
+
+    # Check organizers
+    for organizer in Organizer.objects.all():
+        if not MapUserToRole.objects.filter(role=2, relatedid=organizer.id).exists():
+            print(f"❌ Organizer {organizer.id} ({organizer.first_name} {organizer.last_name}) missing role mapping")
+
+    # Check judges
+    for judge in Judge.objects.all():
+        if not MapUserToRole.objects.filter(role=3, relatedid=judge.id).exists():
+            print(f"❌ Judge {judge.id} ({judge.first_name} {judge.last_name}) missing role mapping")
+
+    # Check coaches
+    for coach in Coach.objects.all():
+        if not MapUserToRole.objects.filter(role=4, relatedid=coach.id).exists():
+            print(f"❌ Coach {coach.id} ({coach.first_name} {coach.last_name}) missing role mapping")
+
+    return issues_fixed

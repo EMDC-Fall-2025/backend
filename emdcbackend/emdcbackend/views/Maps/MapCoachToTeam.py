@@ -7,14 +7,14 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
-from ...models import MapCoachToTeam, Coach, Teams, MapUserToRole
+from ...models import MapCoachToTeam, Coach, Teams, MapUserToRole, Contest, MapContestToTeam
 from ...serializers import CoachToTeamSerializer, CoachSerializer, TeamSerializer
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_coach_team_mapping(request):
     serializer = CoachToTeamSerializer(data=request.data)
@@ -26,17 +26,46 @@ def create_coach_team_mapping(request):
     )
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teams_by_coach_id(request, coach_id):
     mappings = MapCoachToTeam.objects.filter(coachid=coach_id)
     team_ids = mappings.values_list('teamid', flat=True)
     teams = Teams.objects.filter(id__in=team_ids).order_by('-id')
-    serializer = TeamSerializer(instance=teams, many=True)
-    return Response({"Teams": serializer.data}, status=status.HTTP_200_OK)
+    
+    # Get contests for these teams and check if results should be hidden
+    team_contest_map = {}
+    for team in teams:
+        contest_mapping = MapContestToTeam.objects.filter(teamid=team.id).first()
+        if contest_mapping:
+            team_contest_map[team.id] = contest_mapping.contestid
+    
+    team_data = []
+    for team in teams:
+        team_dict = TeamSerializer(instance=team).data
+        contest_id = team_contest_map.get(team.id)
+        if contest_id:
+            try:
+                contest = Contest.objects.get(id=contest_id)
+                # Hide scores if contest is open or not tabulated
+                if getattr(contest, 'is_open', False) or not getattr(contest, 'is_tabulated', False):
+                    # Clear all score fields
+                    team_dict['journal_score'] = 0
+                    team_dict['presentation_score'] = 0
+                    team_dict['machinedesign_score'] = 0
+                    team_dict['penalties_score'] = 0
+                    team_dict['redesign_score'] = 0
+                    team_dict['championship_score'] = 0
+                    team_dict['total_score'] = 0
+                    team_dict['team_rank'] = None
+            except Contest.DoesNotExist:
+                pass
+        team_data.append(team_dict)
+    
+    return Response({"Teams": team_data}, status=status.HTTP_200_OK)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def coach_by_team_id(request, team_id):
     try:
@@ -50,8 +79,8 @@ def coach_by_team_id(request, team_id):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
-@permission_classes([IsAuthenticated])
+@authentication_classes([SessionAuthentication])
+@permission_classes([AllowAny])
 def coaches_by_teams(request):
     teams = request.data  # Expecting a list of team data objects
     response_data = {}
@@ -83,7 +112,7 @@ def coaches_by_teams(request):
     return Response(response_data, status=status.HTTP_200_OK)
     
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_coach_team_mapping_by_id(request, map_id):
     map_to_delete = get_object_or_404(MapCoachToTeam, id=map_id)

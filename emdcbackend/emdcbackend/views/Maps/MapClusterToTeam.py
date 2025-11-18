@@ -6,16 +6,16 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from ...models import JudgeClusters, Teams, MapClusterToTeam
+from ...models import JudgeClusters, Teams, MapClusterToTeam, MapJudgeToCluster
 from ...serializers import TeamSerializer, ClusterToTeamSerializer, JudgeClustersSerializer
 from rest_framework.exceptions import ValidationError
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_cluster_team_mapping(request):
     serializer = ClusterToTeamSerializer(data=request.data)
@@ -28,41 +28,36 @@ def create_cluster_team_mapping(request):
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def teams_by_cluster_id(request, cluster_id):
-    mappings = MapClusterToTeam.objects.filter(clusterid=cluster_id)
-    team_ids = mappings.values_list('teamid', flat=True)
-    teams = Teams.objects.filter(id__in=team_ids)
+    try:
+        mappings = MapClusterToTeam.objects.filter(clusterid=cluster_id)
+        team_ids = mappings.values_list("teamid", flat=True)
+        teams = Teams.objects.filter(id__in=team_ids)
+        serialized_teams = TeamSerializer(teams, many=True).data
 
-    serializer = TeamSerializer(teams, many=True)
+        for team in serialized_teams:
+            mapping = mappings.filter(teamid=team["id"]).first()
+            team["map_id"] = mapping.id if mapping else None
 
-    return Response({"Teams": serializer.data}, status=status.HTTP_200_OK)
+        return Response({"Teams": serialized_teams}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def cluster_by_team_id(request, team_id):
     try:
-        # Get all mappings for the team
         mappings = MapClusterToTeam.objects.filter(teamid=team_id)
-
-        # If no mappings are found, return an error
         if not mappings.exists():
             return Response({"error": "No clusters found for the given team"}, status=status.HTTP_404_NOT_FOUND)
-
-        # Collect all cluster IDs from the mappings
         cluster_ids = [mapping.clusterid for mapping in mappings]
-
-        # Get all clusters corresponding to the cluster IDs
         clusters = JudgeClusters.objects.filter(id__in=cluster_ids)
-
-        # Serialize the clusters
         serializer = JudgeClustersSerializer(clusters, many=True)
-
         return Response({"Clusters": serializer.data}, status=status.HTTP_200_OK)
-
     except JudgeClusters.DoesNotExist:
         return Response({"error": "One or more clusters not found for the given IDs"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
@@ -70,15 +65,30 @@ def cluster_by_team_id(request, team_id):
 
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_cluster_team_mapping_by_id(request, map_id):
-    map_to_delete = get_object_or_404(MapClusterToTeam, id=map_id)
-    map_to_delete.delete()
-    return Response({"detail": "Cluster To Team Mapping deleted successfully."}, status=status.HTTP_200_OK)
+    try:
+        map_to_delete = get_object_or_404(MapClusterToTeam, id=map_id)
+        # teamid on mapping is an integer FK id in our schema; keep it as a raw id
+        team_id = map_to_delete.teamid
+        map_to_delete.delete()
+
+        all_teams_cluster = JudgeClusters.objects.filter(cluster_name="All Teams").first()
+        if all_teams_cluster:
+            if not MapClusterToTeam.objects.filter(teamid=team_id, clusterid=all_teams_cluster.id).exists():
+                new_map_data = {"clusterid": all_teams_cluster.id, "teamid": team_id}
+                serializer = ClusterToTeamSerializer(data=new_map_data)
+                if serializer.is_valid():
+                    serializer.save()
+
+        return Response({"detail": "Team removed from cluster and moved to All Teams."}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_teams_by_cluster_rank(request):
     mappings = MapClusterToTeam.objects.filter(clusterid=request.data["clusterid"])
@@ -88,13 +98,37 @@ def get_teams_by_cluster_rank(request):
     ).order_by('cluster_rank')
     serializer = TeamSerializer(teams, many=True)
     return Response({"Teams": serializer.data}, status=status.HTTP_200_OK)
-  
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def teams_by_judge_id(request, judge_id):
+    try:
+        # Get all clusters assigned to this judge
+        judge_cluster_mappings = MapJudgeToCluster.objects.filter(judgeid=judge_id)
+        cluster_ids = judge_cluster_mappings.values_list('clusterid', flat=True)
+
+        if not cluster_ids:
+            return Response({"Teams": []}, status=status.HTTP_200_OK)
+
+        # Get all team mappings for these clusters
+        team_mappings = MapClusterToTeam.objects.filter(clusterid__in=cluster_ids)
+        team_ids = team_mappings.values_list('teamid', flat=True).distinct()
+
+        # Get the actual team objects
+        teams = Teams.objects.filter(id__in=team_ids)
+        serializer = TeamSerializer(teams, many=True)
+
+        return Response({"Teams": serializer.data}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 def create_team_to_cluster_map(map_data):
-  serializer = ClusterToTeamSerializer(data=map_data)
-  if serializer.is_valid():
-    serializer.save()
-    return serializer.data
-  else:
-    return ValidationError(serializer.errors)
-
+    serializer = ClusterToTeamSerializer(data=map_data)
+    if serializer.is_valid():
+        serializer.save()
+        return serializer.data
+    else:
+        return ValidationError(serializer.errors)

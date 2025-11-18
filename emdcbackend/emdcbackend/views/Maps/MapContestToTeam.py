@@ -7,14 +7,14 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
-from ...models import MapContestToTeam, Contest, Teams
+from ...models import MapContestToTeam, Contest, Teams, MapUserToRole
 from ...serializers import MapContestToTeamSerializer, ContestSerializer, TeamSerializer
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_contest_team_mapping(request):
   serializer = MapContestToTeamSerializer(data=request.data)
@@ -26,20 +26,25 @@ def create_contest_team_mapping(request):
   )
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
-@permission_classes([IsAuthenticated])
-def get_teams_by_contest_id(request,contest_id):
+@authentication_classes([SessionAuthentication])
+@permission_classes([AllowAny])
+def get_teams_by_contest_id(request, contest_id):
     try:
-      mappings = MapContestToTeam.objects.filter(contestid=contest_id)
-      team_ids = mappings.values_list('teamid',flat=True)
-      teams = Teams.objects.filter(id__in=team_ids).order_by('team_rank')
-      serializer = TeamSerializer(teams, many=True)
-      return Response(serializer.data, status=status.HTTP_200_OK)
+        # Ensure all team scores are up-to-date by running tabulation
+        from ...views.tabulation import recompute_totals_and_ranks
+
+        recompute_totals_and_ranks(contest_id)
+
+        mappings = MapContestToTeam.objects.filter(contestid=contest_id)
+        team_ids = mappings.values_list("teamid", flat=True)
+        teams = Teams.objects.filter(id__in=team_ids).order_by("team_rank")
+        serializer = TeamSerializer(teams, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     except Exception as e:
-      return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_contest_id_by_team_id(request,team_id):
   try:
@@ -49,11 +54,13 @@ def get_contest_id_by_team_id(request,team_id):
     serializer = ContestSerializer(instance=contest)
     return Response({"Contest":serializer.data},status=status.HTTP_200_OK)
   except MapContestToTeam.DoesNotExist:
-    return Response({"error: No Contest Found for given Team"},status=status.http_404)
+    return Response({"error": "No Contest Found for given Team"}, status=status.HTTP_404_NOT_FOUND)
+  except Exception as e:
+    return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_contests_by_team_ids(request):
     try:
@@ -84,7 +91,7 @@ def get_contests_by_team_ids(request):
 
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_contest_team_mapping_by_id(request, map_id):
     map_to_delete = get_object_or_404(MapContestToTeam, id=map_id)

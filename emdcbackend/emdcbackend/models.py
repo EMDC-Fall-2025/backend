@@ -1,7 +1,5 @@
-from random import choices
-
 from django.db import models
-from rest_framework.exceptions import ValidationError
+from django.core.exceptions import ValidationError as ModelValidationError
 
 
 class Contest(models.Model):
@@ -10,21 +8,29 @@ class Contest(models.Model):
     is_open = models.BooleanField()
     is_tabulated = models.BooleanField()
 
+    def __str__(self):
+        return f"{self.id} - {self.name}"
+
+
 class MapContestToJudge(models.Model):
     contestid = models.IntegerField()
     judgeid = models.IntegerField()
+
 
 class MapContestToTeam(models.Model):
     contestid = models.IntegerField()
     teamid = models.IntegerField()
 
+
 class MapContestToOrganizer(models.Model):
     contestid = models.IntegerField()
     organizerid = models.IntegerField()
 
+
 class MapContestToCluster(models.Model):
     contestid = models.IntegerField()
     clusterid = models.IntegerField()
+
 
 class Judge(models.Model):
     class JudgeRoleEnum(models.IntegerChoices):
@@ -32,33 +38,61 @@ class Judge(models.Model):
         TECHNICAL = 2
         GENERAL = 3
         JOURNAL = 4
-    
-    first_name = models.CharField(max_length=50)  # Add max_length
-    last_name = models.CharField(max_length=50)   # Add max_length
+
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
     phone_number = models.CharField(max_length=20)
     contestid = models.IntegerField()
-    presentation=models.BooleanField()
-    mdo=models.BooleanField()
-    journal=models.BooleanField()
-    runpenalties=models.BooleanField()
-    otherpenalties=models.BooleanField()
-    redesign=models.BooleanField()
-    championship=models.BooleanField()
+    presentation=models.BooleanField(default=False)
+    mdo=models.BooleanField(default=False)
+    journal=models.BooleanField(default=False)
+    runpenalties=models.BooleanField(default=False)
+    otherpenalties=models.BooleanField(default=False)
+    redesign=models.BooleanField(default=False)
+    championship=models.BooleanField(default=False)
     role = models.IntegerField(choices=JudgeRoleEnum.choices, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.id} - {self.first_name} {self.last_name}"
+
 
 class MapJudgeToCluster(models.Model):
     judgeid = models.IntegerField()
     clusterid = models.IntegerField()
+    contestid = models.IntegerField(null=True, blank=True)
+    presentation = models.BooleanField(default=False)
+    mdo = models.BooleanField(default=False)
+    journal = models.BooleanField(default=False)
+    runpenalties = models.BooleanField(default=False)
+    otherpenalties = models.BooleanField(default=False)
+    redesign = models.BooleanField(default=False)
+    championship = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ("judgeid", "clusterid")
+
 
 class JudgeClusters(models.Model):
-    cluster_name = models.CharField(max_length=50)  # Add max_length
+    cluster_name = models.CharField(max_length=50)
+    is_active = models.BooleanField(default=True)
+    cluster_type = models.CharField(max_length=20, default='preliminary', choices=[
+        ('preliminary', 'Preliminary'),
+        ('championship', 'Championship'),
+        ('redesign', 'Redesign')
+    ])
+
+    def __str__(self):
+        return f"{self.id} - {self.cluster_name}"
+
 
 class MapClusterToTeam(models.Model):
     clusterid = models.IntegerField()
     teamid = models.IntegerField()
 
+
 class Teams(models.Model):
     team_name = models.CharField(max_length=99)
+    school_name = models.CharField(max_length=255, default='MNSU')
     journal_score = models.FloatField()
     presentation_score = models.FloatField()
     machinedesign_score = models.FloatField()
@@ -71,33 +105,62 @@ class Teams(models.Model):
     judge_disqualified = models.BooleanField(default=False)
     organizer_disqualified = models.BooleanField(default=False)
 
+    # multi-round flags/results
+    advanced_to_championship = models.BooleanField(default=False)
+    championship_rank = models.IntegerField(null=True, blank=True)
+    
+    # Preliminary results storage (preserved when advancing)
+    preliminary_presentation_score = models.FloatField(default=0.0)
+    preliminary_journal_score = models.FloatField(default=0.0)
+    preliminary_machinedesign_score = models.FloatField(default=0.0)
+    preliminary_penalties_score = models.FloatField(default=0.0)
+    preliminary_total_score = models.FloatField(default=0.0)
+    
+    # Championship results storage
+    championship_presentation_score = models.FloatField(default=0.0)
+    championship_machinedesign_score = models.FloatField(default=0.0)
+    championship_penalties_score = models.FloatField(default=0.0)
+    championship_general_penalties_score = models.FloatField(default=0.0)
+    championship_run_penalties_score = models.FloatField(default=0.0)
+    championship_score = models.FloatField(default=0.0)
+    
+    # Redesign results storage
+    redesign_score = models.FloatField(default=0.0)
+
+    def __str__(self):
+        return f"{self.id} - {self.team_name}"
+
+
 class MapUserToRole(models.Model):
     class RoleEnum(models.IntegerChoices):
         ADMIN = 1
         ORGANIZER = 2
         JUDGE = 3
         COACH = 4
-    
+
     role = models.IntegerField(choices=RoleEnum.choices)
     uuid = models.IntegerField()
     relatedid = models.IntegerField()
 
+
 class Coach(models.Model):
-    first_name = models.CharField(max_length=50)  # Add max_length
-    last_name = models.CharField(max_length=50)   # Add max_length
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
+
 
 class Admin(models.Model):
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
 
+
 class MapCoachToTeam(models.Model):
     teamid = models.IntegerField()
     coachid = models.IntegerField()
 
-class Organizer(models.Model):
-    first_name = models.CharField(max_length=50)  # Add max_length
-    last_name = models.CharField(max_length=50)   # Add max_length
 
+class Organizer(models.Model):
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
 
 
 class ScoresheetEnum(models.IntegerChoices):
@@ -129,9 +192,33 @@ class Scoresheet(models.Model):
     field15 = models.FloatField(null=True, blank=True)
     field16 = models.FloatField(null=True, blank=True)
     field17 = models.FloatField(null=True, blank=True)
-    
-    
-    
+    field18 = models.CharField(null=True, blank=True, max_length=500)
+    # Championship penalty fields (19-42)
+    field19 = models.FloatField(null=True, blank=True)
+    field20 = models.FloatField(null=True, blank=True)
+    field21 = models.FloatField(null=True, blank=True)
+    field22 = models.FloatField(null=True, blank=True)
+    field23 = models.FloatField(null=True, blank=True)
+    field24 = models.FloatField(null=True, blank=True)
+    field25 = models.FloatField(null=True, blank=True)
+    field26 = models.FloatField(null=True, blank=True)
+    field27 = models.FloatField(null=True, blank=True)
+    field28 = models.FloatField(null=True, blank=True)
+    field29 = models.FloatField(null=True, blank=True)
+    field30 = models.FloatField(null=True, blank=True)
+    field31 = models.FloatField(null=True, blank=True)
+    field32 = models.FloatField(null=True, blank=True)
+    field33 = models.FloatField(null=True, blank=True)
+    field34 = models.FloatField(null=True, blank=True)
+    field35 = models.FloatField(null=True, blank=True)
+    field36 = models.FloatField(null=True, blank=True)
+    field37 = models.FloatField(null=True, blank=True)
+    field38 = models.FloatField(null=True, blank=True)
+    field39 = models.FloatField(null=True, blank=True)
+    field40 = models.FloatField(null=True, blank=True)
+    field41 = models.FloatField(null=True, blank=True)
+    field42 = models.FloatField(null=True, blank=True)
+
     def clean(self):
         if self.sheetType == ScoresheetEnum.RUNPENALTIES:
             required_fields = {
@@ -152,36 +239,45 @@ class Scoresheet(models.Model):
                 'field16': 'Field 16 is required for PENALTIES.',
                 'field17': 'Field 17 is required for PENALTIES.',
             }
-
             errors = {}
             for field, error_message in required_fields.items():
                 if getattr(self, field) is None:
                     errors[field] = error_message
-
             if errors:
-                raise ValidationError(errors)
+                raise ModelValidationError(errors)
         elif self.sheetType == ScoresheetEnum.OTHERPENALTIES or ScoresheetEnum.REDESIGN:
             required_fields = ['field1', 'field2', 'field3', 'field4', 'field5', 'field6', 'field7']
             for field in required_fields:
                 if getattr(self, field) is None:
-                    raise ValidationError({field: f'{field.capitalize()} is required.'})
+                    raise ModelValidationError({field: f'{field.capitalize()} is required.'})
+        elif self.sheetType == ScoresheetEnum.CHAMPIONSHIP:
+            # Championship: Machine Design fields 1-8, Presentation fields 10-17 required
+            # Comment fields 9, 18 are optional
+            required_fields = ['field1', 'field2', 'field3', 'field4', 'field5', 'field6', 'field7', 'field8',
+                             'field10', 'field11', 'field12', 'field13', 'field14', 'field15', 'field16', 'field17']
+            for field in required_fields:
+                if getattr(self, field) is None:
+                    raise ModelValidationError({field: f'{field.capitalize()} is required for Championship.'})
         else:
-            # For other types (Presentation, Journal, Machine Design), fields 1-8 must be filled
+            # Presentation / Journal / Machine Design: fields 1..8 required
             required_fields = ['field1', 'field2', 'field3', 'field4', 'field5', 'field6', 'field7', 'field8']
             for field in required_fields:
                 if getattr(self, field) is None:
-                    raise ValidationError({field: f'{field.capitalize()} is required.'})
+                    raise ModelValidationError({field: f'{field.capitalize()} is required.'})
 
     def save(self, *args, **kwargs):
-        # Call the clean method before saving to trigger validation
-        self.clean()
+        # Only run validation if the scoresheet is being submitted (not just saved as draft)
+        if self.isSubmitted:
+            self.clean()
         super().save(*args, **kwargs)
+
 
 class MapScoresheetToTeamJudge(models.Model):
     teamid = models.IntegerField()
     judgeid = models.IntegerField()
     scoresheetid = models.IntegerField()
     sheetType = models.IntegerField(choices=ScoresheetEnum.choices)
+
 
 class SpecialAward(models.Model):
     teamid = models.IntegerField()
@@ -211,4 +307,24 @@ class MapAwardToContest(models.Model):
     contestid = models.IntegerField()
     awardid = models.IntegerField()
 
-    
+
+# === ADDED: Global shared password storage for Organizer & Judge ===
+class RoleSharedPassword(models.Model):
+    """
+    Stores a single, shared hashed password for a role.
+    GLOBAL scope (not per contest).
+    Applies to roles:
+      2 = ORGANIZER
+      3 = JUDGE
+    """
+    ROLE_CHOICES = (
+        (2, "ORGANIZER"),
+        (3, "JUDGE"),
+    )
+
+    role = models.PositiveSmallIntegerField(choices=ROLE_CHOICES, unique=True)
+    password_hash = models.CharField(max_length=200)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Shared Password for {self.get_role_display()}"

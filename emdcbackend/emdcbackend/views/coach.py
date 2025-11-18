@@ -6,7 +6,7 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 
@@ -16,9 +16,11 @@ from ..serializers import CoachSerializer
 from rest_framework.exceptions import ValidationError
 from ..models import MapUserToRole
 from ..auth.views import User, delete_user_by_id
+from ..auth.utils import send_set_password_email
+from django.contrib.sessions.models import Session
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def coach_by_id(request, coach_id):
   coach = get_object_or_404(Coach, id = coach_id)
@@ -26,7 +28,7 @@ def coach_by_id(request, coach_id):
   return Response({"Coach": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def coach_get_all(request):
   coaches = Coach.objects.all()
@@ -34,7 +36,7 @@ def coach_get_all(request):
   return Response({"Coaches":serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_coach(request):
     serializer = CoachSerializer(data=request.data)
@@ -46,7 +48,7 @@ def create_coach(request):
     )
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def edit_coach(request):
     coach = get_object_or_404(Coach, id=request.data["id"])
@@ -58,14 +60,32 @@ def edit_coach(request):
     serializer = CoachSerializer(instance=coach)
     return Response({"coach": serializer.data}, status=status.HTTP_200_OK)
 
+def _delete_user_sessions(user_id: int) -> None:
+    """
+    Proactively invalidate all active sessions for the given user id.
+    This ensures any existing session cookies become unusable immediately.
+    """
+    try:
+        for session in Session.objects.all():
+            data = session.get_decoded()
+            if str(data.get("_auth_user_id")) == str(user_id):
+                session.delete()
+    except Exception:
+        pass
+
+
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_coach(request, coach_id):
     try:
         coach = get_object_or_404(Coach, id=coach_id)
         coach_mapping = MapUserToRole.objects.get(role=MapUserToRole.RoleEnum.COACH, coachid=coach_id)
         user_id = coach_mapping.userid
+        
+        # Invalidate all active sessions for this user before deleting user
+        _delete_user_sessions(user_id)
+        
         coach.delete()
         coach_mapping.delete()
         delete_user_by_id(request, user_id)
@@ -87,25 +107,38 @@ def create_coach_instance(coach_data):
 def create_coach_only(data):
     coach_data = {
         "first_name": data["first_name"],
-        "last_name": data["last_name"]
+        "last_name": data.get("last_name", "") or ""  
     }
     coach_response = create_coach_instance(coach_data)
-    if not coach_response.get('id'):  # If judge creation fails, raise an exception
+    if not coach_response.get('id'):
         raise ValidationError('Coach creation failed.')
     return coach_response
 
 def create_user_and_coach(data):
     user_data = {"username": data["username"], "password": data["password"]}
-    user_response = create_user(user_data)
+    # Create user with unusable password - coach will set it via email link
+    user_response = create_user(user_data, send_email=False, enforce_unusable_password=True)
     if not user_response.get('user'):
         raise ValidationError('User creation failed.')
+    
     coach_data = {
         "first_name": data["first_name"],
-        "last_name": data["last_name"],
+        "last_name": data.get("last_name", "") or "",  
     }
     coach_response = create_coach_instance(coach_data)
     if not coach_response.get('id'): 
         raise ValidationError('Coach creation failed.')
+    
+    # Send set-password email to the coach
+    user_id = user_response.get("user", {}).get("id")
+    if user_id:
+        try:
+            user = User.objects.get(id=user_id)
+            send_set_password_email(user, subject="Set your EMDC Coach account password")
+        except Exception as e:
+            # Log error but don't fail coach creation if email fails
+            print(f"[WARN] Failed to send set-password email to coach {user.username}: {e}")
+    
     return user_response, coach_response
 
 def get_coach(coach_id):

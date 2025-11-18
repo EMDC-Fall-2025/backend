@@ -5,7 +5,7 @@ from rest_framework.decorators import (
     permission_classes,
 )
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
@@ -18,6 +18,11 @@ from .Maps.MapContestToOrganizer import map_contest_to_organizer
 from ..models import MapUserToRole
 from ..auth.views import User, delete_user_by_id
 
+
+from django.contrib.auth import get_user_model
+from ..auth.password_utils import send_set_password_email
+from django.contrib.sessions.models import Session
+
 # get organizer by id
 @api_view(["GET"])
 def organizer_by_id(request, organizer_id):
@@ -27,7 +32,7 @@ def organizer_by_id(request, organizer_id):
 
 # create an organizer
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_organizer(request):
     try:
@@ -57,11 +62,14 @@ def create_organizer(request):
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 def create_user_and_organizer(data):
+    # IMPORTANT: Organizers use ONLY the shared organizer password (role=2)
+    # (mirror behavior from your other file: no email; enforce unusable password flow)
     user_data = {"username": data["username"], "password": data["password"]}
-    user_response = create_user(user_data)
+    user_response = create_user(user_data, send_email=False, enforce_unusable_password=True)
     if not user_response.get('user'):
         raise ValidationError('User creation failed.')
     
+    # (Email intentionally NOT sent for organizers)
     organizer_data = {"first_name": data["first_name"], "last_name": data["last_name"]}
     organizer_response = make_organizer(organizer_data)
     if not organizer_response.get('id'):
@@ -78,24 +86,59 @@ def make_organizer(organizer_data):
 
 # edit an organizer
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def edit_organizer(request):
-    organizer = get_object_or_404(Organizer, id=request.data["id"])
-    organizer_mapping = MapUserToRole.objects.get(role=MapUserToRole.RoleEnum.ORGANIZER, relatedid=organizer.id)
-    user_id = organizer_mapping.uuid
-    user = get_object_or_404(User, id=user_id)
-    user.username = request.data["username"]
-    user.save()
-    organizer.first_name = request.data["first_name"]
-    organizer.last_name = request.data["last_name"]
-    organizer.save()
-    serializer = OrganizerSerializer(instance=organizer)
-    return Response({"organizer": serializer.data}, status=status.HTTP_200_OK)
+    try:
+        organizer = get_object_or_404(Organizer, id=request.data["id"])
+        
+        # Use filter().first() instead of get() to handle missing mappings gracefully
+        organizer_mapping = MapUserToRole.objects.filter(
+            role=MapUserToRole.RoleEnum.ORGANIZER, 
+            relatedid=organizer.id
+        ).first()
+        
+        # Update username if mapping exists
+        if organizer_mapping:
+            user_id = organizer_mapping.uuid
+            try:
+                user = User.objects.get(id=user_id)
+                user.username = request.data["username"]
+                user.save()
+            except User.DoesNotExist:
+                # User doesn't exist, skip username update
+                pass
+        
+        # Update organizer details
+        organizer.first_name = request.data["first_name"]
+        organizer.last_name = request.data["last_name"]
+        organizer.save()
+        
+        serializer = OrganizerSerializer(instance=organizer)
+        return Response({"organizer": serializer.data}, status=status.HTTP_200_OK)
+    
+    except Organizer.DoesNotExist:
+        return Response({"error": "Organizer not found."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _delete_user_sessions(user_id: int) -> None:
+    """
+    Proactively invalidate all active sessions for the given user id.
+    This ensures any existing session cookies become unusable immediately.
+    """
+    try:
+        for session in Session.objects.all():
+            data = session.get_decoded()
+            if str(data.get("_auth_user_id")) == str(user_id):
+                session.delete()
+    except Exception:
+        pass
 
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_organizer(request, organizer_id):
     try:
@@ -107,13 +150,24 @@ def delete_organizer(request, organizer_id):
             MapContestToOrganizer.objects.filter(organizerid=organizer_id).delete()
 
             # Fetch and delete the organizer-user mapping
-            organizer_mapping = MapUserToRole.objects.get(role=MapUserToRole.RoleEnum.ORGANIZER, relatedid=organizer_id)
-            user_id = organizer_mapping.uuid
+            organizer_mapping = MapUserToRole.objects.filter(role=MapUserToRole.RoleEnum.ORGANIZER, relatedid=organizer_id).first()
+            if organizer_mapping:
+                user_id = organizer_mapping.uuid
+                organizer_mapping.delete()  # Delete the mapping
+                
+                # Invalidate all active sessions for this user before deleting user
+                _delete_user_sessions(user_id)
+                
+                # Delete the user associated with the organizer (if it exists)
+                try:
+                    from django.contrib.auth.models import User
+                    user = User.objects.get(id=user_id)
+                    user.delete()
+                except User.DoesNotExist:
+                    # User doesn't exist, continue with deletion
+                    pass
+            
             organizer.delete()  # Delete the organizer
-            organizer_mapping.delete()  # Delete the mapping
-
-            # Delete the user associated with the organizer (if needed)
-            delete_user(user_id)
 
             return Response({"Detail": "Organizer and all related mappings deleted successfully."},
                             status=status.HTTP_200_OK)
@@ -128,7 +182,7 @@ def delete_organizer(request, organizer_id):
 
 # return all organizers
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_all_organizers(request):
     organizers = Organizer.objects.all()
@@ -136,7 +190,7 @@ def get_all_organizers(request):
     return Response({"organizers": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def organizer_disqualify_team(request):
     team = get_object_or_404(Teams, id=request.data["teamid"])

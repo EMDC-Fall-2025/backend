@@ -6,31 +6,16 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
 from ...models import JudgeClusters, Contest, MapContestToCluster
 from ...serializers import JudgeClustersSerializer, ContestSerializer, ClusterToContestSerializer
 
 
-# make non http request to create mapping
-@api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
-@permission_classes([IsAuthenticated])
-def create_cluster_contest_mapping(request):
-    try:
-        map_data = request.data
-        result = map_cluster_to_contest(map_data)
-        return Response(result, status=status.HTTP_201_CREATED)
-
-    except ValidationError as e:
-        return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
-
-    except Exception as e:
-        return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def contests_by_cluster_id(request, cluster_id):
     mappings = MapContestToCluster.objects.filter(clusterid=cluster_id)
@@ -43,7 +28,7 @@ def contests_by_cluster_id(request, cluster_id):
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def cluster_by_contest_id(request, contest_id):
     try:
@@ -58,7 +43,7 @@ def cluster_by_contest_id(request, contest_id):
 
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_cluster_contest_mapping_by_id(request, map_id):
     map_to_delete = get_object_or_404(MapContestToCluster, id=map_id)
@@ -66,8 +51,8 @@ def delete_cluster_contest_mapping_by_id(request, map_id):
     return Response({"detail": "Cluster To Contest Mapping deleted successfully."}, status=status.HTTP_200_OK)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
-@permission_classes([IsAuthenticated])
+@authentication_classes([SessionAuthentication])
+@permission_classes([AllowAny])
 def all_clusters_by_contest_id(request, contest_id):
     try:
         mappings = MapContestToCluster.objects.filter(contestid=contest_id)
@@ -111,6 +96,5 @@ def get_all_teams_cluster(contest_id):
     except JudgeClusters.DoesNotExist:
         return {"error": "'All Teams' cluster not found."}, None
     except Exception as e:
-        print(f"Error retrieving 'All Teams' cluster: {str(e)}")
         return {"error": str(e)}, None
 

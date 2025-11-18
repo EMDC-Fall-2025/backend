@@ -6,15 +6,15 @@ from rest_framework.decorators import (
 )
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from ...models import MapScoresheetToTeamJudge, Scoresheet, MapContestToJudge, MapJudgeToCluster
+from ...models import MapScoresheetToTeamJudge, Scoresheet, MapContestToJudge, MapJudgeToCluster, MapClusterToTeam, MapContestToCluster
 from ...serializers import MapScoreSheetToTeamJudgeSerializer, ScoresheetSerializer
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_score_sheet_mapping(request):
     try:
@@ -29,11 +29,58 @@ def create_score_sheet_mapping(request):
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def score_sheet_by_judge_team(request, judge_id, team_id, sheetType):
     try:
-        mapping = MapScoresheetToTeamJudge.objects.get(judgeid=judge_id, teamid=team_id, sheetType=sheetType)
+        # Get all mappings for this specific team/judge/sheetType combination
+        mappings = MapScoresheetToTeamJudge.objects.filter(
+            judgeid=judge_id, 
+            teamid=team_id, 
+            sheetType=sheetType
+        ).order_by('id')
+        
+        if not mappings.exists():
+            return Response({"error": "No mapping found for the provided judge, team, and sheet type."},
+                            status=status.HTTP_404_NOT_FOUND)
+        
+        # If multiple mappings exist, prioritize submitted scoresheets, then most recent
+        if mappings.count() > 1:
+            best_mapping = None
+            
+            for mapping in mappings:
+                try:
+                    scoresheet = Scoresheet.objects.get(id=mapping.scoresheetid)
+                    is_submitted = scoresheet.isSubmitted
+                    
+                    if best_mapping is None:
+                        best_mapping = mapping
+                    else:
+                        # Check if current mapping is submitted and existing is not
+                        try:
+                            existing_scoresheet = Scoresheet.objects.get(id=best_mapping.scoresheetid)
+                            existing_submitted = existing_scoresheet.isSubmitted
+                        except:
+                            existing_submitted = False
+                        
+                        if is_submitted and not existing_submitted:
+                            best_mapping = mapping
+                        elif not is_submitted and existing_submitted:
+                            pass  # Keep existing submitted mapping
+                        elif mapping.id > best_mapping.id:
+                            best_mapping = mapping
+                            
+                except Scoresheet.DoesNotExist:
+                    continue
+            
+            if best_mapping is None:
+                return Response({"error": "No valid scoresheet found for the provided judge, team, and sheet type."},
+                                status=status.HTTP_404_NOT_FOUND)
+            
+            mapping = best_mapping
+        else:
+            mapping = mappings.first()
+        
         sheet = Scoresheet.objects.get(id=mapping.scoresheetid)
         serializer = ScoresheetSerializer(instance=sheet)
         return Response({"ScoreSheet": serializer.data}, status=status.HTTP_200_OK)
@@ -47,7 +94,7 @@ def score_sheet_by_judge_team(request, judge_id, team_id, sheetType):
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def score_sheets_by_judge(request, judge_id):
     try:
@@ -55,8 +102,8 @@ def score_sheets_by_judge(request, judge_id):
         mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge_id)
 
         if not mappings.exists():
-            return Response({"error": "No mappings found for the provided judge."},
-                            status=status.HTTP_404_NOT_FOUND)
+            # Return empty list instead of 404 to simplify client handling
+            return Response({"ScoreSheets": []}, status=status.HTTP_200_OK)
 
         # Prepare data to return mappings with scoresheets
         results = []
@@ -112,8 +159,74 @@ def score_sheets_by_judge(request, judge_id):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def score_sheets_by_judge_and_cluster(request, judge_id, cluster_id):
+    """
+    Fetch scoresheets for a specific judge within a specific cluster.
+    This is used to filter scoresheets by cluster type (championship/redesign).
+    """
+    try:
+        # Get all teams in the cluster
+        cluster_team_mappings = MapClusterToTeam.objects.filter(clusterid=cluster_id)
+        team_ids = cluster_team_mappings.values_list('teamid', flat=True)
+        
+        # Fetch mappings for the judge and teams in this cluster only
+        mappings = MapScoresheetToTeamJudge.objects.filter(
+            judgeid=judge_id,
+            teamid__in=team_ids
+        )
+
+        if not mappings.exists():
+            # Return empty list instead of 404 to simplify client handling
+            return Response({"ScoreSheets": []}, status=status.HTTP_200_OK)
+
+        # Prepare data to return mappings with scoresheets
+        results = []
+        for mapping in mappings:
+            # Fetch the scoresheet by its ID
+            try:
+                score_sheet = Scoresheet.objects.get(id=mapping.scoresheetid)
+                serializer = ScoresheetSerializer(score_sheet).data
+                total_score = 0
+                if mapping.sheetType == 4:
+                    total_score = (serializer.get('field1', 0) or 0) + (serializer.get('field2', 0) or 0) + (serializer.get('field3', 0) or 0) + (serializer.get('field4', 0) or 0) + (serializer.get('field5', 0) or 0) + (serializer.get('field6', 0) or 0) + (serializer.get('field7', 0) or 0) + (serializer.get('field8', 0) or 0) + (serializer.get('field10', 0) or 0) + (serializer.get('field11', 0) or 0) + (serializer.get('field12', 0) or 0) + (serializer.get('field13', 0) or 0) + (serializer.get('field14', 0) or 0) + (serializer.get('field15', 0) or 0) + (serializer.get('field16', 0) or 0) + (serializer.get('field17', 0) or 0)
+                elif mapping.sheetType == 5:
+                    total_score = (serializer.get('field1', 0) or 0) + (serializer.get('field2', 0) or 0) + (serializer.get('field3', 0) or 0) + (serializer.get('field4', 0) or 0) + (serializer.get('field5', 0) or 0) + (serializer.get('field6', 0) or 0) + (serializer.get('field7', 0) or 0)
+                elif mapping.sheetType == 1:
+                    total_score = (serializer.get('field1', 0) or 0) + (serializer.get('field2', 0) or 0) + (serializer.get('field3', 0) or 0) + (serializer.get('field4', 0) or 0) + (serializer.get('field5', 0) or 0) + (serializer.get('field6', 0) or 0) + (serializer.get('field7', 0) or 0) + (serializer.get('field8', 0) or 0)
+                elif mapping.sheetType == 2:
+                    total_score = (serializer.get('field1', 0) or 0) + (serializer.get('field2', 0) or 0) + (serializer.get('field3', 0) or 0) + (serializer.get('field4', 0) or 0) + (serializer.get('field5', 0) or 0) + (serializer.get('field6', 0) or 0) + (serializer.get('field7', 0) or 0) + (serializer.get('field8', 0) or 0)
+                elif mapping.sheetType == 3:
+                    total_score = (serializer.get('field1', 0) or 0) + (serializer.get('field2', 0) or 0) + (serializer.get('field3', 0) or 0) + (serializer.get('field4', 0) or 0) + (serializer.get('field5', 0) or 0) + (serializer.get('field6', 0) or 0) + (serializer.get('field7', 0) or 0) + (serializer.get('field8', 0) or 0)
+                elif mapping.sheetType == 6:
+                    total_score = (serializer.get('field1', 0) or 0) + (serializer.get('field2', 0) or 0) + (serializer.get('field3', 0) or 0) + (serializer.get('field4', 0) or 0) + (serializer.get('field5', 0) or 0) + (serializer.get('field6', 0) or 0) + (serializer.get('field7', 0) or 0) + (serializer.get('field8', 0) or 0)
+                elif mapping.sheetType == 7:
+                    total_score = (serializer.get('field1', 0) or 0) + (serializer.get('field2', 0) or 0) + (serializer.get('field3', 0) or 0) + (serializer.get('field4', 0) or 0) + (serializer.get('field5', 0) or 0) + (serializer.get('field6', 0) or 0) + (serializer.get('field7', 0) or 0) + (serializer.get('field8', 0) or 0) + (serializer.get('field9', 0) or 0)
+                
+                results.append({
+                    "mapping": {
+                        "id": mapping.id,
+                        "teamid": mapping.teamid,
+                        "judgeid": mapping.judgeid,
+                        "scoresheetid": mapping.scoresheetid,
+                        "sheetType": mapping.sheetType
+                    },
+                    "scoresheet": serializer,
+                    "total": total_score
+                })
+            except Scoresheet.DoesNotExist:
+                continue
+
+        return Response({"ScoreSheets": results}, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def all_sheets_submitted_for_contests(request):
     contests = request.data
@@ -122,23 +235,70 @@ def all_sheets_submitted_for_contests(request):
     try:
         for contest in contests:
             contest_id = contest.get('id')
-            judges = MapContestToJudge.objects.filter(contestid=contest_id)
+            
+            # Get all clusters for this contest
+            contest_cluster_mappings = MapContestToCluster.objects.filter(contestid=contest_id)
+            cluster_ids = contest_cluster_mappings.values_list('clusterid', flat=True).distinct()
+            
+            if not cluster_ids:
+                # No clusters in contest, so no judges to check
+                results[contest_id] = True
+                continue
+            
+            # Get all judges assigned to clusters in this contest
+            judge_cluster_mappings = MapJudgeToCluster.objects.filter(clusterid__in=cluster_ids)
+            judge_ids = judge_cluster_mappings.values_list('judgeid', flat=True).distinct()
+            
+            if not judge_ids:
+                # No judges assigned to clusters in this contest
+                # Cannot say all sheets are submitted if there are no judges
+                results[contest_id] = False
+                continue
+            
+            # Get all teams in clusters for this contest
+            team_cluster_mappings = MapClusterToTeam.objects.filter(clusterid__in=cluster_ids)
+            team_ids = team_cluster_mappings.values_list('teamid', flat=True).distinct()
+            
+            if not team_ids:
+                # No teams in clusters, so no score sheets to check
+                # Cannot say all sheets are submitted if there are no teams
+                results[contest_id] = False
+                continue
+            
+            # Check if all score sheets for judges and teams in this contest are submitted
             all_submitted = True
-
-            for judge in judges:
-                score_sheet_mappings = MapScoresheetToTeamJudge.objects.filter(judgeid=judge.id)
-
-                for mapping in score_sheet_mappings:
-                    score_sheet = Scoresheet.objects.get(id=mapping.scoresheetid)
-                    serializer = ScoresheetSerializer(score_sheet).data
-
-                    if not serializer.get("isSubmitted"):
-                        all_submitted = False
-                        break
-
-                if not all_submitted:
+            
+            for judge_id in judge_ids:
+                # Get all score sheet mappings for this judge and teams in contest clusters
+                score_sheet_mappings = MapScoresheetToTeamJudge.objects.filter(
+                    judgeid=judge_id,
+                    teamid__in=team_ids
+                )
+                
+                if not score_sheet_mappings.exists():
+                    # Judge has no score sheet mappings for teams in this contest
+                    # This could mean they haven't been assigned yet, so consider as not submitted
+                    all_submitted = False
                     break
-
+                
+                # Get all score sheet IDs for this judge's mappings in this contest
+                scoresheet_ids = list(score_sheet_mappings.values_list('scoresheetid', flat=True))
+                
+                # Check if all scoresheets referenced by mappings actually exist
+                # If mappings exist but scoresheets don't, consider as not submitted
+                existing_scoresheets = Scoresheet.objects.filter(id__in=scoresheet_ids)
+                if existing_scoresheets.count() < len(scoresheet_ids):
+                    # Some scoresheets referenced by mappings don't exist (orphaned mappings)
+                    all_submitted = False
+                    break
+                
+                # Check if any score sheet is not submitted
+                unsubmitted_count = existing_scoresheets.filter(isSubmitted=False).count()
+                
+                if unsubmitted_count > 0:
+                    all_submitted = False
+                    break
+            
             results[contest_id] = all_submitted
 
         return Response(results, status=status.HTTP_200_OK)
@@ -148,7 +308,7 @@ def all_sheets_submitted_for_contests(request):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def submit_all_penalty_sheets_for_judge(request):
     try:
@@ -170,7 +330,7 @@ def submit_all_penalty_sheets_for_judge(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_score_sheet_mapping_by_id(request, map_id):
     map_to_delete = get_object_or_404(MapScoresheetToTeamJudge, id=map_id)
@@ -208,3 +368,32 @@ def map_score_sheets_for_team_in_cluster(team_id, cluster_id):
     serializer = ScoresheetSerializer(scoresheets, many=True)
 
     return serializer.data
+
+
+# Per-team submission status: how many assigned score sheets have been submitted
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def all_submitted_for_team(request, team_id: int):
+    try:
+        mappings = MapScoresheetToTeamJudge.objects.filter(teamid=team_id)
+        total = mappings.count()
+        if total == 0:
+            return Response({
+                "teamId": team_id,
+                "submittedCount": 0,
+                "totalCount": 0,
+                "allSubmitted": False,
+            }, status=status.HTTP_200_OK)
+
+        sheet_ids = mappings.values_list("scoresheetid", flat=True)
+        submitted_count = Scoresheet.objects.filter(id__in=sheet_ids, isSubmitted=True).count()
+
+        return Response({
+            "teamId": team_id,
+            "submittedCount": submitted_count,
+            "totalCount": total,
+            "allSubmitted": submitted_count == total,
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

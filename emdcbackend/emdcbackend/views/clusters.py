@@ -5,7 +5,7 @@ from rest_framework.decorators import (
     permission_classes,
 )
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
@@ -15,7 +15,7 @@ from ..serializers import JudgeClustersSerializer
 from .Maps.MapClusterToContest import  map_cluster_to_contest
 from ..models import Teams, MapClusterToTeam
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def cluster_by_id(request, cluster_id):
   cluster = get_object_or_404(JudgeClusters, id = cluster_id)
@@ -23,7 +23,7 @@ def cluster_by_id(request, cluster_id):
   return Response({"Cluster": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def clusters_get_all(request):
   clusters = JudgeClusters.objects.all()
@@ -31,7 +31,7 @@ def clusters_get_all(request):
   return Response({"Clusters":serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_cluster(request):
   try:
@@ -62,23 +62,55 @@ def create_cluster(request):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def edit_cluster(request):
     cluster = get_object_or_404(JudgeClusters, id=request.data["id"])
+    
+    # Cannot change from preliminary to championship/redesign
+    original_type = (cluster.cluster_type or "preliminary").lower()
+    new_type = request.data.get("cluster_type", original_type).lower()
+    
+    if original_type == "preliminary" and new_type in ["championship", "redesign"]:
+        return Response(
+            {"error": "Cannot change preliminary cluster to championship/redesign."}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
     cluster.cluster_name = request.data["cluster_name"]
+    if "cluster_type" in request.data:
+        cluster.cluster_type = request.data["cluster_type"]
     cluster.save()
 
     serializer = JudgeClustersSerializer(instance=cluster)
     return Response({"cluster": serializer.data}, status=status.HTTP_200_OK)
 
 @api_view(["DELETE"])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_cluster(request, cluster_id):
-    cluster = get_object_or_404(JudgeClusters, id=cluster_id)
-    cluster.delete()
-    return Response({"detail": "Cluster deleted successfully."}, status=status.HTTP_200_OK)
+    try:
+        with transaction.atomic():
+            cluster = get_object_or_404(JudgeClusters, id=cluster_id)
+            
+            # Import mapping models
+            from ..models import (
+                MapClusterToTeam,
+                MapJudgeToCluster,
+                MapContestToCluster,
+            )
+            
+            # Delete all mappings that reference this cluster
+            MapClusterToTeam.objects.filter(clusterid=cluster_id).delete()
+            MapJudgeToCluster.objects.filter(clusterid=cluster_id).delete()
+            MapContestToCluster.objects.filter(clusterid=cluster_id).delete()
+            
+            # Now delete the cluster
+            cluster.delete()
+            
+            return Response({"detail": "Cluster and all associated mappings deleted successfully."}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"detail": f"Error deleting cluster: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def make_judge_cluster_instance(data):
@@ -90,7 +122,10 @@ def make_judge_cluster_instance(data):
 
 
 def make_cluster(data):
-  cluster_data = {"cluster_name":data["cluster_name"]}
+  cluster_data = {
+    "cluster_name": data["cluster_name"],
+    "cluster_type": data.get("cluster_type", "preliminary")
+  }
   cluster_response = make_judge_cluster_instance(cluster_data)
   if not cluster_response.get('id'):
         raise ValidationError('Cluster creation failed.')
