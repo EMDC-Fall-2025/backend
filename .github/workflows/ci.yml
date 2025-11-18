@@ -72,7 +72,5 @@ jobs:
           DJANGO_SECRET_KEY: test-secret-key-for-ci-${{ github.run_id }}
           ALLOWED_HOSTS: localhost,127.0.0.1
         run: |
-          python manage.py test emdcbackend.test --verbosity=2 || true
-          # Note: Some tests may fail, but CI will continue
-          # Check test output above for specific failures
+          python manage.py test emdcbackend.test --verbosity=2
 

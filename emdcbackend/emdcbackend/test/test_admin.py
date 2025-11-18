@@ -40,7 +40,7 @@ class AdminTests(APITestCase):
         url = reverse("create_admin")
         data = {
             "username": "newadmin@example.com",
-            "password": "newpassword",
+            "password": "NewPassword123!",
             "first_name": "New",
             "last_name": "Admin",
         }
