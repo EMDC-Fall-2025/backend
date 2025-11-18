@@ -134,12 +134,23 @@ def get_all_contests_by_organizer(request):
 @permission_classes([IsAuthenticated])
 def get_organizer_names_by_contests(request):
     try:
-        # Optimized query: Get all contest-organizer mappings with organizer names in one query
-        mappings_with_names = MapContestToOrganizer.objects.select_related('organizerid').values(
-            'contestid',
-            'organizerid__first_name',
-            'organizerid__last_name'
-        )
+        # Get all contest-organizer mappings
+        mappings = MapContestToOrganizer.objects.all()
+        
+        # Get organizer IDs and fetch organizers
+        organizer_ids = mappings.values_list('organizerid', flat=True).distinct()
+        organizers_dict = {org.id: org for org in Organizer.objects.filter(id__in=organizer_ids)}
+        
+        # Build mappings with names
+        mappings_with_names = []
+        for mapping in mappings:
+            organizer = organizers_dict.get(mapping.organizerid)
+            if organizer:
+                mappings_with_names.append({
+                    'contestid': mapping.contestid,
+                    'organizerid__first_name': organizer.first_name,
+                    'organizerid__last_name': organizer.last_name
+                })
 
         # Group organizers by contest
         contests_with_organizers = defaultdict(list)

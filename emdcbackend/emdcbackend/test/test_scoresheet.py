@@ -245,4 +245,80 @@ class ScoresheetAPITests(APITestCase):
         except KeyError:
             # Expected due to implementation bug
             self.skipTest("Endpoint has implementation issue: GET request accessing request.data")
+    
+    def test_multi_team_general_penalties(self):
+        """Test getting general penalties for multiple teams"""
+        from ..models import MapContestToCluster, MapClusterToTeam, MapJudgeToCluster
+        from ..models import JudgeClusters
+        
+        # Create cluster and mappings
+        cluster = JudgeClusters.objects.create(cluster_name="Test Cluster", cluster_type="preliminary")
+        MapContestToCluster.objects.create(contestid=self.contest.id, clusterid=cluster.id)
+        MapClusterToTeam.objects.create(clusterid=cluster.id, teamid=self.team.id)
+        MapJudgeToCluster.objects.create(judgeid=self.judge.id, clusterid=cluster.id)
+        
+        # Create general penalties scoresheet (type 5)
+        gen_pen_sheet = Scoresheet.objects.create(
+            sheetType=5,
+            isSubmitted=False,
+            field1=5.0,
+            field2=3.0,
+            field3=2.0,
+            field4=0.0,
+            field5=0.0,
+            field6=0.0,
+            field7=0.0,
+            field8=0.0
+        )
+        
+        MapScoresheetToTeamJudge.objects.create(
+            teamid=self.team.id,
+            judgeid=self.judge.id,
+            scoresheetid=gen_pen_sheet.id,
+            sheetType=5
+        )
+        
+        url = reverse('multi_team_general_penalties', args=[self.judge.id, self.contest.id])
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('teams', response.data)
+    
+    def test_multi_team_run_penalties(self):
+        """Test getting run penalties for multiple teams"""
+        from ..models import MapContestToCluster, MapClusterToTeam, MapJudgeToCluster
+        from ..models import JudgeClusters
+        
+        # Create cluster and mappings
+        cluster = JudgeClusters.objects.create(cluster_name="Test Cluster", cluster_type="preliminary")
+        MapContestToCluster.objects.create(contestid=self.contest.id, clusterid=cluster.id)
+        MapClusterToTeam.objects.create(clusterid=cluster.id, teamid=self.team.id)
+        MapJudgeToCluster.objects.create(judgeid=self.judge.id, clusterid=cluster.id)
+        
+        # Create run penalties scoresheet (type 4)
+        run_pen_sheet = Scoresheet.objects.create(
+            sheetType=4,
+            isSubmitted=False,
+            field1=10.0,
+            field2=5.0,
+            field3=0.0,
+            field4=0.0,
+            field5=0.0,
+            field6=0.0,
+            field7=0.0,
+            field8=0.0
+        )
+        
+        MapScoresheetToTeamJudge.objects.create(
+            teamid=self.team.id,
+            judgeid=self.judge.id,
+            scoresheetid=run_pen_sheet.id,
+            sheetType=4
+        )
+        
+        url = reverse('multi_team_run_penalties', args=[self.judge.id, self.contest.id])
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('teams', response.data)
 

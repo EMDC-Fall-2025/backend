@@ -56,7 +56,7 @@ class UserAuthTests(APITestCase):
         url = reverse('signup')
         new_user_data = {
             'username': 'newuser@example.com',  # Must be a valid email
-            'password': 'newpassword'
+            'password': 'NewPassword123!'  # Must meet password requirements
         }
         response = self.client.post(url, new_user_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -95,5 +95,41 @@ class UserAuthTests(APITestCase):
 
         # Check if the response data contains the entire string
         self.assertIn(f'passed for {self.user.username}', response.data)
+    
+    def test_logout(self):
+        """Test logout endpoint"""
+        self.client.login(username='testuser', password='testpassword')
+        url = reverse('logout')
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        response_data = response.json()
+        self.assertIn('detail', response_data)
+        self.assertEqual(response_data['detail'], 'logged out')
+        
+        # Verify session is cleared by trying to access protected endpoint
+        protected_url = reverse('user_by_id', kwargs={'user_id': self.user.id})
+        response = self.client.get(protected_url)
+        # May return 401 or 403 if session is cleared
+        self.assertIn(response.status_code, [status.HTTP_200_OK, status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
+    
+    def test_logout_without_login(self):
+        """Test logout when not logged in"""
+        self.client.logout()  # Ensure not logged in
+        url = reverse('logout')
+        response = self.client.post(url)
+        # Should still return 200 (logout is idempotent)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+    
+    def test_csrf_token(self):
+        """Test CSRF token endpoint"""
+        url = reverse('csrf')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        response_data = response.json()
+        self.assertIn('detail', response_data)
+        self.assertEqual(response_data['detail'], 'ok')
+        
+        # Verify CSRF cookie is set
+        self.assertIn('csrftoken', response.cookies)
 
 

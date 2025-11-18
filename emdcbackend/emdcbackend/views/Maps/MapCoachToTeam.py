@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
+from django.http import Http404
 from ...models import MapCoachToTeam, Coach, Teams, MapUserToRole, Contest, MapContestToTeam
 from ...serializers import CoachToTeamSerializer, CoachSerializer, TeamSerializer
 
@@ -92,16 +93,22 @@ def coaches_by_teams(request):
             # Retrieve coach-team mapping
             mapping_coach_team = MapCoachToTeam.objects.get(teamid=team_id)
             coach = Coach.objects.get(id=mapping_coach_team.coachid)
-            mapping_user_role = MapUserToRole.objects.get(relatedid=coach.id, role=4)
-            uuid = mapping_user_role.uuid
-            user = get_object_or_404(User, id=uuid)
+            
+            # Try to get user role mapping, but handle if it doesn't exist
+            try:
+                mapping_user_role = MapUserToRole.objects.get(relatedid=coach.id, role=4)
+                uuid = mapping_user_role.uuid
+                user = get_object_or_404(User, id=uuid)
+                username = user.username
+            except (MapUserToRole.DoesNotExist, Http404):
+                username = None  # Coach exists but no user mapping
 
             # Add to response dictionary with team ID as key
             response_data[team_id] = {
                 "id": coach.id,
                 "first_name": coach.first_name,
                 "last_name": coach.last_name,
-                "username": user.username
+                "username": username
             }
 
         except MapCoachToTeam.DoesNotExist:

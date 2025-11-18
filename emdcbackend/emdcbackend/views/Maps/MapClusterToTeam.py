@@ -87,17 +87,24 @@ def delete_cluster_team_mapping_by_id(request, map_id):
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(["GET"])
+@api_view(["POST"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_teams_by_cluster_rank(request):
-    mappings = MapClusterToTeam.objects.filter(clusterid=request.data["clusterid"])
-    teams = Teams.objects.filter(
-        id__in=mappings.values_list('teamid', flat=True),
-        cluster_rank__isnull=False
-    ).order_by('cluster_rank')
-    serializer = TeamSerializer(teams, many=True)
-    return Response({"Teams": serializer.data}, status=status.HTTP_200_OK)
+    try:
+        clusterid = request.data.get("clusterid")
+        if not clusterid:
+            return Response({"error": "clusterid is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        mappings = MapClusterToTeam.objects.filter(clusterid=clusterid)
+        teams = Teams.objects.filter(
+            id__in=mappings.values_list('teamid', flat=True),
+            cluster_rank__isnull=False
+        ).order_by('cluster_rank')
+        serializer = TeamSerializer(teams, many=True)
+        return Response({"Teams": serializer.data}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(["GET"])

@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
+from django.http import Http404
 
 from ...models import MapContestToJudge, Judge, Contest, MapJudgeToCluster, MapContestToTeam, MapScoresheetToTeamJudge, Scoresheet, MapClusterToTeam
 from ...serializers import JudgeSerializer
@@ -246,6 +247,8 @@ def assign_judge_to_contest(request):
             "score_sheets": sheets_result
         }, status=status.HTTP_201_CREATED)
         
+    except Http404:
+        return Response({"error": "Judge, contest, or cluster not found"}, status=status.HTTP_404_NOT_FOUND)
     except ValidationError as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
@@ -285,6 +288,8 @@ def get_judge_contests(request, judge_id):
             "contests": contest_serializer.data
         }, status=status.HTTP_200_OK)
         
+    except Http404:
+        return Response({"error": "Judge not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -346,6 +351,8 @@ def remove_judge_from_contest(request, judge_id, contest_id):
             }
         }, status=status.HTTP_200_OK)
         
+    except Http404:
+        return Response({"error": "Mapping not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -428,5 +435,7 @@ def remove_judge_from_cluster(request, judge_id, cluster_id):
             }
         }, status=status.HTTP_200_OK)
         
+    except Http404:
+        return Response({"error": "Mapping not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
