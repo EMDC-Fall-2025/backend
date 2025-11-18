@@ -131,7 +131,6 @@ def advance_to_championship(request):
                 continue
         
         # 6. Update judge flags for championship/redesign clusters
-        from ..models import MapJudgeToCluster, Judge
         
         # Update judges in championship cluster to have championship=True
         # IMPORTANT: Update both Judge model AND MapJudgeToCluster mapping
@@ -161,7 +160,7 @@ def advance_to_championship(request):
                 if not judge.redesign:
                     judge.redesign = True
                     judge.save()
-                # Update MapJudgeToCluster mapping (this is what the frontend checks)
+                # Update MapJudgeToCluster mapping 
                 if not mapping.redesign:
                     mapping.redesign = True
                     mapping.save()
@@ -169,7 +168,6 @@ def advance_to_championship(request):
                 continue
         
         # 7. Clear existing championship/redesign scoresheets to avoid duplicates
-        from ..models import MapScoresheetToTeamJudge, Scoresheet
         
         championship_judge_ids = [mapping.judgeid for mapping in championship_judge_mappings]
         if championship_judge_ids:
@@ -344,19 +342,19 @@ def undo_championship_advancement(request):
             # Recreate preliminary scoresheets if they don't exist
             # This ensures scoresheets are available even if they were deleted somehow
             # The function checks for existing scoresheets before creating, so it's safe
-            from .scoresheets import create_scoresheets_for_judges_in_cluster
             try:
+                from .scoresheets import create_scoresheets_for_judges_in_cluster
                 created_sheets = create_scoresheets_for_judges_in_cluster(main_cluster.id)
                 # Log for debugging (can be removed in production)
                 print(f"[Undo Championship] Created {len(created_sheets)} scoresheets for cluster {main_cluster.id}")
             except Exception as e:
                 # Log error but don't fail the entire operation
                 print(f"[Undo Championship] Error creating scoresheets: {str(e)}")
+                import traceback
+                print(f"[Undo Championship] Scoresheet creation traceback: {traceback.format_exc()}")
         
         # 7. Reset judge championship/redesign flags for this contest's clusters
-        # This ensures the frontend correctly detects that judges no longer have championship assignments
-        # and re-enables multi-scoring for this contest
-        from ..models import MapJudgeToCluster, Judge
+      
         
         if championship_cluster:
             # Reset championship flags for judges in this contest's championship cluster
@@ -403,7 +401,12 @@ def undo_championship_advancement(request):
                     continue
         
         # 8. Recompute totals and ranks
-        recompute_totals_and_ranks(contest_id)
+        try:
+            recompute_totals_and_ranks(contest_id)
+        except Exception as recompute_error:
+            print(f"[UNDO CHAMPIONSHIP] Error recomputing totals: {str(recompute_error)}")
+            # Don't fail the entire operation for recompute errors
+            # The scores will be recomputed later when needed
         
         return Response({
             "ok": True,
@@ -416,4 +419,8 @@ def undo_championship_advancement(request):
         }, status=200)
         
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"[UNDO CHAMPIONSHIP ERROR] {str(e)}")
+        print(f"[UNDO CHAMPIONSHIP TRACEBACK] {error_details}")
         return Response({"ok": False, "message": f"Error undoing championship advancement: {str(e)}"}, status=500)

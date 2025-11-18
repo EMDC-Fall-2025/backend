@@ -78,7 +78,14 @@ def create_judge(request):
                 }),
                 map_cluster_to_judge({
                     "judgeid": judge_response.get("id"),
-                    "clusterid": request.data["clusterid"]
+                    "clusterid": request.data["clusterid"],
+                    "presentation": request.data.get("presentation", False),
+                    "journal": request.data.get("journal", False),
+                    "mdo": request.data.get("mdo", False),
+                    "runpenalties": request.data.get("runpenalties", False),
+                    "otherpenalties": request.data.get("otherpenalties", False),
+                    "redesign": request.data.get("redesign", False),
+                    "championship": request.data.get("championship", False),
                 }),
                 
                 create_sheets_for_teams_in_cluster(
