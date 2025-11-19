@@ -155,7 +155,7 @@ class SecurityTests(APITestCase):
             'first_name': 'Test',
             'last_name': 'Admin',
             'username': 'admin@example.com',
-            'password': 'password'
+            'password': 'TestPassword123!'
         }, format='json')
         # Should check for admin role (implementation dependent)
         self.assertIn(response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_401_UNAUTHORIZED, status.HTTP_201_CREATED])

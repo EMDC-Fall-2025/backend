@@ -56,7 +56,7 @@ class UserAuthTests(APITestCase):
         url = reverse('signup')
         new_user_data = {
             'username': 'newuser@example.com',  # Must be a valid email
-            'password': 'newpassword'
+            'password': 'NewPassword123!'
         }
         response = self.client.post(url, new_user_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
