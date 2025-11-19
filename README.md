@@ -151,6 +151,26 @@ gunicorn emdcbackend.wsgi:application
 - `POST /api/advance/advanceToChampionship/` - Advance teams to championship
 - `POST /api/advance/undoChampionshipAdvancement/` - Undo championship advancement
 
+## 🚀 CI/CD Pipeline
+
+This project uses **GitHub Actions** for continuous integration and deployment:
+
+- ✅ **Automated Testing**: 288 tests run on every push and PR
+- ✅ **Code Quality**: Flake8, Black, and isort validation
+- ✅ **Security Scanning**: Safety and Bandit security checks
+- ✅ **Migration Checks**: Ensures no missing migrations
+- ✅ **Docker Images**: Automated builds pushed to GitHub Container Registry
+- ✅ **Deployment**: Templates for DigitalOcean, Heroku, AWS, and VPS
+- ✅ **Health Checks**: Post-deployment verification
+
+**📖 For detailed CI/CD documentation, see [CI-CD.md](./CI-CD.md)**
+
+### CI/CD Workflows
+
+1. **ci.yml** - Runs tests, linting, security scans, and migration checks
+2. **docker.yml** - Builds and publishes Docker images
+3. **deploy.yml** - Deploys to production/staging with health checks
+
 ## Testing
 
 The project includes comprehensive test coverage with **288 tests** covering:
@@ -174,6 +194,11 @@ python manage.py test emdcbackend.test.test_models
 
 # Run with verbosity
 python manage.py test emdcbackend.test --verbosity=2
+
+# Run with coverage
+pip install coverage
+coverage run --source='.' manage.py test emdcbackend.test
+coverage report
 ```
 
 ### Test Coverage
