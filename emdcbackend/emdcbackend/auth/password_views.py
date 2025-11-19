@@ -17,7 +17,7 @@ from .password_utils import build_set_password_url
 from .utils import send_email_via_resend
 
 
-# 1) Admin/Organizer re-sends a set-password email (auth required)
+# 1) Admin-only re-sends a set-password email (auth required)
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -25,7 +25,23 @@ def request_set_password(request):
     """
     Body: { "username": "<email>" }
     Sends a set-password link to the user's email. Typically used for first-time users.
+    Only admins (role 1) can use this endpoint.
     """
+    # Check if user is an admin (role = 1)
+    from ..models import MapUserToRole
+    try:
+        user_role_mapping = MapUserToRole.objects.get(uuid=request.user.id)
+        if user_role_mapping.role != 1:  # 1 = ADMIN
+            return Response({
+                "detail": "Only administrators can resend password emails.",
+                "error": "Permission denied."
+            }, status=status.HTTP_403_FORBIDDEN)
+    except MapUserToRole.DoesNotExist:
+        return Response({
+            "detail": "Only administrators can resend password emails.",
+            "error": "User role not found."
+        }, status=status.HTTP_403_FORBIDDEN)
+    
     username = request.data.get("username")
     if not username:
         return Response({"detail": "username (email) is required."}, status=status.HTTP_400_BAD_REQUEST)
