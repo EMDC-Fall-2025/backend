@@ -1,12 +1,9 @@
 name: Backend Docker Build
 
 on:
-  push:
-    branches: [main]
-    tags:
-      - 'v*'
+  push: {}  # Run on all branches and tags
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 env:
   REGISTRY: ghcr.io
