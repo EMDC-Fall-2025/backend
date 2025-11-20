@@ -314,16 +314,18 @@ def recompute_totals_and_ranks(contest_id: int):
         except Teams.DoesNotExist:
             continue
 
+    # Compute totals and save all teams in one batch operation
     for t in teams:
         _compute_totals_for_team(t)
+        t.save()  # Save each team after computation
 
     for m in MapContestToCluster.objects.filter(contestid=contest_id):
         set_cluster_rank({"clusterid": m.clusterid})
     set_team_rank({"contestid": contest_id})
-    
+
     # Set championship rankings for teams in championship clusters
     set_championship_rank(contest_id)
-    
+
     # Set redesign rankings for redesign teams only
     set_redesign_rank(contest_id)
 

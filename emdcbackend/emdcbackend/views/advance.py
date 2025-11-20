@@ -340,12 +340,12 @@ def undo_championship_advancement(request):
                     MapClusterToTeam.objects.create(clusterid=main_cluster.id, teamid=team_id)
             
             # Recreate preliminary scoresheets if they don't exist
-            # This ensures scoresheets are available even if they were deleted somehow
-            # The function checks for existing scoresheets before creating, so it's safe
+            #  Only creates scoresheets for judges who are already in preliminary clusters
+            # Judges who were ONLY in championship/redesign clusters will not get preliminary scoresheets
+            # and will see nothing on their dashboard 
             try:
                 from .scoresheets import create_scoresheets_for_judges_in_cluster
                 created_sheets = create_scoresheets_for_judges_in_cluster(main_cluster.id)
-                # Log for debugging (can be removed in production)
                 print(f"[Undo Championship] Created {len(created_sheets)} scoresheets for cluster {main_cluster.id}")
             except Exception as e:
                 # Log error but don't fail the entire operation

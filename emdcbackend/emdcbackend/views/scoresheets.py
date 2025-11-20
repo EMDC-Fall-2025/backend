@@ -571,7 +571,7 @@ def create_sheets_for_teams_in_cluster(judge_id, cluster_id, presentation, journ
                 existing_championship = existing_mappings.filter(sheetType=7).exists()
                 if not existing_championship:
                     try:
-                        sheet = create_base_score_sheet(7)
+                        sheet = create_base_score_sheet_Championship()
                         map_data = {"teamid": team.id, "judgeid": judge_id, "scoresheetid": sheet.id, "sheetType": 7}
                         map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
                         if map_serializer.is_valid():
@@ -648,6 +648,98 @@ def create_score_sheets_for_team(team, judges):
             )
             created_score_sheets.append(score_sheet)
     return created_score_sheets
+
+def create_scoresheets_for_judges_in_cluster(cluster_id):
+    """
+    Create scoresheets for all judges in a cluster when teams are added.
+    This is called after teams are moved to championship/redesign clusters.
+
+    IMPORTANT: Only creates scoresheets appropriate for the cluster type:
+    - Championship clusters: ONLY championship scoresheets (type 7)
+    - Redesign clusters: ONLY redesign scoresheets (type 6)
+    - Preliminary clusters: All scoresheets based on judge flags
+    """
+    try:
+        # Get the cluster to check its type
+        from ..models import JudgeClusters
+        try:
+            cluster = JudgeClusters.objects.get(id=cluster_id)
+            cluster_type = getattr(cluster, 'cluster_type', 'preliminary')
+        except JudgeClusters.DoesNotExist:
+            cluster_type = 'preliminary'
+
+        # Get all judges in this cluster
+        judge_mappings = MapJudgeToCluster.objects.filter(clusterid=cluster_id)
+
+        # Get all teams in this cluster
+        team_mappings = MapClusterToTeam.objects.filter(clusterid=cluster_id)
+
+        if len(judge_mappings) == 0:
+            return []
+
+        if len(team_mappings) == 0:
+            return []
+
+        created_scoresheets = []
+
+        for judge_mapping in judge_mappings:
+            try:
+                judge = Judge.objects.get(id=judge_mapping.judgeid)
+
+                # Determine which scoresheets to create based on cluster type
+                if cluster_type == 'championship':
+                    # Championship clusters: ONLY create championship scoresheets (type 7)
+                    # Do NOT create any preliminary scoresheets (1-5) or redesign (6)
+                    sheets = create_sheets_for_teams_in_cluster(
+                        judge.id,
+                        cluster_id,
+                        False,  # presentation
+                        False,  # journal
+                        False,  # mdo
+                        False,  # runpenalties
+                        False,  # otherpenalties
+                        False,  # redesign
+                        True    # championship ONLY
+                    )
+                elif cluster_type == 'redesign':
+                    # Redesign clusters: ONLY create redesign scoresheets (type 6)
+                    # Do NOT create any preliminary scoresheets (1-5) or championship (7)
+                    sheets = create_sheets_for_teams_in_cluster(
+                        judge.id,
+                        cluster_id,
+                        False,  # presentation
+                        False,  # journal
+                        False,  # mdo
+                        False,  # runpenalties
+                        False,  # otherpenalties
+                        True,   # redesign ONLY
+                        False   # championship
+                    )
+                else:
+                    # Preliminary clusters: create all scoresheets based on judge flags
+                    sheets = create_sheets_for_teams_in_cluster(
+                        judge.id,
+                        cluster_id,
+                        judge.presentation,
+                        judge.journal,
+                        judge.mdo,
+                        judge.runpenalties,
+                        judge.otherpenalties,
+                        judge.redesign,
+                        judge.championship
+                    )
+
+                created_scoresheets.extend(sheets)
+
+            except Judge.DoesNotExist:
+                continue
+            except Exception as e:
+                continue
+
+        return created_scoresheets
+
+    except Exception as e:
+        raise ValidationError({"detail": str(e)})
 
 def get_scoresheet_id(judge_id, team_id, scoresheet_type):
     try:
@@ -831,7 +923,7 @@ def make_sheets_for_team(teamid, clusterid):
                     "sheetType": 6
                 })
         if judge.championship:
-            sheet = create_base_score_sheet(7)
+            sheet = create_base_score_sheet_Championship()
             map_data = {"teamid": teamid, "judgeid": judge.id, "scoresheetid": sheet.id, "sheetType": 7}
             map_serializer = MapScoreSheetToTeamJudgeSerializer(data=map_data)
             if map_serializer.is_valid():
@@ -1532,6 +1624,96 @@ def multi_team_general_penalties(request, judge_id, contest_id):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@api_view(['POST'])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def create_missing_championship_scoresheets(request):
+    """
+    Create championship scoresheets for judges who have championship cluster assignments
+    but are missing the corresponding scoresheets. This fixes the issue where advancement
+    happened before the create_scoresheets_for_judges_in_cluster function existed.
+    """
+    try:
+        judge_id = request.data.get('judge_id')
+        if not judge_id:
+            return Response({'error': 'judge_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        judge_id = int(judge_id)
+
+        # Get the judge
+        try:
+            judge = Judge.objects.get(id=judge_id)
+        except Judge.DoesNotExist:
+            return Response({'error': f'Judge {judge_id} not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        created_scoresheets = []
+
+        # Find all championship clusters this judge is assigned to
+        championship_cluster_mappings = MapJudgeToCluster.objects.filter(
+            judgeid=judge_id
+        ).select_related('clusterid')
+
+        championship_clusters = []
+        for mapping in championship_cluster_mappings:
+            try:
+                cluster = JudgeClusters.objects.get(id=mapping.clusterid_id)
+                if (cluster.cluster_type == 'championship' or
+                    'championship' in cluster.cluster_name.lower()):
+                    championship_clusters.append(cluster)
+            except JudgeClusters.DoesNotExist:
+                continue
+
+        # For each championship cluster, create missing scoresheets
+        for cluster in championship_clusters:
+            # Get teams in this cluster
+            team_mappings = MapClusterToTeam.objects.filter(clusterid=cluster.id)
+            team_ids = [tm.teamid for tm in team_mappings]
+
+            # Get teams that have advanced to championship
+            advanced_teams = Teams.objects.filter(
+                id__in=team_ids,
+                advanced_to_championship=True
+            )
+
+            for team in advanced_teams:
+                # Check if championship scoresheet already exists
+                existing_mapping = MapScoresheetToTeamJudge.objects.filter(
+                    teamid=team.id,
+                    judgeid=judge.id,
+                    sheetType=7  # Championship
+                ).first()
+
+                if not existing_mapping:
+                    # Create championship scoresheet
+                    try:
+                        scoresheet = create_base_score_sheet_Championship()
+                        MapScoresheetToTeamJudge.objects.create(
+                            teamid=team.id,
+                            judgeid=judge.id,
+                            scoresheetid=scoresheet.id,
+                            sheetType=7  # Championship
+                        )
+                        created_scoresheets.append({
+                            'team_id': team.id,
+                            'team_name': team.team_name,
+                            'cluster_id': cluster.id,
+                            'cluster_name': cluster.cluster_name,
+                            'scoresheet_id': scoresheet.id
+                        })
+                    except Exception as e:
+                        print(f"Error creating championship scoresheet for judge {judge.id}, team {team.id}: {str(e)}")
+                        continue
+
+        return Response({
+            'message': f'Created {len(created_scoresheets)} championship scoresheets for judge {judge_id}',
+            'created_scoresheets': created_scoresheets
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        print(f"Error in create_missing_championship_scoresheets: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @api_view(['GET'])
 def multi_team_run_penalties(request, judge_id, contest_id):
     """Get all teams assigned to a judge in a contest with their run penalty scoresheets"""
@@ -1605,4 +1787,94 @@ def multi_team_run_penalties(request, judge_id, contest_id):
         
     except Exception as e:
         print(f"DEBUG ERROR: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def create_missing_championship_scoresheets(request):
+    """
+    Create championship scoresheets for judges who have championship cluster assignments
+    but are missing the corresponding scoresheets. This fixes the issue where advancement
+    happened before the create_scoresheets_for_judges_in_cluster function existed.
+    """
+    try:
+        judge_id = request.data.get('judge_id')
+        if not judge_id:
+            return Response({'error': 'judge_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        judge_id = int(judge_id)
+
+        # Get the judge
+        try:
+            judge = Judge.objects.get(id=judge_id)
+        except Judge.DoesNotExist:
+            return Response({'error': f'Judge {judge_id} not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        created_scoresheets = []
+
+        # Find all championship clusters this judge is assigned to
+        championship_cluster_mappings = MapJudgeToCluster.objects.filter(
+            judgeid=judge_id
+        ).select_related('clusterid')
+
+        championship_clusters = []
+        for mapping in championship_cluster_mappings:
+            try:
+                cluster = JudgeClusters.objects.get(id=mapping.clusterid_id)
+                if (cluster.cluster_type == 'championship' or
+                    'championship' in cluster.cluster_name.lower()):
+                    championship_clusters.append(cluster)
+            except JudgeClusters.DoesNotExist:
+                continue
+
+        # For each championship cluster, create missing scoresheets
+        for cluster in championship_clusters:
+            # Get teams in this cluster
+            team_mappings = MapClusterToTeam.objects.filter(clusterid=cluster.id)
+            team_ids = [tm.teamid for tm in team_mappings]
+
+            # Get teams that have advanced to championship
+            advanced_teams = Teams.objects.filter(
+                id__in=team_ids,
+                advanced_to_championship=True
+            )
+
+            for team in advanced_teams:
+                # Check if championship scoresheet already exists
+                existing_mapping = MapScoresheetToTeamJudge.objects.filter(
+                    teamid=team.id,
+                    judgeid=judge.id,
+                    sheetType=7  # Championship
+                ).first()
+
+                if not existing_mapping:
+                    # Create championship scoresheet
+                    try:
+                        scoresheet = create_base_score_sheet_Championship()
+                        MapScoresheetToTeamJudge.objects.create(
+                            teamid=team.id,
+                            judgeid=judge.id,
+                            scoresheetid=scoresheet.id,
+                            sheetType=7  # Championship
+                        )
+                        created_scoresheets.append({
+                            'team_id': team.id,
+                            'team_name': team.team_name,
+                            'cluster_id': cluster.id,
+                            'cluster_name': cluster.cluster_name,
+                            'scoresheet_id': scoresheet.id
+                        })
+                    except Exception as e:
+                        print(f"Error creating championship scoresheet for judge {judge.id}, team {team.id}: {str(e)}")
+                        continue
+
+        return Response({
+            'message': f'Created {len(created_scoresheets)} championship scoresheets for judge {judge_id}',
+            'created_scoresheets': created_scoresheets
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        print(f"Error in create_missing_championship_scoresheets: {str(e)}")
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
