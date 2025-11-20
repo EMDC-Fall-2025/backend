@@ -361,27 +361,27 @@ def remove_judge_from_cluster(request, judge_id, cluster_id):
     """
     from django.db import transaction
     from ...models import MapContestToCluster
-
+        
     try:
         with transaction.atomic():
-            # Find the cluster-judge mapping
+        # Find the cluster-judge mapping
             cluster_mapping = get_object_or_404(
-                MapJudgeToCluster,
-                judgeid=judge_id,
-                clusterid=cluster_id
-            )
-
+            MapJudgeToCluster, 
+            judgeid=judge_id, 
+            clusterid=cluster_id
+        )
+        
         # Get the contest ID for this cluster (to check if judge should be removed from contest)
         contest_cluster_mapping = MapContestToCluster.objects.filter(clusterid=cluster_id).first()
         contest_id = contest_cluster_mapping.contestid if contest_cluster_mapping else None
-
+        
         # IMPORTANT: Do NOT delete scoresheets when removing judge from cluster!
         # Scoresheets belong to judge-team relationships, not judge-cluster relationships.
         # Only delete scoresheets when judge is completely removed from contest or team is removed from contest.
-
+        
         # Delete the cluster-judge mapping
         cluster_mapping.delete()
-
+        
         # Check if judge is still in any other clusters for this contest
         # If not, remove the contest-judge mapping
         contest_judge_mapping_deleted = False
@@ -390,13 +390,13 @@ def remove_judge_from_cluster(request, judge_id, cluster_id):
             contest_cluster_ids = list(MapContestToCluster.objects.filter(
                 contestid=contest_id
             ).values_list('clusterid', flat=True))
-
+            
             # Check if judge is still in any of those clusters
             remaining_cluster_mappings = MapJudgeToCluster.objects.filter(
                 judgeid=judge_id,
                 clusterid__in=contest_cluster_ids
             ).exists()
-
+            
             # If judge is not in any clusters for this contest, remove contest-judge mapping
             if not remaining_cluster_mappings:
                 contest_judge_mappings = MapContestToJudge.objects.filter(
@@ -406,7 +406,7 @@ def remove_judge_from_cluster(request, judge_id, cluster_id):
                 if contest_judge_mappings.exists():
                     contest_judge_mappings.delete()
                     contest_judge_mapping_deleted = True
-
+        
         return Response({
             "message": f"Judge {judge_id} removed from cluster {cluster_id}",
             "details": {
@@ -415,7 +415,7 @@ def remove_judge_from_cluster(request, judge_id, cluster_id):
                 "contest_judge_mapping_deleted": contest_judge_mapping_deleted
             }
         }, status=status.HTTP_200_OK)
-
+        
     except MapJudgeToCluster.DoesNotExist:
         return Response({
             "error": f"Judge {judge_id} is not assigned to cluster {cluster_id}"

@@ -168,19 +168,28 @@ def advance_to_championship(request):
                 continue
         
         # 7. Clear existing championship/redesign scoresheets to avoid duplicates
+        #    Scope to this contest's teams only, so judges in
+        #    multiple contests don't lose sheets from other contests.
+        #    
+        #    IMPORTANT: Delete BOTH types (6 and 7) for ALL judges in EITHER cluster.
+        #    This ensures we clean up old scoresheets when judges are moved between
+        #    championship and redesign clusters (e.g., judge moved from championship to redesign
+        #    will have their old championship sheets deleted).
         
+        # Collect all judge IDs from both clusters
+        all_advanced_judge_ids = set()
         championship_judge_ids = [mapping.judgeid for mapping in championship_judge_mappings]
-        if championship_judge_ids:
-            MapScoresheetToTeamJudge.objects.filter(
-                judgeid__in=championship_judge_ids,
-                sheetType__in=[6, 7]
-            ).delete()
-        
         redesign_judge_ids = [mapping.judgeid for mapping in redesign_judge_mappings]
-        if redesign_judge_ids:
+        all_advanced_judge_ids.update(championship_judge_ids)
+        all_advanced_judge_ids.update(redesign_judge_ids)
+        
+        if all_advanced_judge_ids:
+            # Delete BOTH championship (7) and redesign (6) sheets for ALL judges
+
             MapScoresheetToTeamJudge.objects.filter(
-                judgeid__in=redesign_judge_ids,
-                sheetType__in=[6, 7]
+                judgeid__in=list(all_advanced_judge_ids),
+                teamid__in=contest_team_ids,
+                sheetType__in=[6, 7],  # Both redesign and championship
             ).delete()
         
         from .scoresheets import create_scoresheets_for_judges_in_cluster
