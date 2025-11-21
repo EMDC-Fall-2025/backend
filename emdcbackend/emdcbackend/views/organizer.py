@@ -10,13 +10,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from django.contrib.auth.models import User
 from ..models import Organizer, Teams, Scoresheet, MapScoresheetToTeamJudge, MapContestToOrganizer
 from ..serializers import OrganizerSerializer, TeamSerializer
 from ..auth.views import create_user, delete_user
 from .Maps.MapUserToRole import create_user_role_map
 from .Maps.MapContestToOrganizer import map_contest_to_organizer
 from ..models import MapUserToRole
-from ..auth.views import User, delete_user_by_id
+from ..auth.views import delete_user_by_id
 
 
 from django.contrib.auth import get_user_model
@@ -64,10 +65,28 @@ def create_organizer(request):
 def create_user_and_organizer(data):
     # IMPORTANT: Organizers use ONLY the shared organizer password (role=2)
     # (mirror behavior from your other file: no email; enforce unusable password flow)
+    # Check for duplicate account before creating
+    username = data.get("username")
+    if username:
+        existing_user = User.objects.filter(username=username).first()
+        if existing_user:
+            # Check if this user already has an organizer role mapping
+            existing_organizer_mapping = MapUserToRole.objects.filter(
+                uuid=existing_user.id,
+                role=2  # Organizer role
+            ).first()
+            if existing_organizer_mapping:
+                # Get organizer details for better error message
+                try:
+                    existing_organizer = Organizer.objects.get(id=existing_organizer_mapping.relatedid)
+                    raise ValidationError({"detail": f'An account already exists under the name "{existing_organizer.first_name} {existing_organizer.last_name}" with username "{username}".'})
+                except Organizer.DoesNotExist:
+                    raise ValidationError({"detail": f'An account already exists with username "{username}".'})
+    
     user_data = {"username": data["username"], "password": data["password"]}
     user_response = create_user(user_data, send_email=False, enforce_unusable_password=True)
     if not user_response.get('user'):
-        raise ValidationError('User creation failed.')
+        raise ValidationError({"detail": "User creation failed."})
     
     # (Email intentionally NOT sent for organizers)
     organizer_data = {"first_name": data["first_name"], "last_name": data["last_name"]}

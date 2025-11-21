@@ -343,10 +343,28 @@ def create_judge_instance(judge_data):
 
 def create_user_and_judge(data):
     # IMPORTANT: Judges use ONLY the shared judge password (role=3)
+    # Check for duplicate account before creating
+    username = data.get("username")
+    if username:
+        existing_user = User.objects.filter(username=username).first()
+        if existing_user:
+            # Check if this user already has a judge role mapping
+            existing_judge_mapping = MapUserToRole.objects.filter(
+                uuid=existing_user.id,
+                role=3  # Judge role
+            ).first()
+            if existing_judge_mapping:
+                # Get judge details for better error message
+                try:
+                    existing_judge = Judge.objects.get(id=existing_judge_mapping.relatedid)
+                    raise ValidationError({"detail": f'An account already exists under the name "{existing_judge.first_name} {existing_judge.last_name}" with username "{username}".'})
+                except Judge.DoesNotExist:
+                    raise ValidationError({"detail": f'An account already exists with username "{username}".'})
+    
     user_data = {"username": data["username"], "password": data["password"]}
     user_response = create_user(user_data, send_email=False, enforce_unusable_password=True)
     if not user_response.get('user'):
-        raise ValidationError('User creation failed.')
+        raise ValidationError({"detail": "User creation failed."})
 
     # (Email intentionally NOT sent for judges)
 
