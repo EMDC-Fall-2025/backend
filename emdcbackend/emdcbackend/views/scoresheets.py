@@ -1206,10 +1206,21 @@ def get_scoresheet_details_by_team(request, team_id):
 def get_scoresheet_details_for_contest(request):
     contest = get_object_or_404(Contest, id=request.data["contestid"])
     team_mappings = MapContestToTeam.objects.filter(contestid=contest.id)
+    
+    # Get all clusters for this contest
+    contest_cluster_ids = MapContestToCluster.objects.filter(contestid=contest.id).values_list('clusterid', flat=True)
+    
+    # Get all judges who are still assigned to clusters in this contest
+    active_judge_ids = MapJudgeToCluster.objects.filter(clusterid__in=contest_cluster_ids).values_list('judgeid', flat=True).distinct()
+    
     team_responses = {}
     for mapping in team_mappings:
         team = get_object_or_404(Teams, id=mapping.teamid)
-        scoresheet_mappings = MapScoresheetToTeamJudge.objects.filter(teamid=team.id)
+        # Only include scoresheets from judges who are still in clusters for this contest
+        scoresheet_mappings = MapScoresheetToTeamJudge.objects.filter(
+            teamid=team.id,
+            judgeid__in=active_judge_ids
+        )
         scoresheets = Scoresheet.objects.filter(id__in=scoresheet_mappings.values_list('scoresheetid', flat=True))
         presentation_scoresheet_details = [[] for _ in range(9)]
         journal_scoresheet_details = [[] for _ in range(9)]

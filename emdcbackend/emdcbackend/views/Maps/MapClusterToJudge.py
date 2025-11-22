@@ -166,6 +166,8 @@ def _delete_cluster_judge_mapping_and_scores(map_id: int):
         contest_id = contest_cluster_mapping.contestid if contest_cluster_mapping else None
 
         # Get cluster type to determine if we need to clean up advanced scoresheets
+        cluster = None
+        cluster_type = None
         try:
             cluster = JudgeClusters.objects.get(id=cluster_id)
             cluster_type = getattr(cluster, 'cluster_type', None)
@@ -186,20 +188,39 @@ def _delete_cluster_judge_mapping_and_scores(map_id: int):
             if scoresheet_ids:
                 Scoresheet.objects.filter(id__in=scoresheet_ids).delete()
         
-        # For championship/redesign clusters, also clean up old advanced scoresheets (types 6 and 7)
-        # for teams in this contest to prevent stale data when judges are moved between clusters
-        if is_advanced_cluster and contest_id:
+        # For championship/redesign clusters, delete advanced scoresheets (types 6 and 7)
+        # for this judge and teams in this specific contest to prevent stale data when judges are moved between clusters
+        if is_advanced_cluster and cluster and contest_id:
+            # Get all teams in this contest
             contest_team_ids = list(
                 MapContestToTeam.objects.filter(contestid=contest_id).values_list('teamid', flat=True)
             )
+            
             if contest_team_ids:
-                # Delete both championship (7) and redesign (6) scoresheets for this judge
-                # and teams in this contest to clean up any old scoresheets
-                old_advanced_sheets = MapScoresheetToTeamJudge.objects.filter(
-                    judgeid=judge_id,
-                    teamid__in=contest_team_ids,
-                    sheetType__in=[6, 7]  # Both redesign and championship
-                )
+                # Determine which sheet types to delete based on cluster type
+                cluster_name_lower = (cluster.cluster_name or '').lower()
+                if cluster_type == 'redesign' or 'redesign' in cluster_name_lower:
+                    # Delete all redesign scoresheets (type 6) for this judge and teams in this contest
+                    old_advanced_sheets = MapScoresheetToTeamJudge.objects.filter(
+                        judgeid=judge_id,
+                        teamid__in=contest_team_ids,
+                        sheetType=6  # Redesign only
+                    )
+                elif cluster_type == 'championship' or 'championship' in cluster_name_lower:
+                    # Delete all championship scoresheets (type 7) for this judge and teams in this contest
+                    old_advanced_sheets = MapScoresheetToTeamJudge.objects.filter(
+                        judgeid=judge_id,
+                        teamid__in=contest_team_ids,
+                        sheetType=7  # Championship only
+                    )
+                else:
+                    # Fallback: delete both types if cluster type is unclear
+                    old_advanced_sheets = MapScoresheetToTeamJudge.objects.filter(
+                        judgeid=judge_id,
+                        teamid__in=contest_team_ids,
+                        sheetType__in=[6, 7]  # Both redesign and championship
+                    )
+                
                 old_scoresheet_ids = list(old_advanced_sheets.values_list('scoresheetid', flat=True))
                 old_advanced_sheets.delete()
                 if old_scoresheet_ids:

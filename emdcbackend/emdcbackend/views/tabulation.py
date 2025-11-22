@@ -42,9 +42,29 @@ def sort_by_score_with_id_fallback(teams, score_attr: str):
     return sorted(teams, key=lambda t: (-_score(t), t.id))
 
 
-def _compute_totals_for_team(team: Teams):
-    """Compute totals and averages for a given team."""
-    score_map = MapScoresheetToTeamJudge.objects.filter(teamid=team.id)
+def _compute_totals_for_team(team: Teams, contest_id: int = None):
+    """Compute totals and averages for a given team.
+    
+    Args:
+        team: The team to compute totals for
+        contest_id: Optional contest ID to filter scoresheets by active judges only
+    """
+    # Get contest ID if not provided
+    if contest_id is None:
+        contest_mapping = MapContestToTeam.objects.filter(teamid=team.id).first()
+        contest_id = contest_mapping.contestid if contest_mapping else None
+    
+    # Filter scoresheets to only include judges still in clusters for this contest
+    if contest_id:
+        # Get all clusters for this contest
+        contest_cluster_ids = MapContestToCluster.objects.filter(contestid=contest_id).values_list('clusterid', flat=True)
+        # Get all judges who are still assigned to clusters in this contest
+        active_judge_ids = MapJudgeToCluster.objects.filter(clusterid__in=contest_cluster_ids).values_list('judgeid', flat=True).distinct()
+        # Only include scoresheets from active judges
+        score_map = MapScoresheetToTeamJudge.objects.filter(teamid=team.id, judgeid__in=active_judge_ids)
+    else:
+        # If no contest ID, include all scoresheets (fallback for backwards compatibility)
+        score_map = MapScoresheetToTeamJudge.objects.filter(teamid=team.id)
     
     # ALL teams should be processed for preliminary results first
     # Then additional processing for championship/redesign if applicable
@@ -93,15 +113,17 @@ def _compute_totals_for_team(team: Teams):
             preliminary_totals[5] += 1
         elif sheet.sheetType == ScoresheetEnum.RUNPENALTIES:
             # RUNPENALTIES has 16 numeric fields: fields 1-8 and 10-17 (skip field 9 which is dummy)
+            # Use abs() to ensure penalties are always treated as positive deductions
             penalty_sum = sum(
-                (getattr(sheet, f"field{i}", 0) or 0)
+                abs(getattr(sheet, f"field{i}", 0) or 0)
                 for i in range(1, 18)
                 if i != 9
             )
             preliminary_totals[7] += penalty_sum
             preliminary_totals[8] += 1
         elif sheet.sheetType == ScoresheetEnum.OTHERPENALTIES:
-            preliminary_totals[6] += sum(getattr(sheet, f"field{i}", 0) for i in range(1, 8))
+            # Use abs() to ensure penalties are always treated as positive deductions
+            preliminary_totals[6] += sum(abs(getattr(sheet, f"field{i}", 0) or 0) for i in range(1, 8))
             preliminary_totals[11] += 1  # Count of OTHERPENALTIES judges
         elif sheet.sheetType == ScoresheetEnum.REDESIGN:
             # Initialize redesign rolling totals once per team
@@ -128,8 +150,9 @@ def _compute_totals_for_team(team: Teams):
             championship_totals[3] += 1  # Count of presentation judges
             
             # Championship penalties: separate general (19-25) and run (26-42) penalties
-            general_penalties_score = sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(19, 26))  # General Penalties (fields 19-25)
-            run_penalties_score = sum(getattr(sheet, f"field{i}", 0) or 0 for i in range(26, 43))  # Run Penalties (fields 26-42)
+            # Use abs() to ensure penalties are always treated as positive deductions
+            general_penalties_score = sum(abs(getattr(sheet, f"field{i}", 0) or 0) for i in range(19, 26))  # General Penalties (fields 19-25)
+            run_penalties_score = sum(abs(getattr(sheet, f"field{i}", 0) or 0) for i in range(26, 43))  # Run Penalties (fields 26-42)
             total_penalties_score = general_penalties_score + run_penalties_score
             
             championship_totals[6] += general_penalties_score  # Store general penalties in index 6
@@ -152,16 +175,16 @@ def _compute_totals_for_team(team: Teams):
             continue
     
     # ALWAYS calculate preliminary scores for ALL teams first
-    team.presentation_score = qdiv(preliminary_totals[0], preliminary_totals[1])
-    team.journal_score = qdiv(preliminary_totals[2], preliminary_totals[3])
-    team.machinedesign_score = qdiv(preliminary_totals[4], preliminary_totals[5])
+    team.presentation_score = round(qdiv(preliminary_totals[0], preliminary_totals[1]), 2)
+    team.journal_score = round(qdiv(preliminary_totals[2], preliminary_totals[3]), 2)
+    team.machinedesign_score = round(qdiv(preliminary_totals[4], preliminary_totals[5]), 2)
     team.preliminary_journal_score = team.journal_score  
     team.preliminary_presentation_score = team.presentation_score  
     team.preliminary_machinedesign_score = team.machinedesign_score  
 
     # Penalties should be summed (not averaged) because each penalty represents a specific deduction
-    team.preliminary_penalties_score = preliminary_totals[6]  # Total OTHERPENALTIES (not averaged)
-    team.penalties_score = preliminary_totals[7]  # Total RUNPENALTIES (not averaged)
+    team.preliminary_penalties_score = round(preliminary_totals[6], 2)  # Total OTHERPENALTIES (not averaged)
+    team.penalties_score = round(preliminary_totals[7], 2)  # Total RUNPENALTIES (not averaged)
     
     
     # Total penalties for calculation (both types combined)
@@ -170,35 +193,35 @@ def _compute_totals_for_team(team: Teams):
         team.preliminary_presentation_score + team.preliminary_journal_score + team.preliminary_machinedesign_score
     ) - total_penalties
     
-    # Store preliminary total score
-    team.preliminary_total_score = preliminary_total
+    # Store preliminary total score (rounded)
+    team.preliminary_total_score = round(preliminary_total, 2)
     
     # Set total_score to preliminary_total by default
-    team.total_score = preliminary_total
+    team.total_score = team.preliminary_total_score
 
     if is_championship_round:
         # Championship round: journal from preliminary + championship score
         
         # Then calculate championship scores
         
-        team.championship_machinedesign_score = qdiv(championship_totals[0], championship_totals[1]) if championship_totals[1] > 0 else 0  # Average machine design score
-        team.championship_presentation_score = qdiv(championship_totals[2], championship_totals[3]) if championship_totals[3] > 0 else 0  # Average presentation score
+        team.championship_machinedesign_score = round(qdiv(championship_totals[0], championship_totals[1]) if championship_totals[1] > 0 else 0, 2)  # Average machine design score
+        team.championship_presentation_score = round(qdiv(championship_totals[2], championship_totals[3]) if championship_totals[3] > 0 else 0, 2)  # Average presentation score
         
         # Store separate penalty scores for championship
-        team.championship_general_penalties_score = championship_totals[6]  # General penalties (fields 19-25)
-        team.championship_run_penalties_score = championship_totals[7]      # Run penalties (fields 26-42)
-        team.championship_penalties_score = championship_totals[6] + championship_totals[7]  # Total penalties for calculation
+        team.championship_general_penalties_score = round(championship_totals[6], 2)  # General penalties (fields 19-25)
+        team.championship_run_penalties_score = round(championship_totals[7], 2)      # Run penalties (fields 26-42)
+        team.championship_penalties_score = round(championship_totals[6] + championship_totals[7], 2)  # Total penalties for calculation
         
         # Championship total = machine design + presentation + preliminary journal - total penalties
         journal_score = team.preliminary_journal_score or 0
         championship_score = team.championship_machinedesign_score + team.championship_presentation_score
-        team.total_score = journal_score + championship_score - team.championship_penalties_score
+        team.total_score = round(journal_score + championship_score - team.championship_penalties_score, 2)
         team.championship_score = team.total_score  # Set championship_score to match total_score for championship rounds
         
     elif is_redesign_round:
         # Use summed redesign total only (no per-section fields, no averaging)
         if hasattr(team, '_redesign_total') and team._redesign_judge_count > 0:
-            team.redesign_score = team._redesign_total
+            team.redesign_score = round(team._redesign_total, 2)
         else:
             team.redesign_score = 0
         team.total_score = team.redesign_score
@@ -316,7 +339,7 @@ def recompute_totals_and_ranks(contest_id: int):
 
     # Compute totals and save all teams in one batch operation
     for t in teams:
-        _compute_totals_for_team(t)
+        _compute_totals_for_team(t, contest_id)
         t.save()  # Save each team after computation
 
     for m in MapContestToCluster.objects.filter(contestid=contest_id):
