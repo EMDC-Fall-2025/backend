@@ -307,6 +307,12 @@ class ComputeTotalsForTeamTests(TestCase):
             cluster_name="Redesign Cluster",
             cluster_type="redesign"
         )
+
+        # Map contest to clusters
+        from ..models import MapContestToCluster
+        MapContestToCluster.objects.create(contestid=self.contest.id, clusterid=self.preliminary_cluster.id)
+        MapContestToCluster.objects.create(contestid=self.contest.id, clusterid=self.championship_cluster.id)
+        MapContestToCluster.objects.create(contestid=self.contest.id, clusterid=self.redesign_cluster.id)
     
     def test_compute_totals_no_scoresheets(self):
         """Test computing totals for team with no scoresheets"""
@@ -360,6 +366,13 @@ class ComputeTotalsForTeamTests(TestCase):
             mdo=False
         )
         MapContestToTeam.objects.create(contestid=self.contest.id, teamid=team.id)
+
+        # Assign judge to preliminary cluster
+        from ..models import MapJudgeToCluster
+        MapJudgeToCluster.objects.create(
+            judgeid=judge.id,
+            clusterid=self.preliminary_cluster.id
+        )
         
         # Create presentation scoresheet
         presentation_sheet = Scoresheet.objects.create(
@@ -406,6 +419,13 @@ class ComputeTotalsForTeamTests(TestCase):
             otherpenalties=False
         )
         MapContestToTeam.objects.create(contestid=self.contest.id, teamid=team.id)
+
+        # Assign judge to preliminary cluster
+        from ..models import MapJudgeToCluster
+        MapJudgeToCluster.objects.create(
+            judgeid=judge.id,
+            clusterid=self.preliminary_cluster.id
+        )
         
         # Create run penalties scoresheet (all required fields for RUNPENALTIES)
         penalty_sheet = Scoresheet.objects.create(
@@ -453,6 +473,13 @@ class ComputeTotalsForTeamTests(TestCase):
         )
         MapContestToTeam.objects.create(contestid=self.contest.id, teamid=team.id)
         MapClusterToTeam.objects.create(clusterid=self.championship_cluster.id, teamid=team.id)
+
+        # Assign judge to championship cluster
+        from ..models import MapJudgeToCluster
+        MapJudgeToCluster.objects.create(
+            judgeid=judge.id,
+            clusterid=self.championship_cluster.id
+        )
         
         # Create championship scoresheet
         championship_sheet = Scoresheet.objects.create(
@@ -506,6 +533,13 @@ class ComputeTotalsForTeamTests(TestCase):
         )
         MapContestToTeam.objects.create(contestid=self.contest.id, teamid=team.id)
         MapClusterToTeam.objects.create(clusterid=self.redesign_cluster.id, teamid=team.id)
+
+        # Assign judge to redesign cluster
+        from ..models import MapJudgeToCluster
+        MapJudgeToCluster.objects.create(
+            judgeid=judge.id,
+            clusterid=self.redesign_cluster.id
+        )
         
         # Create redesign scoresheet (field7 is required)
         redesign_sheet = Scoresheet.objects.create(

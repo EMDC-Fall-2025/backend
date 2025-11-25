@@ -13,7 +13,6 @@ from django.shortcuts import get_object_or_404
 from ..auth.views import create_user
 from ..models import Coach
 from ..serializers import CoachSerializer
-from rest_framework.exceptions import ValidationError
 from ..models import MapUserToRole
 from ..auth.views import User, delete_user
 from ..auth.password_utils import send_set_password_email

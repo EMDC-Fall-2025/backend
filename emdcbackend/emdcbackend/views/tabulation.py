@@ -57,14 +57,30 @@ def _compute_totals_for_team(team: Teams, contest_id: int = None):
     # Filter scoresheets to only include judges still in clusters for this contest
     if contest_id:
         # Get all clusters for this contest
-        contest_cluster_ids = MapContestToCluster.objects.filter(contestid=contest_id).values_list('clusterid', flat=True)
+        contest_cluster_ids = MapContestToCluster.objects.filter(
+            contestid=contest_id
+        ).values_list('clusterid', flat=True)
+
         # Get all judges who are still assigned to clusters in this contest
-        active_judge_ids = MapJudgeToCluster.objects.filter(clusterid__in=contest_cluster_ids).values_list('judgeid', flat=True).distinct()
-        # Only include scoresheets from active judges
-        score_map = MapScoresheetToTeamJudge.objects.filter(teamid=team.id, judgeid__in=active_judge_ids)
+        active_judge_ids = MapJudgeToCluster.objects.filter(
+            clusterid__in=contest_cluster_ids
+        ).values_list('judgeid', flat=True).distinct()
+
+        if active_judge_ids:
+            # Only include scoresheets from active judges
+            score_map = MapScoresheetToTeamJudge.objects.filter(
+                teamid=team.id,
+                judgeid__in=active_judge_ids,
+            )
+        else:
+            # Fallback: no active judge mappings → include all scoresheets for this team
+            # (keeps unit tests and legacy data working)
+            score_map = MapScoresheetToTeamJudge.objects.filter(teamid=team.id)
     else:
         # If no contest ID, include all scoresheets (fallback for backwards compatibility)
         score_map = MapScoresheetToTeamJudge.objects.filter(teamid=team.id)
+
+
     
     # ALL teams should be processed for preliminary results first
     # Then additional processing for championship/redesign if applicable

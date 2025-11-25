@@ -402,13 +402,26 @@ def make_team(data):
     team_data = {
         "team_name": team_name,
         "school_name": data.get("school_name", "MNSU"),
-        "journal_score":data.get("journal_score", 0.0),
-        "presentation_score":data.get("presentation_score", 0.0),
-        "machinedesign_score":data.get("machinedesign_score", 0.0),
-        "penalties_score":data.get("penalties_score", 0.0),
-        "redesign_score":data.get("redesign_score", 0.0),
-        "championship_score":data.get("championship_score", 0.0),
-        "total_score":data.get("total_score", 0.0)
+        # Initialize all score fields to 0.0 to prevent None values
+        "journal_score": 0.0,
+        "presentation_score": 0.0,
+        "machinedesign_score": 0.0,
+        "penalties_score": 0.0,
+        "redesign_score": 0.0,
+        "championship_score": 0.0,
+        "total_score": 0.0,
+        # Initialize preliminary scores
+        "preliminary_presentation_score": 0.0,
+        "preliminary_journal_score": 0.0,
+        "preliminary_machinedesign_score": 0.0,
+        "preliminary_penalties_score": 0.0,
+        "preliminary_total_score": 0.0,
+        # Initialize championship scores
+        "championship_presentation_score": 0.0,
+        "championship_machinedesign_score": 0.0,
+        "championship_penalties_score": 0.0,
+        "championship_general_penalties_score": 0.0,
+        "championship_run_penalties_score": 0.0,
     }
     team_response = make_team_instance(team_data)
     if not team_response.get('id'):

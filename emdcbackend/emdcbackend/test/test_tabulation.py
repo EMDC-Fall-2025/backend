@@ -6,7 +6,7 @@ from datetime import date
 from ..models import (
     Contest, Teams, Judge, JudgeClusters, MapContestToTeam, MapContestToOrganizer,
     MapUserToRole, Organizer, Admin, MapClusterToTeam, MapJudgeToCluster,
-    Scoresheet, ScoresheetEnum, MapScoresheetToTeamJudge
+    Scoresheet, ScoresheetEnum, MapScoresheetToTeamJudge, MapContestToCluster
 )
 
 
@@ -37,12 +37,16 @@ class TabulationAPITests(APITestCase):
             total_score=255.0,
             championship_score=0.0
         )
-        self.cluster = JudgeClusters.objects.create(cluster_name="Test Cluster")
+        self.cluster = JudgeClusters.objects.create(
+            cluster_name="Test Cluster",
+            cluster_type="preliminary"
+        )
         
         # Map contest to organizer and team
         MapContestToOrganizer.objects.create(contestid=self.contest.id, organizerid=self.organizer.id)
         MapContestToTeam.objects.create(contestid=self.contest.id, teamid=self.team.id)
         MapClusterToTeam.objects.create(clusterid=self.cluster.id, teamid=self.team.id)
+        MapContestToCluster.objects.create(contestid=self.contest.id, clusterid=self.cluster.id)
 
     def test_tabulate_scores(self):
         url = reverse('tabulate_scores')
@@ -356,6 +360,14 @@ class TabulationAPITests(APITestCase):
             journal=False,
             mdo=False
         )
+
+        # Assign judge to cluster
+        from ..models import MapJudgeToCluster
+        MapJudgeToCluster.objects.create(
+            judgeid=judge.id,
+            clusterid=self.cluster.id
+        )
+
         # Create only presentation scoresheet (no journal, no mdo)
         presentation_sheet = Scoresheet.objects.create(
             sheetType=ScoresheetEnum.PRESENTATION,
@@ -395,6 +407,17 @@ class TabulationAPITests(APITestCase):
             phone_number="2222222222",
             contestid=self.contest.id,
             presentation=True
+        )
+
+        # Assign judges to cluster
+        from ..models import MapJudgeToCluster
+        MapJudgeToCluster.objects.create(
+            judgeid=judge1.id,
+            clusterid=self.cluster.id
+        )
+        MapJudgeToCluster.objects.create(
+            judgeid=judge2.id,
+            clusterid=self.cluster.id
         )
         
         # Create two presentation scoresheets from different judges
