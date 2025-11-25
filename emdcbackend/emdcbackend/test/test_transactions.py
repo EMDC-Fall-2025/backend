@@ -267,7 +267,7 @@ class DataIntegrityTests(TestCase):
         from ..models import Teams
         from django.core.exceptions import ValidationError
         
-        # Try to assign wrong type
+       
         team = Teams(
             team_name="Test",
             journal_score="not_a_number"  # Should be float
