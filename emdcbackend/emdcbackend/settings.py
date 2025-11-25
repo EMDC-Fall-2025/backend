@@ -90,12 +90,24 @@ CSRF_TRUSTED_ORIGINS = [
 
 # Cookies
 SESSION_COOKIE_AGE = 10800  # 3 hours in seconds
-SESSION_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SAMESITE = "Lax"
-SESSION_COOKIE_SECURE = False   # -> True in prod (HTTPS)
-CSRF_COOKIE_SECURE = False      # -> True in prod (HTTPS)
-CSRF_COOKIE_HTTPONLY = False    # False so JS can read csrftoken
-SESSION_COOKIE_HTTPONLY = True
+
+# SameSite settings
+SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
+CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
+
+# Secure flags: default to True in production (DEBUG=False), False in dev,
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.lower() in ("1", "true", "yes")
+
+SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", default=not DEBUG)
+CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", default=not DEBUG)
+
+# CSRF cookie readable by JS so frontend can send it in headers
+CSRF_COOKIE_HTTPONLY = _env_bool("CSRF_COOKIE_HTTPONLY", default=False)
+SESSION_COOKIE_HTTPONLY = _env_bool("SESSION_COOKIE_HTTPONLY", default=True)
 
 # CORS
 CORS_ALLOW_CREDENTIALS = True
@@ -107,10 +119,10 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
-    # production: "https://app.example.com
+    "https://emdcresults.com"
 ]
 
-# CSRF trusted origins - in production, set via environment variable (comma-separated)
+
 if DEBUG:
     CSRF_TRUSTED_ORIGINS = [
         "http://localhost:7004",
@@ -130,7 +142,6 @@ else:
         CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 
 
-# Application definition
 
 INSTALLED_APPS = [
     'django.contrib.admin',
