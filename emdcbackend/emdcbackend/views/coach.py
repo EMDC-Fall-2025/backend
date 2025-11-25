@@ -115,6 +115,19 @@ def create_coach_only(data):
     return coach_response
 
 def create_user_and_coach(data):
+    """
+    Creates a new user account and coach profile.
+    
+    IMPORTANT: This function SENDS a set-password email to the coach.
+    Only call this function when creating a BRAND NEW coach account.
+    Do NOT call this for existing coaches to avoid sending duplicate emails.
+    
+    Args:
+        data: Dictionary containing username, password, first_name, last_name
+        
+    Returns:
+        Tuple of (user_response, coach_response)
+    """
     user_data = {"username": data["username"], "password": data["password"]}
     # Create user with unusable password - coach will set it via email link
     user_response = create_user(user_data, send_email=False, enforce_unusable_password=True)
@@ -134,10 +147,12 @@ def create_user_and_coach(data):
     if user_id:
         try:
             user = User.objects.get(id=user_id)
+            print(f"[INFO] Sending set-password email to NEW coach: {user.username}")
             send_set_password_email(user, subject="Set your EMDC Coach account password")
+            print(f"[SUCCESS] Set-password email sent successfully to: {user.username}")
         except Exception as e:
             # Log error but don't fail coach creation if email fails
-            print(f"[WARN] Failed to send set-password email to coach {user.username}: {e}")
+            print(f"[ERROR] Failed to send set-password email to coach {user.username}: {e}")
     
     return user_response, coach_response
 

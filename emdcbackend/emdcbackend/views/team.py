@@ -51,12 +51,14 @@ def create_team(request):
 
             try:
                 # Step 2: Retrieve user and create coach if necessary
+                # Try to get existing user by email
                 user = User.objects.get(username=request.data["username"])
 
                 role_mapping_response = get_role_mapping(user.id)
                 if role_mapping_response.get("id"):
                     if role_mapping_response.get("role") == 4:
-                        # Coach already exists - update coach name
+                        # EXISTING COACH - Just update coach name, NO email sent
+                        # This coach already has a password set, so don't spam them with emails
                         coach = Coach.objects.get(id=role_mapping_response.get("relatedid"))
                         coach.first_name = request.data["first_name"]
                         coach.last_name = request.data.get("last_name", "") or ""
@@ -74,7 +76,9 @@ def create_team(request):
                         "role": 4,
                         "relatedid": coach_response.get("id")
                     })
-            except:
+            except User.DoesNotExist:
+                # NEW COACH - Create user and coach, SEND set-password email
+                # This is a brand new coach account, so they need the email to set their password
                 user_response, coach_response = create_user_and_coach(request.data)
                 coach_response['username'] = user_response.get("user").get("username")
                 role_mapping_response = create_user_role_map({
@@ -186,13 +190,16 @@ def edit_team(request):
             
             # Update coach and user mappings if username has changed
             if "username" in request.data and request.data["username"] != user.username:
+                # Coach email has changed - need to switch to different coach
                 # Remove old mapping, create or fetch the user and coach, and map them to the team
                 MapCoachToTeam.objects.get(teamid=team.id, coachid=coach.id).delete()
                 try:
+                    # Try to find existing user with the new email
                     user = User.objects.get(username=request.data["username"])
                     role_mapping_response = get_role_mapping(user.id)
                     if role_mapping_response.get("id") and role_mapping_response.get("role") == 4:
-                        # Existing coach found - update coach name everywhere
+                        # EXISTING COACH - Just reassign to this team, NO email sent
+                        # This coach already exists and has their password, so don't send another email
                         existing_coach = Coach.objects.get(id=role_mapping_response.get("relatedid"))
                         existing_coach.first_name = request.data["first_name"]
                         existing_coach.last_name = request.data.get("last_name", "") or ""
@@ -203,6 +210,8 @@ def edit_team(request):
                     else:
                         raise ValidationError({"detail": "This user is already mapped to a role."})
                 except User.DoesNotExist:
+                    # NEW COACH - Create new user and coach account, SEND set-password email
+                    # This is a brand new coach with a new email, so they need the email to set password
                     user_response, coach_response = create_user_and_coach(request.data)
                     coach_response['username'] = user_response.get("user").get("username")
                     create_user_role_map({
@@ -426,12 +435,14 @@ def create_team_after_judge(request):
       team_response = make_team(request.data)
       
       try:
+        # Try to get existing user by email
         user = User.objects.get(username=request.data["username"])
         
         role_mapping_response = get_role_mapping(user.id)
         if role_mapping_response.get("id"):
           # if we have the mapping and it matches, we get the coach from the mapping
           if role_mapping_response.get("role") == 4:
+            # EXISTING COACH - Reuse existing coach, NO email sent
             coach_response = get_coach(role_mapping_response.get("relatedid"))
           else:
             raise ValidationError({"detail": "This user is already mapped to a role."})
@@ -442,7 +453,8 @@ def create_team_after_judge(request):
             "role": 4,
             "relatedid": coach_response.get("id")
             })
-      except:
+      except User.DoesNotExist:
+        # NEW COACH - Create user and coach, SEND set-password email
         user_response, coach_response = create_user_and_coach(request.data)
         role_mapping_response = create_user_role_map({
             "uuid": user_response.get("user").get("id"),

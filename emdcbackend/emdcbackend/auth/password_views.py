@@ -49,21 +49,75 @@ def request_set_password(request):
     user = get_object_or_404(User, username=username)
 
     url = build_set_password_url(user)
-    subject = "Set your password"
-    message = (
-        f"Hello,\n\n"
-        f"Please click the link below to set your password:\n\n{url}\n\n"
-        f"This link will expire in {getattr(settings, 'PASSWORD_RESET_TIMEOUT', 3600)//60} minutes.\n"
-    )
+    subject = "Set your password - EMDC Contest"
+    timeout_minutes = getattr(settings, 'PASSWORD_RESET_TIMEOUT', 3600) // 60
+    
+    # Plain text version
+    text_content = f"""Hello,
+
+Please click the link below to set your password:
+
+{url}
+
+This link will expire in {timeout_minutes} minutes.
+
+If you did not request this, you can safely ignore this email.
+
+---
+EMDC Contest Management System
+"""
+    
+    # Professional HTML version
+    html_content = f"""
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <h2 style="color: #2563eb;">Set Your Password</h2>
+    
+    <p>Hello,</p>
+    
+    <p>Please click the button below to set your password:</p>
+    
+    <div style="margin: 30px 0;">
+        <a href="{url}" 
+           style="background-color: #2563eb; 
+                  color: white; 
+                  padding: 12px 24px; 
+                  text-decoration: none; 
+                  border-radius: 5px;
+                  display: inline-block;
+                  font-weight: bold;">
+            Set Password
+        </a>
+    </div>
+    
+    <p>Or copy and paste this link into your browser:</p>
+    <p style="background-color: #f3f4f6; padding: 10px; border-radius: 5px; word-break: break-all; font-family: monospace; font-size: 12px;">
+        {url}
+    </p>
+    
+    <p style="color: #dc2626; margin-top: 30px; font-weight: bold;">
+        ⏰ This link will expire in {timeout_minutes} minutes.
+    </p>
+    
+    <p style="color: #6b7280;">
+        If you did not request this, you can safely ignore this email.
+    </p>
+    
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+    
+    <p style="color: #9ca3af; font-size: 12px;">
+        EMDC Contest Management System<br>
+        This is an automated email, please do not reply.
+    </p>
+</div>
+"""
     
     # Use Resend SDK to send email
     try:
-        html_message = message.replace("\n", "<br>")
         send_email_via_resend(
             to_email=user.username,
             subject=subject,
-            html_content=f"<p>{html_message}</p>",
-            text_content=message
+            html_content=html_content,
+            text_content=text_content
         )
     except Exception as e:
         # Log the error but don't expose internal details to user
@@ -117,21 +171,75 @@ def request_password_reset(request):
     
     # User is an admin or coach - send reset email
     url = build_set_password_url(user)
-    subject = "Reset your password"
-    message = (
-        f"Hello,\n\n"
-        f"Please click the link below to reset your password:\n\n{url}\n\n"
-        f"This link will expire in {getattr(settings, 'PASSWORD_RESET_TIMEOUT', 3600)//60} minutes.\n"
-    )
+    subject = "Reset your password - EMDC Contest"
+    timeout_minutes = getattr(settings, 'PASSWORD_RESET_TIMEOUT', 3600) // 60
+    
+    # Plain text version
+    text_content = f"""Hello,
+
+Please click the link below to reset your password:
+
+{url}
+
+This link will expire in {timeout_minutes} minutes.
+
+If you did not request a password reset, you can safely ignore this email.
+
+---
+EMDC Contest Management System
+"""
+    
+    # Professional HTML version
+    html_content = f"""
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <h2 style="color: #2563eb;">Reset Your Password</h2>
+    
+    <p>Hello,</p>
+    
+    <p>We received a request to reset your password. Click the button below to continue:</p>
+    
+    <div style="margin: 30px 0;">
+        <a href="{url}" 
+           style="background-color: #2563eb; 
+                  color: white; 
+                  padding: 12px 24px; 
+                  text-decoration: none; 
+                  border-radius: 5px;
+                  display: inline-block;
+                  font-weight: bold;">
+            Reset Password
+        </a>
+    </div>
+    
+    <p>Or copy and paste this link into your browser:</p>
+    <p style="background-color: #f3f4f6; padding: 10px; border-radius: 5px; word-break: break-all; font-family: monospace; font-size: 12px;">
+        {url}
+    </p>
+    
+    <p style="color: #dc2626; margin-top: 30px; font-weight: bold;">
+        ⏰ This link will expire in {timeout_minutes} minutes.
+    </p>
+    
+    <p style="color: #6b7280;">
+        If you did not request a password reset, you can safely ignore this email.
+    </p>
+    
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+    
+    <p style="color: #9ca3af; font-size: 12px;">
+        EMDC Contest Management System<br>
+        This is an automated email, please do not reply.
+    </p>
+</div>
+"""
     
     # Use Resend SDK to send email
     try:
-        html_message = message.replace("\n", "<br>")
         send_email_via_resend(
             to_email=user.username,
             subject=subject,
-            html_content=f"<p>{html_message}</p>",
-            text_content=message
+            html_content=html_content,
+            text_content=text_content
         )
     except Exception as e:
         # Log the error but don't expose internal details to user
