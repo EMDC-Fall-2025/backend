@@ -28,7 +28,7 @@ from ..models import MapUserToRole, RoleSharedPassword
 from .serializers import UserSerializer
 
 # --- Added utility for sending set-password emails ---
-from .utils import send_set_password_email
+from .password_utils import send_set_password_email
 
 # If you use role lookups elsewhere, keep your import the same:
 from ..views.Maps.MapUserToRole import get_role
