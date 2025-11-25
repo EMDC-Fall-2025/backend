@@ -172,8 +172,36 @@ def edit_judge(request):
         updated_cluster_ids = []
 
         with transaction.atomic():
-            user_mapping = MapUserToRole.objects.get(role=3, relatedid=judge.id)
-            user = get_object_or_404(User, id=user_mapping.uuid)
+            # MapUserToRole should always exist for a judge (created during judge creation)
+            # If it doesn't exist, try to find the user and create the mapping automatically
+            try:
+                user_mapping = MapUserToRole.objects.get(role=3, relatedid=judge.id)
+                user = get_object_or_404(User, id=user_mapping.uuid)
+            except MapUserToRole.DoesNotExist:
+                # Try to find the existing user by username to create the missing mapping
+                # Note: We're NOT creating a new user, just finding the existing one
+                user = User.objects.filter(username=new_username).first()
+                if not user:
+                    # If user doesn't exist, we can't create the mapping
+                    raise ValidationError({
+                        "detail": f"Judge {judge.id} is missing a user role mapping and user account not found. This is a data integrity issue. Please contact support."
+                    })
+                
+                # Create the missing MapUserToRole mapping (NOT creating a new user, just the mapping)
+                # create_user_role_map only creates the MapUserToRole record, not a User
+                try:
+                    user_mapping_dict = create_user_role_map({
+                        "uuid": user.id,  # Using existing user's ID
+                        "role": 3,
+                        "relatedid": judge.id
+                    })
+                    # create_user_role_map returns a dict, extract uuid from it
+                    user_uuid = user_mapping_dict.get("uuid") if isinstance(user_mapping_dict, dict) else user_mapping_dict["uuid"]
+                    user = get_object_or_404(User, id=user_uuid)
+                except Exception as e:
+                    raise ValidationError({
+                        "detail": f"Failed to create missing user role mapping for judge {judge.id}: {str(e)}"
+                    })
 
             username_changed = (user.username != new_username)
             role_changed = (new_role != judge.role)
@@ -205,13 +233,16 @@ def edit_judge(request):
             existing_assignments = MapJudgeToCluster.objects.filter(judgeid=judge.id)
             for assignment in existing_assignments:
                 if assignment.clusterid not in payload_cluster_ids:
-                    delete_flags = _get_delete_flags_for_cluster_type(assignment.clusterid)
-                    delete_sheets_for_teams_in_cluster(
-                        judge.id,
-                        assignment.clusterid,
-                        *delete_flags
-                    )
-                    assignment.delete()
+                    # Don't delete championship or redesign cluster assignments during editing
+                    # These should be preserved unless explicitly being changed
+                    if not (assignment.championship or assignment.redesign):
+                        delete_flags = _get_delete_flags_for_cluster_type(assignment.clusterid)
+                        delete_sheets_for_teams_in_cluster(
+                            judge.id,
+                            assignment.clusterid,
+                            *delete_flags
+                        )
+                        assignment.delete()
 
             for payload in cluster_payloads:
                 cluster_id = payload.get("clusterid")

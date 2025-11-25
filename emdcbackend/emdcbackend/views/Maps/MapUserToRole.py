@@ -48,11 +48,18 @@ def login_return(request, userid):
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_user_by_role(request, relatedid, roleType):
-    mapping = MapUserToRole.objects.get(relatedid=relatedid, role=roleType)
-    uuid = mapping.uuid
-    user = get_object_or_404(User, id=uuid)
-    serializer = UserSerializer(instance=user)
-    return Response({"User": serializer.data}, status=status.HTTP_200_OK)
+    try:
+        mapping = MapUserToRole.objects.get(relatedid=relatedid, role=roleType)
+        uuid = mapping.uuid
+        user = get_object_or_404(User, id=uuid)
+        serializer = UserSerializer(instance=user)
+        return Response({"User": serializer.data}, status=status.HTTP_200_OK)
+    except MapUserToRole.DoesNotExist:
+        # MapUserToRole should always exist, but handle gracefully if it doesn't
+        return Response(
+            {"error": f"User role mapping not found for relatedid={relatedid}, role={roleType}. This is a data integrity issue."},
+            status=status.HTTP_404_NOT_FOUND
+        )
 
 @api_view(['GET'])
 @authentication_classes([SessionAuthentication])

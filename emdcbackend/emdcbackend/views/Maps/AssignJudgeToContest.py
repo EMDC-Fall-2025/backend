@@ -359,11 +359,13 @@ def remove_judge_from_cluster(request, judge_id, cluster_id):
     This will clean up their score sheets for that cluster.
     If the judge is no longer in any clusters for the contest, also remove the contest-judge mapping.
     """
-    try:
-        from ...models import MapContestToCluster
+    from django.db import transaction
+    from ...models import MapContestToCluster
         
+    try:
+        with transaction.atomic():
         # Find the cluster-judge mapping
-        cluster_mapping = get_object_or_404(
+            cluster_mapping = get_object_or_404(
             MapJudgeToCluster, 
             judgeid=judge_id, 
             clusterid=cluster_id
@@ -373,23 +375,9 @@ def remove_judge_from_cluster(request, judge_id, cluster_id):
         contest_cluster_mapping = MapContestToCluster.objects.filter(clusterid=cluster_id).first()
         contest_id = contest_cluster_mapping.contestid if contest_cluster_mapping else None
         
-        # Get all teams in the specific cluster
-        cluster_teams = MapClusterToTeam.objects.filter(clusterid=cluster_id)
-        team_ids = cluster_teams.values_list('teamid', flat=True)
-        
-        # Delete scoresheets for this judge and cluster teams only
-        scoresheet_mappings = MapScoresheetToTeamJudge.objects.filter(
-            judgeid=judge_id,
-            teamid__in=team_ids
-        )
-        # Get scoresheet IDs to delete
-        scoresheet_ids = scoresheet_mappings.values_list('scoresheetid', flat=True)
-        
-        # Delete the scoresheets
-        deleted_scoresheets = Scoresheet.objects.filter(id__in=scoresheet_ids).delete()
-        
-        # Delete the scoresheet mappings
-        deleted_mappings = scoresheet_mappings.delete()
+        # IMPORTANT: Do NOT delete scoresheets when removing judge from cluster!
+        # Scoresheets belong to judge-team relationships, not judge-cluster relationships.
+        # Only delete scoresheets when judge is completely removed from contest or team is removed from contest.
         
         # Delete the cluster-judge mapping
         cluster_mapping.delete()
@@ -399,9 +387,9 @@ def remove_judge_from_cluster(request, judge_id, cluster_id):
         contest_judge_mapping_deleted = False
         if contest_id:
             # Get all clusters for this contest
-            contest_cluster_ids = MapContestToCluster.objects.filter(
+            contest_cluster_ids = list(MapContestToCluster.objects.filter(
                 contestid=contest_id
-            ).values_list('clusterid', flat=True)
+            ).values_list('clusterid', flat=True))
             
             # Check if judge is still in any of those clusters
             remaining_cluster_mappings = MapJudgeToCluster.objects.filter(
@@ -422,11 +410,20 @@ def remove_judge_from_cluster(request, judge_id, cluster_id):
         return Response({
             "message": f"Judge {judge_id} removed from cluster {cluster_id}",
             "details": {
-                "scoresheets_deleted": deleted_scoresheets[0],
-                "mappings_deleted": deleted_mappings[0],
+                "scoresheets_deleted": 0,  # Scoresheets are preserved when removing from cluster
+                "mappings_deleted": 0,     # No scoresheet mappings deleted
                 "contest_judge_mapping_deleted": contest_judge_mapping_deleted
             }
         }, status=status.HTTP_200_OK)
         
+    except MapJudgeToCluster.DoesNotExist:
+        return Response({
+            "error": f"Judge {judge_id} is not assigned to cluster {cluster_id}"
+        }, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        import traceback
+        print(f"Error removing judge {judge_id} from cluster {cluster_id}: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+        return Response({
+            "error": f"Failed to remove judge from cluster: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
