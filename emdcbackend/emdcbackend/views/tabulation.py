@@ -43,42 +43,37 @@ def sort_by_score_with_id_fallback(teams, score_attr: str):
 
 
 def _compute_totals_for_team(team: Teams, contest_id: int = None):
-    """Compute totals and averages for a given team.
-    
-    Args:
-        team: The team to compute totals for
-        contest_id: Optional contest ID to filter scoresheets by active judges only
-    """
-    # Get contest ID if not provided
+    """Compute totals and averages for a given team."""
+
+    # 1) Start with: all scoresheets mapped to this team
+    base_qs = MapScoresheetToTeamJudge.objects.filter(teamid=team.id)
+
+    # 2) Resolve contest_id if not passed explicitly
     if contest_id is None:
         contest_mapping = MapContestToTeam.objects.filter(teamid=team.id).first()
         contest_id = contest_mapping.contestid if contest_mapping else None
-    
-    # Filter scoresheets to only include judges still in clusters for this contest
+
+    # 3) If we can figure out "active judges for this contest", filter to those
     if contest_id:
-        # Get all clusters for this contest
+        # Clusters currently attached to this contest (e.g. championship cluster gets removed on undo)
         contest_cluster_ids = MapContestToCluster.objects.filter(
             contestid=contest_id
-        ).values_list('clusterid', flat=True)
+        ).values_list("clusterid", flat=True)
 
-        # Get all judges who are still assigned to clusters in this contest
+        # Judges still mapped into those clusters
         active_judge_ids = MapJudgeToCluster.objects.filter(
             clusterid__in=contest_cluster_ids
-        ).values_list('judgeid', flat=True).distinct()
+        ).values_list("judgeid", flat=True).distinct()
 
         if active_judge_ids:
-            # Only include scoresheets from active judges
-            score_map = MapScoresheetToTeamJudge.objects.filter(
-                teamid=team.id,
-                judgeid__in=active_judge_ids,
-            )
+            # Use only scores from active judges
+            score_map = base_qs.filter(judgeid__in=active_judge_ids)
         else:
-            # Fallback: no active judge mappings → include all scoresheets for this team
-            # (keeps unit tests and legacy data working)
-            score_map = MapScoresheetToTeamJudge.objects.filter(teamid=team.id)
+            # No active judge info → fall back to all scoresheets for this team
+            score_map = base_qs
     else:
-        # If no contest ID, include all scoresheets (fallback for backwards compatibility)
-        score_map = MapScoresheetToTeamJudge.objects.filter(teamid=team.id)
+        # No contest context → use all scoresheets for this team
+        score_map = base_qs
 
 
     

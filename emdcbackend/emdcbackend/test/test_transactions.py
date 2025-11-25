@@ -254,11 +254,13 @@ class DataIntegrityTests(TestCase):
     
     def test_required_fields_enforced(self):
         """Test that required model fields are enforced"""
-        from ..models import Teams
-        
-        with self.assertRaises((IntegrityError, ValueError)):
-            # Try to create team without required fields
-            Teams.objects.create(team_name="")  # Missing required score fields
+        from ..views.team import make_team
+        from django.core.exceptions import ValidationError
+        from rest_framework.exceptions import ValidationError as DRFValidationError
+
+        with self.assertRaises((ValidationError, DRFValidationError)):
+            # Try to create team with empty name - should fail validation
+            make_team({"team_name": ""})
     
     def test_data_type_validation(self):
         """Test that data types are validated"""

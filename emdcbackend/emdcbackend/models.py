@@ -129,6 +129,10 @@ class Teams(models.Model):
 
     def __str__(self):
         return f"{self.id} - {self.team_name}"
+    def save(self, *args, **kwargs):
+        if not self.team_name or not str(self.team_name).strip():
+            raise ValueError("team_name is required and cannot be empty or whitespace.")
+        super().save(*args, **kwargs)
 
 
 class MapUserToRole(models.Model):
