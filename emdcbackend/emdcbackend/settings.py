@@ -16,7 +16,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load backend/emdcbackend/.local.env
+# Load backend/emdcbackend/.prod.env
 env_path = BASE_DIR / ".prod.env"
 if env_path.exists():
     for line in env_path.read_text().splitlines():
@@ -55,27 +55,9 @@ else:
 # ]
 
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:7001",
-    "http://127.0.0.1:7001",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "https://orca-app-nrupj.ondigitalocean.app",
-    "https://emdc-backend-mahe5.ondigitalocean.app",
-]
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:7004",
-    "http://127.0.0.1:7001",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "https://orca-app-nrupj.ondigitalocean.app",
-    "https://emdc-backend-mahe5.ondigitalocean.app",
-]
+
+
 
 # # Dev cookie settings
 # SESSION_COOKIE_SAMESITE = "Lax"
@@ -120,19 +102,20 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080",
     "http://127.0.0.1:8080",
     "https://emdcresults.com"
+    "https://emdc-backend.onrender.com",
 ]
 
 
 if DEBUG:
     CSRF_TRUSTED_ORIGINS = [
-        "http://localhost:7004",
-        "http://localhost:7001",  # Frontend in Docker
-        "http://127.0.0.1:7001",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:8080",
-        "http://127.0.0.1:8080",
-    ]
+    "http://localhost:7004",
+    "http://127.0.0.1:7001",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "https://emdc-backend.onrender.com"
+]
 else:
     csrf_origins_str = os.getenv('CSRF_TRUSTED_ORIGINS', '')
     if csrf_origins_str:
@@ -199,7 +182,7 @@ DATABASES = {
         "NAME": os.getenv("POSTGRES_DB"),
         "USER": os.getenv("POSTGRES_USER"),
         "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
-        "HOST": os.getenv("POSTGRES_HOST", "localhost"),
+        "HOST": os.getenv("POSTGRES_HOST"),
         "PORT": os.getenv("POSTGRES_PORT", "5432"),
     }
 }
