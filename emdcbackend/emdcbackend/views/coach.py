@@ -15,7 +15,7 @@ from ..models import Coach
 from ..serializers import CoachSerializer
 from rest_framework.exceptions import ValidationError
 from ..models import MapUserToRole
-from ..auth.views import User, delete_user_by_id
+from ..auth.views import User, delete_user
 from ..auth.utils import send_set_password_email
 from django.contrib.sessions.models import Session
 
@@ -80,15 +80,15 @@ def _delete_user_sessions(user_id: int) -> None:
 def delete_coach(request, coach_id):
     try:
         coach = get_object_or_404(Coach, id=coach_id)
-        coach_mapping = MapUserToRole.objects.get(role=MapUserToRole.RoleEnum.COACH, coachid=coach_id)
-        user_id = coach_mapping.userid
+        coach_mapping = MapUserToRole.objects.get(role=MapUserToRole.RoleEnum.COACH, relatedid=coach_id)
+        user_id = coach_mapping.uuid
         
         # Invalidate all active sessions for this user before deleting user
         _delete_user_sessions(user_id)
         
         coach.delete()
         coach_mapping.delete()
-        delete_user_by_id(request, user_id)
+        delete_user(user_id)
         return Response({"Detail": "Coach deleted successfully."}, status=status.HTTP_200_OK)
     except Coach.DoesNotExist:
         return Response({"error": "Coach not found."}, status=status.HTTP_404_NOT_FOUND)
