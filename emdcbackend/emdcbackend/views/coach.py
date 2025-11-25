@@ -16,7 +16,7 @@ from ..serializers import CoachSerializer
 from rest_framework.exceptions import ValidationError
 from ..models import MapUserToRole
 from ..auth.views import User, delete_user
-from ..auth.utils import send_set_password_email
+from ..auth.password_utils import send_set_password_email
 from django.contrib.sessions.models import Session
 
 @api_view(["GET"])
