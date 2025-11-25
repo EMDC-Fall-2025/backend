@@ -17,7 +17,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load backend/emdcbackend/.local.env
-env_path = BASE_DIR / ".local.env"
+env_path = BASE_DIR / ".prod.env"
 if env_path.exists():
     for line in env_path.read_text().splitlines():
         line = line.strip()
@@ -29,16 +29,21 @@ if env_path.exists():
                 v = v[1:-1]
             os.environ.setdefault(k.strip(), v)
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
+
 import os
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# DEBUG is read from environment; default False/0
+DEBUG = os.getenv("DEBUG", "0").lower() in ("1", "true", "yes")
 
-ALLOWED_HOSTS = ["0.0.0.0", 'localhost', "*", "emdc-django-api"]
+# ALLOWED_HOSTS is read from environment 
+_allowed_hosts_env = os.getenv("ALLOWED_HOSTS")
+if _allowed_hosts_env:
+    ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(",") if h.strip()]
+else:
+    ALLOWED_HOSTS = ["0.0.0.0", "localhost", "127.0.0.1", "emdc-django-api"]
 
 # CORS_ALLOWED_ORIGINS = [
 #     "http://localhost:7001",
@@ -46,6 +51,7 @@ ALLOWED_HOSTS = ["0.0.0.0", 'localhost', "*", "emdc-django-api"]
 # "http://emdc-web:7001",
 # "https://orca-app-nrupj.ondigitalocean.app",
 # "https://emdc-backend-mahe5.ondigitalocean.app",
+# "https://emdcresults.com"
 # ]
 
 
