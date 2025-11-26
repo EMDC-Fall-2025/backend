@@ -50,6 +50,8 @@ def parse_body(request):
 @csrf_exempt  # CSRF is handled via credentials here; also enables cross-domain frontend login
 @ensure_csrf_cookie
 @require_POST
+@csrf_exempt
+@require_POST
 def login_view(request):
     body = parse_body(request)
     username = body.get("username")
