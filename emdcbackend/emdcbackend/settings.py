@@ -103,6 +103,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8080",
     "https://emdcresults.com",
     "https://emdc-backend.onrender.com",
+    "https://emdc.vercel.app"
 ]
 
 
@@ -115,7 +116,8 @@ if DEBUG:
     "http://localhost:8080",
     "http://127.0.0.1:8080",
     "https://emdcresults.com",
-    "https://emdc-backend.onrender.com"
+    "https://emdc-backend.onrender.com",
+    "https://emdc.vercel.app"
 ]
 else:
     csrf_origins_str = os.getenv('CSRF_TRUSTED_ORIGINS', '')
