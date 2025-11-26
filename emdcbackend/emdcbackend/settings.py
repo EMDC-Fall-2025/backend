@@ -52,8 +52,10 @@ SESSION_COOKIE_AGE = 10800  # 3 hours in seconds
 
 # IMPORTANT for cross-site frontend (Vercel) + backend (Render)
 # SameSite must be "None" for third-party cookies.
-SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "None")
-CSRF_COOKIE_SAMESITE   = os.getenv("CSRF_COOKIE_SAMESITE", "None")
+SESSION_COOKIE_SAMESITE = "None"
+CSRF_COOKIE_SAMESITE   = "None"
+SESSION_COOKIE_SECURE   = True
+CSRF_COOKIE_SECURE      = True
 
 SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", default=not DEBUG)
 CSRF_COOKIE_SECURE    = _env_bool("CSRF_COOKIE_SECURE", default=not DEBUG)

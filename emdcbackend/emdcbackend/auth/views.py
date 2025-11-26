@@ -20,7 +20,7 @@ from django.contrib.auth.tokens import default_token_generator
 # --- Session-based login/logout ---
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.contrib.auth import authenticate, login as dj_login, logout as dj_logout
 from django.contrib.auth.hashers import check_password
 from ..models import MapUserToRole, RoleSharedPassword
@@ -45,6 +45,9 @@ def parse_body(request):
         return json.loads(request.body.decode("utf-8") or "{}")
     return request.POST
 
+
+
+@csrf_exempt  # CSRF is handled via credentials here; also enables cross-domain frontend login
 @ensure_csrf_cookie
 @require_POST
 def login_view(request):
