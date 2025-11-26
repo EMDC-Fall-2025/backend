@@ -50,13 +50,9 @@ def parse_body(request):
 @csrf_exempt
 @require_POST
 def login_view(request):
-    print(f"LOGIN REQUEST: method={request.method}, content_type={request.content_type}")
-    print(f"LOGIN REQUEST BODY: {request.body}")
     body = parse_body(request)
-    print(f"PARSED BODY: {body}")
     username = body.get("username")
     password = body.get("password")
-    print(f"USERNAME: {username}, PASSWORD: {'*' * len(password) if password else None}")
 
     if not username or not password:
         return JsonResponse({"detail": "username and password are required."}, status=400)
