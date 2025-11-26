@@ -148,26 +148,7 @@ def ensure_role_mappings():
     """
     issues_fixed = 0
 
-    # Check admins
-    for admin in Admin.objects.all():
-        if not MapUserToRole.objects.filter(role=1, relatedid=admin.id).exists():
-            print(f"❌ Admin {admin.id} ({admin.first_name} {admin.last_name}) missing role mapping")
-            # Note: We can't create the user here as we don't know the user ID
-            # This would need to be handled by recreating the admin properly
-
-    # Check organizers
-    for organizer in Organizer.objects.all():
-        if not MapUserToRole.objects.filter(role=2, relatedid=organizer.id).exists():
-            print(f"❌ Organizer {organizer.id} ({organizer.first_name} {organizer.last_name}) missing role mapping")
-
-    # Check judges
-    for judge in Judge.objects.all():
-        if not MapUserToRole.objects.filter(role=3, relatedid=judge.id).exists():
-            print(f"❌ Judge {judge.id} ({judge.first_name} {judge.last_name}) missing role mapping")
-
-    # Check coaches
-    for coach in Coach.objects.all():
-        if not MapUserToRole.objects.filter(role=4, relatedid=coach.id).exists():
-            print(f"❌ Coach {coach.id} ({coach.first_name} {coach.last_name}) missing role mapping")
+    # Note: Removed debug prints for missing role mappings
+    # If you need to check for missing mappings, re-add logic here
 
     return issues_fixed

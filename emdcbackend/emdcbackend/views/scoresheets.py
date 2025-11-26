@@ -1571,7 +1571,6 @@ def create_scoresheets_for_judges_in_cluster(cluster_id):
 def multi_team_general_penalties(request, judge_id, contest_id):
     """Get all teams assigned to a judge in a contest with their general penalty scoresheets"""
     try:
-        print(f"DEBUG: judge_id={judge_id}, contest_id={contest_id}")
         
         # Get clusters assigned to this judge
         judge_clusters = MapJudgeToCluster.objects.filter(
@@ -1631,7 +1630,6 @@ def multi_team_general_penalties(request, judge_id, contest_id):
         return Response({'teams': result}, status=status.HTTP_200_OK)
         
     except Exception as e:
-        print(f"DEBUG ERROR: {str(e)}")
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -1729,7 +1727,6 @@ def create_missing_championship_scoresheets(request):
 def multi_team_run_penalties(request, judge_id, contest_id):
     """Get all teams assigned to a judge in a contest with their run penalty scoresheets"""
     try:
-        print(f"DEBUG: judge_id={judge_id}, contest_id={contest_id}")
         
         # Get clusters assigned to this judge
         judge_clusters = MapJudgeToCluster.objects.filter(
@@ -1797,7 +1794,6 @@ def multi_team_run_penalties(request, judge_id, contest_id):
         return Response({'teams': result}, status=status.HTTP_200_OK)
         
     except Exception as e:
-        print(f"DEBUG ERROR: {str(e)}")
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

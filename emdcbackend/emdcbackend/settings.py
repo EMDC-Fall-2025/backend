@@ -14,10 +14,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Load backend/emdcbackend/.prod.env
 # ---------------------------------------------------------------------
 env_path = BASE_DIR / ".prod.env"
-# ---------------------------------------------------------------------
-# Load backend/emdcbackend/.prod.env
-# ---------------------------------------------------------------------
-env_path = BASE_DIR / ".prod.env"
 if env_path.exists():
     for line in env_path.read_text().splitlines():
         line = line.strip()
@@ -192,18 +188,7 @@ INSTALLED_APPS = [
 # ---------------------------------------------------------------------
 # Middleware
 # ---------------------------------------------------------------------
-# ---------------------------------------------------------------------
-# Middleware
-# ---------------------------------------------------------------------
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
-    "django.middleware.security.SecurityMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -247,6 +232,9 @@ DATABASES = {
         "PORT": os.getenv("POSTGRES_PORT", "5432"),
     }
 }
+
+# Connection pooling - reuse connections for better performance
+CONN_MAX_AGE = 60
 
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------

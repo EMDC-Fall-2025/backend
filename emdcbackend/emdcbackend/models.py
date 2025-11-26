@@ -13,23 +13,23 @@ class Contest(models.Model):
 
 
 class MapContestToJudge(models.Model):
-    contestid = models.IntegerField()
-    judgeid = models.IntegerField()
+    contestid = models.IntegerField(db_index=True)
+    judgeid = models.IntegerField(db_index=True)
 
 
 class MapContestToTeam(models.Model):
-    contestid = models.IntegerField()
-    teamid = models.IntegerField()
+    contestid = models.IntegerField(db_index=True)
+    teamid = models.IntegerField(db_index=True)
 
 
 class MapContestToOrganizer(models.Model):
-    contestid = models.IntegerField()
-    organizerid = models.IntegerField()
+    contestid = models.IntegerField(db_index=True)
+    organizerid = models.IntegerField(db_index=True)
 
 
 class MapContestToCluster(models.Model):
-    contestid = models.IntegerField()
-    clusterid = models.IntegerField()
+    contestid = models.IntegerField(db_index=True)
+    clusterid = models.IntegerField(db_index=True)
 
 
 class Judge(models.Model):
@@ -42,7 +42,7 @@ class Judge(models.Model):
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
     phone_number = models.CharField(max_length=20)
-    contestid = models.IntegerField()
+    contestid = models.IntegerField(db_index=True)
     presentation=models.BooleanField(default=False)
     mdo=models.BooleanField(default=False)
     journal=models.BooleanField(default=False)
@@ -57,9 +57,9 @@ class Judge(models.Model):
 
 
 class MapJudgeToCluster(models.Model):
-    judgeid = models.IntegerField()
-    clusterid = models.IntegerField()
-    contestid = models.IntegerField(null=True, blank=True)
+    judgeid = models.IntegerField(db_index=True)
+    clusterid = models.IntegerField(db_index=True)
+    contestid = models.IntegerField(null=True, blank=True, db_index=True)
     presentation = models.BooleanField(default=False)
     mdo = models.BooleanField(default=False)
     journal = models.BooleanField(default=False)
@@ -86,8 +86,8 @@ class JudgeClusters(models.Model):
 
 
 class MapClusterToTeam(models.Model):
-    clusterid = models.IntegerField()
-    teamid = models.IntegerField()
+    clusterid = models.IntegerField(db_index=True)
+    teamid = models.IntegerField(db_index=True)
 
 
 class Teams(models.Model):

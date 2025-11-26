@@ -355,12 +355,9 @@ def undo_championship_advancement(request):
             try:
                 from .scoresheets import create_scoresheets_for_judges_in_cluster
                 created_sheets = create_scoresheets_for_judges_in_cluster(main_cluster.id)
-                print(f"[Undo Championship] Created {len(created_sheets)} scoresheets for cluster {main_cluster.id}")
             except Exception as e:
                 # Log error but don't fail the entire operation
-                print(f"[Undo Championship] Error creating scoresheets: {str(e)}")
                 import traceback
-                print(f"[Undo Championship] Scoresheet creation traceback: {traceback.format_exc()}")
         
         # 7. Reset judge championship/redesign flags for this contest's clusters
       
@@ -413,10 +410,10 @@ def undo_championship_advancement(request):
         try:
             recompute_totals_and_ranks(contest_id)
         except Exception as recompute_error:
-            print(f"[UNDO CHAMPIONSHIP] Error recomputing totals: {str(recompute_error)}")
             # Don't fail the entire operation for recompute errors
             # The scores will be recomputed later when needed
-        
+            pass
+
         return Response({
             "ok": True,
             "message": "Championship advancement undone successfully",
@@ -430,6 +427,4 @@ def undo_championship_advancement(request):
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"[UNDO CHAMPIONSHIP ERROR] {str(e)}")
-        print(f"[UNDO CHAMPIONSHIP TRACEBACK] {error_details}")
         return Response({"ok": False, "message": f"Error undoing championship advancement: {str(e)}"}, status=500)

@@ -422,8 +422,6 @@ def remove_judge_from_cluster(request, judge_id, cluster_id):
         }, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         import traceback
-        print(f"Error removing judge {judge_id} from cluster {cluster_id}: {str(e)}")
-        print(f"Traceback: {traceback.format_exc()}")
         return Response({
             "error": f"Failed to remove judge from cluster: {str(e)}"
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
