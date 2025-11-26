@@ -54,5 +54,3 @@ def send_email_via_resend(to_email, subject, html_content, text_content=None):
         print(f"[ERROR] Resend email failed: {e}")
         raise
 
-
-# Import it from there: from .password_utils import send_set_password_email
