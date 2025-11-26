@@ -145,7 +145,6 @@ CORS_ALLOW_ALL_ORIGINS = False
 
 CORS_ALLOWED_ORIGINS = [
     # local dev
-    # local dev
     "http://localhost:7001",
     "http://127.0.0.1:7001",
     "http://localhost:5173",
@@ -160,11 +159,8 @@ CORS_ALLOWED_ORIGINS = [
     "https://www.emdcresults.com",
 ]
 
-# Always explicitly trust these origins for CSRF
-# Always explicitly trust these origins for CSRF
 CSRF_TRUSTED_ORIGINS = [
     # local dev
-    # local dev
     "http://localhost:7001",
     "http://127.0.0.1:7001",
     "http://localhost:5173",
@@ -174,16 +170,7 @@ CSRF_TRUSTED_ORIGINS = [
     # production (frontend + backend)
     "https://emdcresults.com",
     "https://www.emdcresults.com",
-    "https://api.emdcresults.com",
-]
-
-# ---------------------------------------------------------------------
-# Installed apps
-# ---------------------------------------------------------------------
-    # production (frontend + backend)
-    "https://emdcresults.com",
-    "https://www.emdcresults.com",
-    "https://api.emdcresults.com",
+    "https://api.emdcresults.com"
 ]
 
 # ---------------------------------------------------------------------
@@ -238,19 +225,9 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "emdcbackend.urls"
-ROOT_URLCONF = "emdcbackend.urls"
 
 TEMPLATES = [
     {
-        "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
-        "APP_DIRS": True,
-        "OPTIONS": {
-            "context_processors": [
-                "django.template.context_processors.debug",
-                "django.template.context_processors.request",
-                "django.contrib.auth.context_processors.auth",
-                "django.contrib.messages.context_processors.messages",
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [],
         "APP_DIRS": True,
@@ -270,18 +247,12 @@ WSGI_APPLICATION = "emdcbackend.wsgi.application"
 # ---------------------------------------------------------------------
 # Database (Postgres via env)
 # ---------------------------------------------------------------------
-WSGI_APPLICATION = "emdcbackend.wsgi.application"
-
-# ---------------------------------------------------------------------
-# Database (Postgres via env)
-# ---------------------------------------------------------------------
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.getenv("POSTGRES_DB"),
         "USER": os.getenv("POSTGRES_USER"),
         "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
-        "HOST": os.getenv("POSTGRES_HOST"),
         "HOST": os.getenv("POSTGRES_HOST"),
         "PORT": os.getenv("POSTGRES_PORT", "5432"),
     }
