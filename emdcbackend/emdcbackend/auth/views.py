@@ -109,6 +109,7 @@ def logout_view(request):
     dj_logout(request)  # clears the session
     return JsonResponse({"detail": "logged out"})
 
+@csrf_exempt
 @ensure_csrf_cookie
 def csrf_view(_request):
     return JsonResponse({"detail": "ok"})
