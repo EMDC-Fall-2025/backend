@@ -109,9 +109,17 @@ def logout_view(request):
     dj_logout(request)  # clears the session
     return JsonResponse({"detail": "logged out"})
 
-@ensure_csrf_cookie
-def csrf_view(_request):
-    return JsonResponse({"detail": "ok"})
+def csrf_view(request):
+    from django.middleware.csrf import get_token
+    from django.http import JsonResponse
+    
+    # Get the CSRF token (this sets it if not present)
+    token = get_token(request)
+    
+    response = JsonResponse({"detail": "ok"})
+    # Ensure the CSRF cookie is set
+    response.set_cookie('csrftoken', token)
+    return response
 
 
 # -----------------------
