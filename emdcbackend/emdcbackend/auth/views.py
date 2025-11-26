@@ -20,7 +20,7 @@ from django.contrib.auth.tokens import default_token_generator
 # --- Session-based login/logout ---
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.contrib.auth import authenticate, login as dj_login, logout as dj_logout
 from django.contrib.auth.hashers import check_password
 from ..models import MapUserToRole, RoleSharedPassword
@@ -47,10 +47,16 @@ def parse_body(request):
 
 @ensure_csrf_cookie
 @require_POST
+@csrf_exempt
+@require_POST
 def login_view(request):
+    print(f"LOGIN REQUEST: method={request.method}, content_type={request.content_type}")
+    print(f"LOGIN REQUEST BODY: {request.body}")
     body = parse_body(request)
+    print(f"PARSED BODY: {body}")
     username = body.get("username")
     password = body.get("password")
+    print(f"USERNAME: {username}, PASSWORD: {'*' * len(password) if password else None}")
 
     if not username or not password:
         return JsonResponse({"detail": "username and password are required."}, status=400)
