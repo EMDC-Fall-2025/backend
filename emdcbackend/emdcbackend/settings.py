@@ -36,7 +36,7 @@ if env_path.exists():
 # ---------------------------------------------------------------------
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 
-DEBUG = os.getenv("DEBUG", "0").lower() in ("1", "true", "yes")
+DEBUG = 0
 
 _allowed_hosts_env = os.getenv("ALLOWED_HOSTS")
 if _allowed_hosts_env:
@@ -70,7 +70,7 @@ SESSION_COOKIE_AGE = 10800  # 3 hours in seconds
 # With frontend on www.emdcresults.com and backend on api.emdcresults.com,
 # cookies are first-party again.
 SESSION_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "None"
 
 SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", default=not DEBUG)
 CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", default=not DEBUG)
@@ -123,7 +123,7 @@ SESSION_COOKIE_AGE = 10800  # 3 hours in seconds
 # With frontend on www.emdcresults.com and backend on api.emdcresults.com,
 # cookies are first-party again.
 SESSION_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "None"
 
 SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", default=not DEBUG)
 CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", default=not DEBUG)

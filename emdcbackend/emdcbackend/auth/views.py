@@ -111,6 +111,7 @@ def logout_view(request):
     dj_logout(request)  # clears the session
     return JsonResponse({"detail": "logged out"})
 
+@csrf_exempt
 def csrf_view(request):
     from django.middleware.csrf import get_token
     from django.http import JsonResponse
