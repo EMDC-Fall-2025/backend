@@ -74,8 +74,8 @@ else:
 SESSION_COOKIE_AGE = 10800  # 3 hours in seconds
 
 # SameSite settings
-SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
-CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
+SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "None")
+CSRF_COOKIE_SAMESITE   = os.getenv("CSRF_COOKIE_SAMESITE", "None")
 
 # Secure flags: default to True in production (DEBUG=False), False in dev,
 def _env_bool(name: str, default: bool) -> bool:
