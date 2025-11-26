@@ -34,7 +34,16 @@ _allowed_hosts_env = os.getenv("ALLOWED_HOSTS")
 if _allowed_hosts_env:
     ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(",") if h.strip()]
 else:
-    ALLOWED_HOSTS = ["0.0.0.0", "localhost", "127.0.0.1", "emdc-django-api"]
+    # Default hosts for local + production
+    ALLOWED_HOSTS = [
+        "0.0.0.0",
+        "localhost",
+        "127.0.0.1",
+        "emdc-django-api",
+        "api.emdcresults.com",
+        "emdcresults.com",
+        "www.emdcresults.com",
+    ]
 
 # ---------------------------------------------------------------------
 # Helper for env bools
@@ -50,19 +59,22 @@ def _env_bool(name: str, default: bool) -> bool:
 # ---------------------------------------------------------------------
 SESSION_COOKIE_AGE = 10800  # 3 hours in seconds
 
-# IMPORTANT for cross-site frontend (Vercel) + backend (Render)
-# SameSite must be "None" for third-party cookies.
-SESSION_COOKIE_SAMESITE = "None"
-CSRF_COOKIE_SAMESITE   = "None"
-SESSION_COOKIE_SECURE   = True
-CSRF_COOKIE_SECURE      = True
+# With frontend on www.emdcresults.com and backend on api.emdcresults.com,
+# cookies are first-party again.
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
 
 SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", default=not DEBUG)
-CSRF_COOKIE_SECURE    = _env_bool("CSRF_COOKIE_SECURE", default=not DEBUG)
+CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", default=not DEBUG)
 
 # CSRF cookie must be readable by JS so the frontend can send it in X-CSRFToken
 SESSION_COOKIE_HTTPONLY = _env_bool("SESSION_COOKIE_HTTPONLY", default=True)
-CSRF_COOKIE_HTTPONLY    = _env_bool("CSRF_COOKIE_HTTPONLY",    default=False)
+CSRF_COOKIE_HTTPONLY = _env_bool("CSRF_COOKIE_HTTPONLY", default=False)
+
+# Scope cookies to the whole emdcresults.com domain in production
+if not DEBUG:
+    SESSION_COOKIE_DOMAIN = ".emdcresults.com"
+    CSRF_COOKIE_DOMAIN = ".emdcresults.com"
 
 # ---------------------------------------------------------------------
 # CORS / CSRF domains
@@ -78,23 +90,24 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
-    # production
+    # production frontend
     "https://emdcresults.com",
-    "https://emdc.vercel.app",
-    "https://emdc-backend.onrender.com",
+    "https://www.emdcresults.com",
 ]
 
 # Always explicitly trust these origins for CSRF
 CSRF_TRUSTED_ORIGINS = [
+    # local dev
     "http://localhost:7001",
     "http://127.0.0.1:7001",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
+    # production (frontend + backend)
     "https://emdcresults.com",
-    "https://emdc.vercel.app",
-    "https://emdc-backend.onrender.com",
+    "https://www.emdcresults.com",
+    "https://api.emdcresults.com",
 ]
 
 # ---------------------------------------------------------------------
@@ -109,7 +122,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework.authtoken",
-    "corsheaders",       
+    "corsheaders",
     "emdcbackend",
 ]
 
@@ -117,7 +130,7 @@ INSTALLED_APPS = [
 # Middleware
 # ---------------------------------------------------------------------
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",  
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
