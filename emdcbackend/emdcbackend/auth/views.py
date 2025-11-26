@@ -114,11 +114,11 @@ def logout_view(request):
 def csrf_view(request):
     from django.middleware.csrf import get_token
     from django.http import JsonResponse
-    
+
     # Get the CSRF token (this sets it if not present)
     token = get_token(request)
-    
-    response = JsonResponse({"detail": "ok"})
+
+    response = JsonResponse({"detail": "ok", "csrfToken": token})
     # Ensure the CSRF cookie is set
     response.set_cookie('csrftoken', token)
     return response
