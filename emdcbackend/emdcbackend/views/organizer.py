@@ -199,10 +199,8 @@ def delete_organizer(request, organizer_id):
         return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# return all organizers
+# return all organizers (temporarily public for cross-domain frontend)
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication])
-@permission_classes([IsAuthenticated])
 def get_all_organizers(request):
     organizers = Organizer.objects.all()
     serializer = OrganizerSerializer(organizers, many=True)
