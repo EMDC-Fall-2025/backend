@@ -72,14 +72,6 @@ python manage.py runserver 7004
 
 The server will be available at `http://127.0.0.1:7004/`
 
-### Production Server
-
-For production, use a WSGI server like Gunicorn:
-
-```bash
-gunicorn emdcbackend.wsgi:application
-```
-
 ## API Documentation
 
 ### Authentication Endpoints
